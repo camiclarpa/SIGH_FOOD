@@ -1,0 +1,46 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Optimizaciones de rendimiento compatibles con Turbopack
+  poweredByHeader: false,
+  compress: true,
+  reactStrictMode: true,
+
+  // Optimización de imágenes
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 31536000, // 1 año
+    dangerouslyAllowSVG: false,
+    contentDispositionType: 'attachment',
+  },
+
+  // Configuración específica para Turbopack (Next.js 16)
+  // Esto silencia el error de "webpack config without turbopack config"
+  turbopack: {
+    root: __dirname, // Fuerza la raíz correcta del proyecto
+  },
+
+  // Headers personalizados para seguridad y cache
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, max-age=0, private' },
+        ],
+      },
+      {
+        source: '/:path*.(js|css|png|jpg|jpeg|gif|webp|avif|svg|ico|woff|woff2)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+    ];
+  },
+
+  // TypeScript y ESLint se manejan mejor con 'next lint' o en CI/CD
+  // Se eliminan de aquí para evitar warnings en Next.js 16
+};
+
+module.exports = nextConfig;

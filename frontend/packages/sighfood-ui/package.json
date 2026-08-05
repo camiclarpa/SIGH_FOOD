@@ -1,0 +1,31 @@
+{
+  "name": "@sighfood/ui",
+  "version": "1.0.0",
+  "description": "Componentes de React para SIGH_FOOD - separado del dominio para no forzar dependencias innecesarias (CRP)",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "build": "tsc",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@sighfood/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

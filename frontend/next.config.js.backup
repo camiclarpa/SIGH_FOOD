@@ -1,0 +1,76 @@
+﻿/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Optimizaciones de rendimiento
+  poweredByHeader: false,
+  compress: true,
+  reactStrictMode: true,
+  
+  // Imágenes optimizadas
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 31536000, // 1 año
+    dangerouslyAllowSVG: false,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
+  
+  // Experimental features para mejor rendimiento
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts', '@heroicons/react'],
+    scrollRestoration: true,
+    // Optimizar CSS
+    optimizeCss: true,
+    // Preload de fuentes
+    preloadEntriesOnStart: true,
+  },
+  
+  // Webpack optimizations
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Eliminar source maps en producción
+      config.devtool = false;
+    }
+    return config;
+  },
+  
+  // Headers para optimización
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, max-age=0, private' },
+        ],
+      },
+      {
+        source: '/:path*.(js|css)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/:path*.(png|jpg|jpeg|gif|webp|avif|svg)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+    ];
+  },
+  
+  // Redirects si es necesario
+  async redirects() {
+    return [];
+  },
+  
+  // TypeScript y ESLint
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+};
+
+module.exports = nextConfig;

@@ -1,0 +1,29 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:3000/",
+        "http://localhost:3000/gracias"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "chromeFlags": "--no-sandbox --headless",
+        "preset": "desktop"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "first-contentful-paint": ["error", { "maxNumericValue": 1000 }],
+        "interactive": ["error", { "maxNumericValue": 2000 }],
+        "errors-in-console": ["error", { "maxNumericValue": 0 }],
+        "total-byte-weight": ["error", { "maxNumericValue": 1500000 }],
+        "uses-webp-images": ["warn"],
+        "uses-responsive-images": ["warn"]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}

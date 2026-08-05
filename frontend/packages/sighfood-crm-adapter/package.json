@@ -1,0 +1,24 @@
+{
+  "name": "@sighfood/crm-adapter",
+  "version": "1.0.0",
+  "description": "Adaptadores de CRM para SIGH_FOOD - se versiona y libera de forma independiente (REP)",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "build": "tsc",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@sighfood/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0",
+    "@types/node": "^20.11.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

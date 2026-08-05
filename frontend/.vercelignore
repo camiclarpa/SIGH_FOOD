@@ -1,0 +1,28 @@
+﻿# Development files
+.env.local
+.env.development
+*.log
+npm-debug.log*
+
+# Sensitive files
+ADMIN_TOKEN_BACKUP.txt
+.env.backup
+
+# Tests
+tests/
+coverage/
+
+# Documentation
+docs/
+*.md
+README.md
+
+# Scripts de desarrollo
+scripts/
+.vscode/
+.idea/
+
+# Build artifacts (se generan en el deploy)
+.next/
+out/
+dist/

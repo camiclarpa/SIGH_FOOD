@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import posthog from 'posthog-js';
 import { loginAction } from './actions';
 
 export default function LoginPage() {
@@ -22,12 +23,19 @@ export default function LoginPage() {
       const result = await loginAction(password);
       
       if (result.success) {
+        posthog.capture('admin_login_succeeded');
         router.push(redirect);
         router.refresh();
       } else {
+        posthog.capture('admin_login_failed', {
+          failure_type: 'invalid_token',
+        });
         setError(result.error || 'Token inválido');
       }
     } catch (err) {
+      posthog.capture('admin_login_failed', {
+        failure_type: 'connection_error',
+      });
       setError('Error de conexión. Intenta nuevamente.');
     } finally {
       setIsSubmitting(false);

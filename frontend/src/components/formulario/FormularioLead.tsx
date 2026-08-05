@@ -29,6 +29,7 @@
 'use client';
 
 import { useState } from 'react';
+import posthog from 'posthog-js';
 
 export default function FormularioLead() {
   const [formData, setFormData] = useState({
@@ -71,19 +72,38 @@ export default function FormularioLead() {
       const data = await response.json();
 
       if (response.status === 202) {
+        posthog.capture('demo_request_submitted', {
+          form_source: 'landing_lead_form',
+          response_status: response.status,
+          latency_ms: Math.round(latency),
+        });
         setStatus('success');
         setTimeout(() => {
           window.location.href = '/gracias';
         }, 1000);
       } else if (response.status === 200 && data.status === 'duplicate') {
+        posthog.capture('demo_request_duplicate', {
+          form_source: 'landing_lead_form',
+        });
         setStatus('duplicate');
         setErrorMessage(data.message || 'Ya recibimos tu solicitud hoy.');
       } else {
+        posthog.capture('demo_request_failed', {
+          form_source: 'landing_lead_form',
+          response_status: response.status,
+        });
         setStatus('error');
         setErrorMessage(data.error || 'Error al enviar la solicitud.');
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      const failureType = err instanceof DOMException && err.name === 'AbortError'
+        ? 'timeout'
+        : 'network_error';
+      posthog.capture('demo_request_failed', {
+        form_source: 'landing_lead_form',
+        failure_type: failureType,
+      });
+      if (failureType === 'timeout') {
         setStatus('error');
         setErrorMessage('La solicitud tardó demasiado. Por favor, intenta de nuevo.');
       } else {

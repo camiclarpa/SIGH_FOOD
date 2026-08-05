@@ -20,6 +20,7 @@
 'use client';
 
 import { useState } from 'react';
+import posthog from 'posthog-js';
 
 export default function HeroSection() {
   const [submitted, setSubmitted] = useState(false);
@@ -36,10 +37,23 @@ export default function HeroSection() {
       });
       
       if (response.status === 202 || response.status === 200) {
+        posthog.capture('demo_request_submitted', {
+          form_source: 'hero_embedded_form',
+          response_status: response.status,
+        });
         setSubmitted(true);
         window.location.href = '/gracias';
+      } else {
+        posthog.capture('demo_request_failed', {
+          form_source: 'hero_embedded_form',
+          response_status: response.status,
+        });
       }
     } catch (error) {
+      posthog.capture('demo_request_failed', {
+        form_source: 'hero_embedded_form',
+        failure_type: 'network_error',
+      });
       console.error('Error al enviar formulario:', error);
     }
   };

@@ -55,7 +55,7 @@
                                         },
                                         {
                                             "key":  "Content-Security-Policy",
-                                            "value":  "default-src \u0027self\u0027; script-src \u0027self\u0027 \u0027unsafe-inline\u0027 \u0027unsafe-eval\u0027; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; img-src \u0027self\u0027 data: https:; font-src \u0027self\u0027 data:; connect-src \u0027self\u0027 https://api.pipedrive.com https://api.resend.com https://*.upstash.io;"
+                                            "value":  "default-src \u0027self\u0027; script-src \u0027self\u0027 \u0027unsafe-inline\u0027 \u0027unsafe-eval\u0027 https://*.posthog.com; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; img-src \u0027self\u0027 data: https:; font-src \u0027self\u0027 data:; connect-src \u0027self\u0027 https://api.pipedrive.com https://api.resend.com https://*.upstash.io https://us.i.posthog.com; worker-src blob:;"
                                         }
                                     ],
                         "source":  "/(.*)"

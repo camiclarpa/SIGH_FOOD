@@ -37,6 +37,7 @@
 'use client';
 
 import { useState } from 'react';
+import posthog from 'posthog-js';
 
 interface PilotFormProps {
   onSuccess?: () => void;
@@ -84,20 +85,37 @@ export default function PilotForm({ onSuccess, onError }: PilotFormProps) {
       const data = await response.json();
 
       if (response.status === 202) {
+        posthog.capture('demo_request_submitted', {
+          form_source: 'pilot_request_form',
+          response_status: response.status,
+          latency_ms: Math.round(latency),
+        });
         setStatus('success');
         onSuccess?.();
       } else if (response.status === 200 && data.status === 'duplicate') {
+        posthog.capture('demo_request_duplicate', {
+          form_source: 'pilot_request_form',
+        });
         setStatus('duplicate');
         setErrorMessage(data.message || 'Ya recibimos tu solicitud hoy.');
       } else {
+        posthog.capture('demo_request_failed', {
+          form_source: 'pilot_request_form',
+          response_status: response.status,
+        });
         setStatus('error');
         setErrorMessage(data.error || 'Error al enviar la solicitud.');
         onError?.(data.error);
       }
     } catch (err) {
-      const latency = performance.now() - startTime;
-      
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      const failureType = err instanceof DOMException && err.name === 'AbortError'
+        ? 'timeout'
+        : 'network_error';
+      posthog.capture('demo_request_failed', {
+        form_source: 'pilot_request_form',
+        failure_type: failureType,
+      });
+      if (failureType === 'timeout') {
         setStatus('error');
         setErrorMessage('La solicitud tardó demasiado. Por favor, intenta de nuevo.');
       } else {

@@ -20,7 +20,7 @@ export function validateSchema<T>(
   } else {
     return {
       success: false,
-      errors: result.error.errors.map(err => 
+      errors: result.error.issues.map(err => 
         `${err.path.join('.')}: ${err.message}`
       ),
     };

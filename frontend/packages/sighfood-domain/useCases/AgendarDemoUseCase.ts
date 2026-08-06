@@ -67,6 +67,7 @@ export class AgendarDemoUseCase {
       licoresDominantes: [...datos.licoresDominantes],
       ciudad: datos.ciudad,
       fechaCreacion: new Date(),
+      timestamp: Date.now(),
     };
 
     // Paso 3: Guardar

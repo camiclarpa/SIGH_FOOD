@@ -10,9 +10,9 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { Redis } from '@upstash/redis';
-import { B2BLeadFormPayloadSchema } from '../../../../schemas/leadForm.schema';
-import { CRMWebhookPayloadSchema } from '../../../../schemas/crmWebhook.schema';
-import { DealStage } from '../../../../domain/crm/DealStage';
+import { B2BLeadFormPayloadSchema } from '@/schemas/leadForm.schema';
+import { CRMWebhookPayloadSchema } from '@/schemas/crmWebhook.schema';
+import { DealStage } from '@/domain/crm/DealStage';
 
 const redis = Redis.fromEnv();
 const IDEMPOTENCY_TTL_SECONDS = 86400;

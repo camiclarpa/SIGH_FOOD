@@ -20,17 +20,18 @@ export class UpstashRedisClient implements RedisClient {
   }
 
   private async request(command: string[], options?: any): Promise<any> {
-    const response = await fetch(\\/\\, {
+    const path = command.map(encodeURIComponent).join('/');
+    const response = await fetch(`${this.baseUrl}/${path}`, {
       headers: {
-        Authorization: \Bearer \\,
+        Authorization: `Bearer ${this.token}`,
       },
       ...options,
     });
-    
+
     if (!response.ok) {
-      throw new Error(\Redis error: \\);
+      throw new Error(`Redis error: ${response.status} ${response.statusText}`);
     }
-    
+
     return response.json();
   }
 

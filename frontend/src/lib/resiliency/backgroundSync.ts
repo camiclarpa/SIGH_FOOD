@@ -104,7 +104,11 @@ export async function migrarAIndexedDB(
     const tx = db.transaction('pending_leads', 'readwrite');
     const store = tx.objectStore('pending_leads');
     await store.put(record, record.leadId);
-    await tx.done;
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
     return true;
   } catch (error) {
     return false;

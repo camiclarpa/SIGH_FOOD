@@ -3,7 +3,7 @@
 // Schema para webhook/events
 export const WebhookEventSchema = z.object({
   type: z.enum(['user.created', 'user.updated', 'user.deleted']),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   timestamp: z.string().datetime(),
   signature: z.string(),
 });
@@ -17,7 +17,7 @@ export const SQSMessageSchema = z.object({
     ApproximateReceiveCount: z.string(),
     SentTimestamp: z.string(),
   }),
-  messageAttributes: z.record(z.unknown()).optional(),
+  messageAttributes: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Schema para Redis operation
@@ -33,7 +33,7 @@ export const MetricSchema = z.object({
   name: z.string(),
   value: z.number(),
   timestamp: z.string().datetime(),
-  tags: z.record(z.string()).optional(),
+  tags: z.record(z.string(), z.string()).optional(),
   unit: z.enum(['count', 'milliseconds', 'bytes']).optional(),
 });
 

@@ -244,7 +244,7 @@ async function main() {
     console.log(`  ${icono} ${resultado.sla}`);
     console.log(`     Objetivo: ${resultado.objetivo}`);
     console.log(`     Medido: ${resultado.medido}`);
-    console.log(`     Detalles: ${resultado.detalitos.join(', ')}`);
+    console.log(`     Detalles: ${resultado.detalles.join(', ')}`);
     console.log('');
   });
 

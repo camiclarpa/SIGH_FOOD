@@ -6,7 +6,7 @@
  * el Webhook al CRM se procese, nunca bloquea al usuario esperando al CRM.
  */
 import { z } from 'zod';
-import { B2BLeadFormPayloadSchema } from '../../../../schemas/leadForm.schema';
+import { B2BLeadFormPayloadSchema } from '@/schemas/leadForm.schema';
 
 // ── REQUEST ─────────────────────────────────────────────
 export interface PhygitalDemoRequestHeaders {

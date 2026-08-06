@@ -1,31 +1,31 @@
 /**
  * ============================================================================
- * STREAM PROCESSING ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Pipeline de Streaming en Tiempo Real (CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 11)
+ * STREAM PROCESSING — Pipeline de Streaming en Tiempo Real (Capítulo 11)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 11 de DDIA):
- * ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
+ * CONCEPTO VERIFICADO (Capítulo 11 de DDIA):
+ * ──────────────────────────────────────────────────────────────────────────
  * Kleppmann describe el stream processing como el procesamiento de eventos
- * a medida que ocurren, sin esperar a que se acumule un lote ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â habilitando
+ * a medida que ocurren, sin esperar a que se acumule un lote — habilitando
  * reacciones de baja latencia.
  * 
- * APLICACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN A SIGH_FOOD:
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ DetecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de spam/fraude (CEP - Complex Event Processing)
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Enriquecimiento de datos (stream-table join)
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Vista materializada del dashboard en tiempo real
+ * APLICACIÓN A SIGH_FOOD:
+ *   • Detección de spam/fraude (CEP - Complex Event Processing)
+ *   • Enriquecimiento de datos (stream-table join)
+ *   • Vista materializada del dashboard en tiempo real
  * 
  * REFERENCIAS DEL LIBRO:
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 11: Procesamiento de Flujos
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 11.1: Complex Event Processing (CEP)
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 11.2: Stream-Table Join
- *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 11.3: Vistas Materializadas
+ *   • Capítulo 11: Procesamiento de Flujos
+ *   • Sección 11.1: Complex Event Processing (CEP)
+ *   • Sección 11.2: Stream-Table Join
+ *   • Sección 11.3: Vistas Materializadas
  * ============================================================================
  */
 
 import { type Lead } from '../../sighfood-domain/entities/Lead';
 
 // ============================================================================
-// CASO DE USO 1: DetecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de Spam/Fraude (CEP)
+// CASO DE USO 1: Detección de Spam/Fraude (CEP)
 // ============================================================================
 
 export interface FraudPattern {
@@ -36,11 +36,11 @@ export interface FraudPattern {
 }
 
 /**
- * Complex Event Processing (CEP) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â detecta patrones a travÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s de mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºltiples eventos
+ * Complex Event Processing (CEP) — detecta patrones a través de múltiples eventos
  * 
- * PatrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de fraude: "5 formularios desde la misma sesiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n en menos de 2 minutos"
- * Esto requiere correlacionar mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºltiples eventos en una ventana de tiempo,
- * la definiciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n exacta de CEP del libro.
+ * Patrón de fraude: "5 formularios desde la misma sesión en menos de 2 minutos"
+ * Esto requiere correlacionar múltiples eventos en una ventana de tiempo,
+ * la definición exacta de CEP del libro.
  */
 export function detectarPatronSpam(
   eventosRecientes: Lead[],
@@ -51,7 +51,7 @@ export function detectarPatronSpam(
     (e) => e.timestamp !== undefined && (ahora - e.timestamp) < ventanaMinutos * 60_000
   );
   
-  // PatrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n: mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s de 3 envÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­os distintos desde el mismo origen en la ventana
+  // Patrón: más de 3 envíos distintos desde el mismo origen en la ventana
   return eventosEnVentana.length > 3;
 }
 
@@ -66,7 +66,7 @@ export interface DominioCorporativo {
 }
 
 /**
- * Stream-Table Join ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â enriquecer cada evento con datos de tabla de referencia
+ * Stream-Table Join — enriquecer cada evento con datos de tabla de referencia
  * 
  * Kleppmann describe mantener una copia local de la tabla de referencia
  * para evitar consultas remotas por cada evento (baja latencia).
@@ -81,7 +81,7 @@ export class EnriquecedorDeLeads {
   }
 
   enriquecer(lead: Lead): Lead & { esCorporativo?: boolean } {
-    // Extraer dominio del email (simulado ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â en producciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n vendrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a del CRM)
+    // Extraer dominio del email (simulado — en producción vendría del CRM)
     const email = `${lead.whatsapp}@sighfood.local`;
     const dominio = email.split('@')[1];
     
@@ -106,7 +106,7 @@ export interface DashboardMetrics {
 }
 
 /**
- * Vista Materializada ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â resultado agregado precomputado
+ * Vista Materializada — resultado agregado precomputado
  * 
  * Kleppmann: actualizar incrementalmente con cada evento nuevo,
  * en vez de recalcular desde cero en cada consulta.
@@ -120,14 +120,14 @@ export class DashboardMaterializado {
   };
 
   /**
-   * ActualizaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n incremental ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â O(1) por evento
+   * Actualización incremental — O(1) por evento
    * 
    * En vez de hacer COUNT(*) en cada refresh del dashboard,
    * mantenemos un contador incremental en memoria/Redis.
    */
   actualizarConNuevoLead(lead: Lead): void {
     const ahora = Date.now();
-    const inicioHoy = ahora - (ahora % 86_400_000); // inicio del dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a en ms
+    const inicioHoy = ahora - (ahora % 86_400_000); // inicio del día en ms
     
     if (lead.timestamp !== undefined && lead.timestamp >= inicioHoy) {
       this.metrics.leadsHoy++;
@@ -142,10 +142,10 @@ export class DashboardMaterializado {
   }
 
   /**
-   * Resetear contadores al inicio de cada dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a
+   * Resetear contadores al inicio de cada día
    * 
-   * Esto es crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tico para la reproducibilidad que Kleppmann exige
-   * de una vista materializada bien diseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±ada.
+   * Esto es crítico para la reproducibilidad que Kleppmann exige
+   * de una vista materializada bien diseñada.
    */
   resetearSiEsNuevoDia(): void {
     const ahora = Date.now();
@@ -182,16 +182,16 @@ export class StreamProcessor {
    * Procesar un evento del stream
    * 
    * Pipeline completo:
-   * 1. DetecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de spam (CEP)
+   * 1. Detección de spam (CEP)
    * 2. Enriquecimiento (stream-table join)
-   * 3. ActualizaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de vista materializada
+   * 3. Actualización de vista materializada
    */
   async procesarEvento(lead: Lead): Promise<{
     esSpam: boolean;
     leadEnriquecido: ReturnType<EnriquecedorDeLeads['enriquecer']>;
     metrics: DashboardMetrics;
   }> {
-    // 1. CEP ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â detecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de patrones de fraude
+    // 1. CEP — detección de patrones de fraude
     this.ventanaEventos.push(lead);
     const esSpam = detectarPatronSpam(this.ventanaEventos);
     
@@ -201,10 +201,10 @@ export class StreamProcessor {
       (e) => ahora - e.timestamp < 2 * 60_000
     );
     
-    // 2. Stream-table join ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â enriquecimiento
+    // 2. Stream-table join — enriquecimiento
     const leadEnriquecido = this.enriquecedor.enriquecer(lead);
     
-    // 3. Vista materializada ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â actualizaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n incremental
+    // 3. Vista materializada — actualización incremental
     this.dashboard.resetearSiEsNuevoDia();
     this.dashboard.actualizarConNuevoLead(lead);
     const metrics = this.dashboard.obtenerMetrics();

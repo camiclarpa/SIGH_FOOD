@@ -52,6 +52,7 @@ export const HealthCheckSchema = z.object({
   version: z.string(),
   uptime: z.number(),
   dependencies: z.record(
+    z.string(),
     z.object({
       status: z.enum(['up', 'down']),
       responseTime: z.number().optional(),

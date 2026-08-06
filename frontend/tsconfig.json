@@ -24,13 +24,13 @@
                                         ],
                             "paths":  {
                                           "@/*":  [
-                                                      "./*"
+                                                      "./src/*"
                                                   ],
                                           "@sighfood/domain/*":  [
-                                                                     "packages/sighfood-domain/*"
+                                                                     "./packages/sighfood-domain/*"
                                                                  ],
                                           "@sighfood/domain":  [
-                                                                   "packages/sighfood-domain"
+                                                                   "./packages/sighfood-domain"
                                                                ]
                                       }
                         },
@@ -43,6 +43,7 @@
                     "**/*.mts"
                 ],
     "exclude":  [
-                    "node_modules"
+                    "node_modules",
+                    "tests"
                 ]
 }

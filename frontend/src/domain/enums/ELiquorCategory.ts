@@ -1,3 +1,4 @@
+import { EConeReference } from './EConeReference';
 /**
  * domain/enums/ELiquorCategory.ts
  *

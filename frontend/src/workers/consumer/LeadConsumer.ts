@@ -146,7 +146,7 @@ export class LeadConsumer {
       console.log(`[LeadConsumer] Lead sincronizado: ${lead.idempotencyKey}`);
 
     } catch (error) {
-      this.metrics.recordCrmResult(false, error.message.includes('timeout'));
+      this.metrics.recordCrmResult(false, (error as Error).message.includes('timeout'));
       
       lead = LeadStateMachine.fallar(
         lead,

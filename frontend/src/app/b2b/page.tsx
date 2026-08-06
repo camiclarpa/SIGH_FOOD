@@ -50,8 +50,8 @@ import { ChallengePlot } from '@/components/landing/B2B/Stories/ChallengePlot';
 import { ConnectionPlot } from '@/components/landing/B2B/Stories/ConnectionPlot';
 import { CreativityPlot } from '@/components/landing/B2B/Stories/CreativityPlot';
 import { SpringboardStory } from '@/components/landing/B2B/Stories/SpringboardStory';
-import { RoiCalculator } from '@/components/landing/RoiCalculator';
-import { PilotForm } from '@/components/landing/PilotForm';
+import RoiCalculator from '@/components/landing/RoiCalculator';
+import PilotForm from '@/components/landing/PilotForm';
 
 // ISR: regenerar cada 1 hora (3600 segundos)
 // Balance entre frescura de contenido y Cache Hit Ratio > 95%

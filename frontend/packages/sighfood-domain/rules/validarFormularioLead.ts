@@ -1,22 +1,22 @@
 /**
  * ============================================================================
- * VALIDAR FORMULARIO LEAD Ã¢â‚¬â€ SRP: Responsabilidad ÃƒÅ¡nica de ValidaciÃƒÂ³n
+ * VALIDAR FORMULARIO LEAD — SRP: Responsabilidad Única de Validación
  * ============================================================================
  * 
- * PRINCIPIO SRP (CapÃƒÂ­tulo 7):
- * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
- * Este mÃƒÂ³dulo tiene UNA sola razÃƒÂ³n para cambiar: si el equipo Comercial de
- * SIGH_FOOD modifica las reglas de calificaciÃƒÂ³n de un Lead (campos obligatorios,
- * formato de WhatsApp, licores vÃƒÂ¡lidos).
+ * PRINCIPIO SRP (Capítulo 7):
+ * ───────────────────────────────────────────────────────────────────────────
+ * Este módulo tiene UNA sola razón para cambiar: si el equipo Comercial de
+ * SIGH_FOOD modifica las reglas de calificación de un Lead (campos obligatorios,
+ * formato de WhatsApp, licores válidos).
  * 
  * NO cambia por:
- *   Ã¢â‚¬Â¢ Cambios en la fÃƒÂ³rmula de ROI (responsabilidad de Finanzas)
- *   Ã¢â‚¬Â¢ Cambios de diseÃƒÂ±o visual del formulario (responsabilidad de UX)
- *   Ã¢â‚¬Â¢ Cambios en cÃƒÂ³mo se guarda el Lead (responsabilidad tÃƒÂ©cnica)
+ *   • Cambios en la fórmula de ROI (responsabilidad de Finanzas)
+ *   • Cambios de diseño visual del formulario (responsabilidad de UX)
+ *   • Cambios en cómo se guarda el Lead (responsabilidad técnica)
  * 
  * REFERENCIAS DEL LIBRO:
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 7: SRP Ã¢â‚¬â€ Principio de Responsabilidad ÃƒÅ¡nica
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 3-4: ProgramaciÃƒÂ³n Estructurada (secuencia, selecciÃƒÂ³n, iteraciÃƒÂ³n)
+ *   • Capítulo 7: SRP — Principio de Responsabilidad Única
+ *   • Capítulo 3-4: Programación Estructurada (secuencia, selección, iteración)
  * ============================================================================
  */
 
@@ -24,7 +24,7 @@ export interface FormularioLeadInput {
   establecimiento: string;
   tomadorDecision: {
     nombre: string;
-    rol: 'Dueño' | 'Gerente A&B' | 'Head Bartender' | 'Gerente A&B' | 'Head Bartender';
+    rol: 'Dueño' | 'Gerente A&B' | 'Head Bartender';
   };
   whatsapp: string;
   licoresDominantes: string[];
@@ -36,38 +36,38 @@ export interface ResultadoValidacion {
   readonly errores: readonly string[];
 }
 
-const ROLES_VALIDOS = ['DueÃƒÂ±o', 'Gerente A&B', 'Head Bartender'] as const;
+const ROLES_VALIDOS = ['Dueño', 'Gerente A&B', 'Head Bartender'] as const;
 const LICORES_VALIDOS = ['Mezcal', 'Tequila', 'Bourbon', 'Whisky', 'Gin', 'Vino', 'Ron'] as const;
 
 export function validarFormularioLead(datos: FormularioLeadInput): ResultadoValidacion {
   const errores: string[] = [];
 
-  // ValidaciÃƒÂ³n del establecimiento
+  // Validación del establecimiento
   if (!datos.establecimiento || datos.establecimiento.trim().length === 0) {
     errores.push('El nombre del establecimiento es obligatorio.');
   } else if (datos.establecimiento.trim().length < 3) {
     errores.push('El nombre del establecimiento debe tener al menos 3 caracteres.');
   }
 
-  // ValidaciÃƒÂ³n del tomador de decisiÃƒÂ³n
+  // Validación del tomador de decisión
   if (!datos.tomadorDecision) {
-    errores.push('Los datos del tomador de decisiÃƒÂ³n son obligatorios.');
+    errores.push('Los datos del tomador de decisión son obligatorios.');
   } else {
     if (!datos.tomadorDecision.nombre || datos.tomadorDecision.nombre.trim().length === 0) {
-      errores.push('El nombre del tomador de decisiÃƒÂ³n es obligatorio.');
+      errores.push('El nombre del tomador de decisión es obligatorio.');
     }
 
     if (!ROLES_VALIDOS.includes(datos.tomadorDecision.rol)) {
-      errores.push(`El rol "${datos.tomadorDecision.rol}" no es vÃƒÂ¡lido.`);
+      errores.push(`El rol "${datos.tomadorDecision.rol}" no es válido.`);
     }
   }
 
-  // ValidaciÃƒÂ³n del WhatsApp
+  // Validación del WhatsApp
   if (!datos.whatsapp || !/^\+?[0-9]{10,13}$/.test(datos.whatsapp)) {
-    errores.push('El nÃƒÂºmero de WhatsApp no tiene un formato vÃƒÂ¡lido.');
+    errores.push('El número de WhatsApp no tiene un formato válido.');
   }
 
-  // ValidaciÃƒÂ³n de licores dominantes
+  // Validación de licores dominantes
   if (!datos.licoresDominantes || datos.licoresDominantes.length === 0) {
     errores.push('Debe declarar al menos un licor dominante.');
   } else {

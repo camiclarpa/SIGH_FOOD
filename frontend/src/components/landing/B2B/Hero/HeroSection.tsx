@@ -27,7 +27,7 @@
 'use client';
 
 import { CronometroCongelado } from './CronometroCongelado';
-import { HeroHeadline } from './HeroHeadline';
+import HeroHeadline from './HeroHeadline';
 import { GapTheorySubheadline } from './GapTheorySubheadline';
 
 export function HeroSection() {

@@ -134,7 +134,7 @@ async function runWorker() {
 
           // Si superó el máximo de reintentos, mover a DLQ
           if (currentRetry >= maxRetries) {
-            logger.error(` Lead movido a DLQ después de ${maxRetries} intentos`, {
+            logger.error(` Lead movido a DLQ después de ${maxRetries} intentos`, undefined, {
               idempotencyKey,
               reason: (crmError as Error).message
             });

@@ -41,7 +41,7 @@ export const DEFAULT_QUEUE_CONFIG: QueueConfig = {
 };
 
 export class QueueClient {
-  private redis: Redis;
+  readonly redis: Redis;
   private config: QueueConfig;
 
   constructor(config: QueueConfig = DEFAULT_QUEUE_CONFIG) {
@@ -91,8 +91,8 @@ export class QueueClient {
    * un evento disponible, evitando polling innecesario.
    */
   async dequeueLead(timeoutSeconds: number = 5): Promise<string | null> {
-    const result = await this.redis.brpop(this.config.queueName, timeoutSeconds);
-    return result ? result[1] : null;
+    const result = await this.redis.rpop<string>(this.config.queueName);
+    return result ?? null;
   }
 
   /**

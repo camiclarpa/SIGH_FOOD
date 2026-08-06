@@ -52,7 +52,7 @@ interface BloqueCredibilidadProps {
   tipo: TipoCredibilidad;
   titulo: string;
   estadisticaAbstracta: string;
-  traduccionHumana: string;
+  traduccionHumana: ReactNode;
   contextoVerificable: ReactNode;
   notaHonestidad?: string;
   icono?: ReactNode;

@@ -29,3 +29,5 @@ export interface B2BLeadFormPayload {
    */
   roiEstimadoAlMomentoDelEnvio: ROICalculatorOutput;
 }
+// Alias usado por los módulos de resiliencia y tests
+export type B2BLeadFormPayloadInferred = B2BLeadFormPayload;

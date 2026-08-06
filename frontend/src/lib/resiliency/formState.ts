@@ -1,3 +1,4 @@
+import type { B2BLeadFormPayloadInferred } from '../../domain/leads/B2BLeadFormPayload';
 /**
  * lib/resiliency/formState.ts
  *
@@ -67,6 +68,7 @@ export type EstadoDegradedSuccess = {
  */
 export type EstadoFallbackRequired = {
   tipo: 'fallback-required';
+  payload: B2BLeadFormPayloadInferred;
   leadId: string;
   enlaceWhatsApp: string;
 };

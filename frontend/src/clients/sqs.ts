@@ -59,12 +59,12 @@ export class SQSClientImpl implements SQSClient {
     };
 
     const response = await fetch(
-      \https://sqs.\.amazonaws.com/\,
+      `https://sqs.${this.region}.amazonaws.com/`,
       await this.signRequest('POST', body)
     );
 
     if (!response.ok) {
-      throw new Error(\SQS error: \\);
+      throw new Error(`SQS error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -79,12 +79,12 @@ export class SQSClientImpl implements SQSClient {
     };
 
     const response = await fetch(
-      \https://sqs.\.amazonaws.com/\,
+      `https://sqs.${this.region}.amazonaws.com/`,
       await this.signRequest('POST', body)
     );
 
     if (!response.ok) {
-      throw new Error(\SQS error: \\);
+      throw new Error(`SQS error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -98,12 +98,12 @@ export class SQSClientImpl implements SQSClient {
     };
 
     const response = await fetch(
-      \https://sqs.\.amazonaws.com/\,
+      `https://sqs.${this.region}.amazonaws.com/`,
       await this.signRequest('POST', body)
     );
 
     if (!response.ok) {
-      throw new Error(\SQS error: \\);
+      throw new Error(`SQS error: ${response.status} ${response.statusText}`);
     }
   }
 
@@ -114,12 +114,12 @@ export class SQSClientImpl implements SQSClient {
     };
 
     const response = await fetch(
-      \https://sqs.\.amazonaws.com/\,
+      `https://sqs.${this.region}.amazonaws.com/`,
       await this.signRequest('POST', body)
     );
 
     if (!response.ok) {
-      throw new Error(\SQS error: \\);
+      throw new Error(`SQS error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();

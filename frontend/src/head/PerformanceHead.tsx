@@ -26,13 +26,13 @@
  * ============================================================================
  */
 
-import { getAdaptiveVideoStrategy } from '@/client/connection/ConnectionDetector';
+import { connectionDetector } from '@/client/connection/ConnectionDetector';
 
 export default function PerformanceHead() {
   // Detectar estrategia de video (video vs imagen estática)
   // Nota: esto se ejecuta en el cliente, no en el servidor
   const videoStrategy = typeof window !== 'undefined' 
-    ? getAdaptiveVideoStrategy() 
+    ? connectionDetector.getAdaptiveStrategy() 
     : 'video'; // Default en SSR
 
   return (

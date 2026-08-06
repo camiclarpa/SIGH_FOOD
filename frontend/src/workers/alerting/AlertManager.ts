@@ -19,7 +19,7 @@
  * ============================================================================
  */
 
-import { MetricsCollector } from '../metrics/MetricsCollector';
+import { MetricsCollector, metricsCollector } from '../metrics/MetricsCollector';
 
 export type AlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -29,7 +29,7 @@ export interface Alert {
   readonly title: string;
   readonly message: string;
   readonly timestamp: number;
-  readonly resolved: boolean;
+  resolved: boolean;
 }
 
 export class AlertManager {

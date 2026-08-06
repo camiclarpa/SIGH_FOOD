@@ -60,7 +60,7 @@ interface BloqueEmocionalProps {
   tipo: TipoEmocional;
   titulo: string;
   contenido: ReactNode;
-  notaTecnica?: string;
+  notaTecnica?: ReactNode;
   icono?: ReactNode;
   citaLibro?: string;
 }

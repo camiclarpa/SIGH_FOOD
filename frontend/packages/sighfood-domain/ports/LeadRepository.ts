@@ -1,23 +1,23 @@
 /**
  * ============================================================================
- * LEAD REPOSITORY Ã¢â‚¬â€ ISP: Interfaz Segregada para Persistencia
+ * LEAD REPOSITORY — ISP: Interfaz Segregada para Persistencia
  * ============================================================================
  * 
- * PRINCIPIO ISP (CapÃƒÂ­tulo 10):
- * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+ * PRINCIPIO ISP (Capítulo 10):
+ * ───────────────────────────────────────────────────────────────────────────
  * Uncle Bob advierte contra interfaces "gordas" que fuerzan a sus
- * implementadores o consumidores a depender de mÃƒÂ©todos que no usan Ã¢â‚¬â€
+ * implementadores o consumidores a depender de métodos que no usan —
  * generando acoplamiento innecesario y recompilaciones/redespliegues no
  * relacionados con el cambio real.
  * 
- * APLICACIÃƒâ€œN:
- *   Esta interfaz SOLO expone el mÃƒÂ©todo guardar Ã¢â‚¬â€ no mezcla validaciÃƒÂ³n,
- *   notificaciÃƒÂ³n, ni generaciÃƒÂ³n de reportes. Un consumidor que solo necesita
- *   guardar un Lead no depende de mÃƒÂ©todos que no usa.
+ * APLICACIÓN:
+ *   Esta interfaz SOLO expone el método guardar — no mezcla validación,
+ *   notificación, ni generación de reportes. Un consumidor que solo necesita
+ *   guardar un Lead no depende de métodos que no usa.
  * 
  * REFERENCIAS DEL LIBRO:
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 10: ISP Ã¢â‚¬â€ Principio de SegregaciÃƒÂ³n de Interfaces
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 11: DIP Ã¢â‚¬â€ Principio de InversiÃƒÂ³n de Dependencias
+ *   • Capítulo 10: ISP — Principio de Segregación de Interfaces
+ *   • Capítulo 11: DIP — Principio de Inversión de Dependencias
  * ============================================================================
  */
 

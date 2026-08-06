@@ -97,7 +97,6 @@ export async function reintentarConBackoff(
           'X-Idempotency-Key': record.leadId,
         },
         body: JSON.stringify(record.payload),
-         signal: AbortSignal.timeout(5000),
         signal: AbortSignal.timeout(TIMEOUT_POR_INTENTO_MS),
       });
 

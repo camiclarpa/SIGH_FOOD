@@ -42,7 +42,7 @@ import {
   registrarReintentoEnSegundoPlano,
 } from '../../lib/resiliency/backgroundSync';
 import { construirEnlaceWhatsAppFallback } from '../../lib/resiliency/whatsappFallback';
-import { enviarEventoAObservabilidad } from '../../lib/resiliency/telemetry';
+import { enviarEventoAObservabilidad, registrarEvento } from '../../lib/resiliency/telemetry';
 import type { B2BLeadFormPayloadInferred } from '../../domain/leads/B2BLeadFormPayload';
 import type { EstadoEnvioFormulario } from '../../lib/resiliency/formState';
 import FallbackWhatsAppButton from './FallbackWhatsAppButton';
@@ -141,17 +141,13 @@ async function manejarFalloConFallback(
   if (!guardadoLocalExitoso) {
     // F4 del FMEA — cuota excedida y purga fallida
     // Saltar directo a Estrategia C (WhatsApp)
-    registrarEvento(
-      evento: 'localstorage_quota_exceeded',
-      leadId,
-      timestampISO: new Date().toISOString(),
-      metadata: {
-        establecimiento: payload.establecimiento,
-      },
+    registrarEvento('localstorage_quota_exceeded', leadId, {
+      establecimiento: payload.establecimiento,
     });
 
     setEstado({
       tipo: 'fallback-required',
+      payload,
       leadId,
       enlaceWhatsApp: construirEnlaceWhatsAppFallback(payload),
     });
@@ -164,13 +160,8 @@ async function manejarFalloConFallback(
   if (resultado === 'success') {
     // Éxito tras reintentos — estado 'degraded-success'
     // Para el usuario es indistinguible de 'success' normal
-    registrarEvento(
-      evento: 'recovered_after_retry',
-      leadId,
-      timestampISO: new Date().toISOString(),
-      metadata: {
-        intentosNecesarios: 3,
-      },
+    registrarEvento('recovered_after_retry', leadId, {
+      intentosNecesarios: 3,
     });
 
     setEstado({
@@ -187,18 +178,10 @@ async function manejarFalloConFallback(
   if (backgroundSyncRegistrado) {
     // El navegador seguirá intentando aunque el usuario cierre la pestaña
     // PERO aún así se muestra el fallback de WhatsApp de inmediato
-    registrarEvento(
-      evento: 'background_sync_registered',
-      leadId,
-      timestampISO: new Date().toISOString(),
-    });
+    registrarEvento('background_sync_registered', leadId);
   } else {
     // F6 del FMEA — navegador sin soporte de Background Sync
-    registrarEvento(
-      evento: 'background_sync_unsupported',
-      leadId,
-      timestampISO: new Date().toISOString(),
-    });
+    registrarEvento('background_sync_unsupported', leadId);
   }
 
   // ─ ESTRATEGIA C: WhatsApp Fallback ─────────────────────────────────────
@@ -207,6 +190,7 @@ async function manejarFalloConFallback(
   // de alto valor que simplemente "confíe" en un proceso invisible.
   setEstado({
     tipo: 'fallback-required',
+    payload,
     leadId,
     enlaceWhatsApp: construirEnlaceWhatsAppFallback(payload),
   });

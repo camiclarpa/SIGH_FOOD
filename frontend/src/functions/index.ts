@@ -81,7 +81,7 @@ async function handleCreateLead(request: Request, requestId: string): Promise<Ed
       return {
         status: 400,
         headers: { 'content-type': 'application/json' },
-        body: { success: false, error: 'Validation failed', details: validationResult.error.errors },
+        body: { success: false, error: 'Validation failed', details: validationResult.error.issues },
       };
     }
     

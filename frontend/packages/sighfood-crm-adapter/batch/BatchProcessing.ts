@@ -1,40 +1,40 @@
 /**
  * ============================================================================
- * BATCH PROCESSING - Job Nocturno para Reportes (DDIA, CapÃ­tulo 10)
+ * BATCH PROCESSING - Job Nocturno para Reportes (DDIA, CapÃƒÂ­tulo 10)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (CapÃ­tulo 10):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * CONCEPTO VERIFICADO (CapÃƒÂ­tulo 10):
+ * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
  * Kleppmann distingue el procesamiento batch por su naturaleza de entrada
- * acotada (un conjunto de datos de tamaÃ±o conocido, como "todos los leads
+ * acotada (un conjunto de datos de tamaÃƒÂ±o conocido, como "todos los leads
  * de ayer") frente al streaming (entrada ilimitada y continua).
  * 
- * Propiedad central: un job batch es determinista y reproducible â€” correr
+ * Propiedad central: un job batch es determinista y reproducible Ã¢â‚¬â€ correr
  * el mismo job dos veces sobre la misma entrada produce exactamente la misma
  * salida.
  * 
- * APLICACIÃ“N A SIGH_FOOD:
+ * APLICACIÃƒâ€œN A SIGH_FOOD:
  *   Job nocturno programado a las 2:00 AM COT que:
- *   1. Lee todos los eventos de lead-events-log del dÃ­a anterior
+ *   1. Lee todos los eventos de lead-events-log del dÃƒÂ­a anterior
  *   2. Agrupa por campaign_id
- *   3. Calcula tasa de conversiÃ³n (Leads SQL / Leads totales)
- *   4. Calcula CAC efectivo (gasto de campaÃ±a / Leads calificados)
+ *   3. Calcula tasa de conversiÃƒÂ³n (Leads SQL / Leads totales)
+ *   4. Calcula CAC efectivo (gasto de campaÃƒÂ±a / Leads calificados)
  *   5. Genera reporte para el equipo de ventas
- *   6. Publica en el dashboard + notificaciÃ³n Slack
+ *   6. Publica en el dashboard + notificaciÃƒÂ³n Slack
  * 
  * REFERENCIAS DEL LIBRO:
- *   â€¢ CapÃ­tulo 10: Procesamiento por Lotes (Batch Processing)
- *   â€¢ SecciÃ³n 10.1: Batch vs. Stream Processing
- *   â€¢ SecciÃ³n 10.2: Reproducibilidad de jobs batch
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 10: Procesamiento por Lotes (Batch Processing)
+ *   Ã¢â‚¬Â¢ SecciÃƒÂ³n 10.1: Batch vs. Stream Processing
+ *   Ã¢â‚¬Â¢ SecciÃƒÂ³n 10.2: Reproducibilidad de jobs batch
  * ============================================================================
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
+import { type Lead } from '../sighfood-domain/entities/Lead';
 
 export interface BatchJobConfig {
   readonly scheduledTime: string; // "02:00" en formato HH:MM
   readonly timezone: string; // "America/Bogota"
-  readonly lookbackDays: number; // 1 dÃ­a para job nocturno
+  readonly lookbackDays: number; // 1 dÃƒÂ­a para job nocturno
 }
 
 export interface CampaignMetrics {
@@ -63,13 +63,13 @@ const DEFAULT_CONFIG: BatchJobConfig = {
 /**
  * Simula el job batch nocturno de SIGH_FOOD.
  * 
- * En producciÃ³n, esto se implementarÃ­a con:
+ * En producciÃƒÂ³n, esto se implementarÃƒÂ­a con:
  *   - AWS Lambda programado (cron) para el volumen actual
- *   - Migrar a Spark solo si el volumen de leads diario excede el lÃ­mite
- *     de tiempo de ejecuciÃ³n de Lambda (15 minutos)
+ *   - Migrar a Spark solo si el volumen de leads diario excede el lÃƒÂ­mite
+ *     de tiempo de ejecuciÃƒÂ³n de Lambda (15 minutos)
  * 
- * La entrada es acotada: "leads del dÃ­a calendario anterior" â€” un conjunto
- * finito y conocido de antemano, cumpliendo la definiciÃ³n de batch.
+ * La entrada es acotada: "leads del dÃƒÂ­a calendario anterior" Ã¢â‚¬â€ un conjunto
+ * finito y conocido de antemano, cumpliendo la definiciÃƒÂ³n de batch.
  */
 export function executeBatchJob(
   leads: Lead[],
@@ -79,12 +79,12 @@ export function executeBatchJob(
   const periodEnd = now;
   const periodStart = now - (config.lookbackDays * 24 * 60 * 60 * 1000);
   
-  // Filtrar leads del perÃ­odo
+  // Filtrar leads del perÃƒÂ­odo
   const leadsInPeriod = leads.filter(
     (lead) => lead.fechaCreacion && lead.fechaCreacion.getTime() >= periodStart
   );
   
-  // Agrupar por campaign_id (simulado â€” en producciÃ³n vendrÃ­a del CRM)
+  // Agrupar por campaign_id (simulado Ã¢â‚¬â€ en producciÃƒÂ³n vendrÃƒÂ­a del CRM)
   const campaignGroups = new Map<string, Lead[]>();
   for (const lead of leadsInPeriod) {
     const campaignId = 'default-campaign'; // Simulado
@@ -94,13 +94,13 @@ export function executeBatchJob(
     campaignGroups.get(campaignId)!.push(lead);
   }
   
-  // Calcular mÃ©tricas por campaÃ±a
+  // Calcular mÃƒÂ©tricas por campaÃƒÂ±a
   const campaignMetrics: CampaignMetrics[] = [];
   for (const [campaignId, campaignLeads] of campaignGroups) {
     const leadsTotales = campaignLeads.length;
     const leadsSQL = campaignLeads.length; // Simulado: todos son SQL por ahora
     const tasaConversionPct = leadsTotales > 0 ? (leadsSQL / leadsTotales) * 100 : 0;
-    const cacEfectivoCOP = 0; // Simulado: requerirÃ­a datos de gasto de campaÃ±a
+    const cacEfectivoCOP = 0; // Simulado: requerirÃƒÂ­a datos de gasto de campaÃƒÂ±a
     
     campaignMetrics.push({
       campaignId,
@@ -124,8 +124,8 @@ export function executeBatchJob(
  * Verifica la reproducibilidad del job batch.
  * 
  * Kleppmann enfatiza que correr el mismo job dos veces sobre la misma entrada
- * debe producir exactamente la misma salida â€” crÃ­tico para que el equipo de
- * ventas confÃ­e en las cifras.
+ * debe producir exactamente la misma salida Ã¢â‚¬â€ crÃƒÂ­tico para que el equipo de
+ * ventas confÃƒÂ­e en las cifras.
  */
 export function verifyBatchReproducibility(
   leads: Lead[],
@@ -134,7 +134,7 @@ export function verifyBatchReproducibility(
   const result1 = executeBatchJob(leads, config);
   const result2 = executeBatchJob(leads, config);
   
-  // Comparar mÃ©tricas (ignorando executedAt que siempre es distinto)
+  // Comparar mÃƒÂ©tricas (ignorando executedAt que siempre es distinto)
   return (
     result1.totalLeadsProcessed === result2.totalLeadsProcessed &&
     result1.campaignMetrics.length === result2.campaignMetrics.length &&

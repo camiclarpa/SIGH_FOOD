@@ -1,38 +1,38 @@
 /**
  * ============================================================================
- * OUTBOX PATTERN - Evitar Dual Writes (DDIA, CapÃ­tulo 7)
+ * OUTBOX PATTERN - Evitar Dual Writes (DDIA, CapÃƒÂ­tulo 7)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (CapÃ­tulo 7):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Kleppmann describe el problema de "dual writes": cuando una aplicaciÃ³n
- * escribe explÃ­citamente a dos sistemas distintos (ej. base de datos + Ã­ndice
- * de bÃºsqueda), pueden ocurrir dos fallas independientes:
+ * CONCEPTO VERIFICADO (CapÃƒÂ­tulo 7):
+ * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+ * Kleppmann describe el problema de "dual writes": cuando una aplicaciÃƒÂ³n
+ * escribe explÃƒÂ­citamente a dos sistemas distintos (ej. base de datos + ÃƒÂ­ndice
+ * de bÃƒÂºsqueda), pueden ocurrir dos fallas independientes:
  * 
- * 1. CondiciÃ³n de carrera: dos escrituras concurrentes llegan en orden distinto
- *    a cada sistema, dejÃ¡ndolos permanentemente inconsistentes.
+ * 1. CondiciÃƒÂ³n de carrera: dos escrituras concurrentes llegan en orden distinto
+ *    a cada sistema, dejÃƒÂ¡ndolos permanentemente inconsistentes.
  * 
- * 2. Falla parcial: una escritura tiene Ã©xito y la otra falla, sin ningÃºn
+ * 2. Falla parcial: una escritura tiene ÃƒÂ©xito y la otra falla, sin ningÃƒÂºn
  *    mecanismo que garantice que ambas se completen juntas.
  * 
- * APLICACIÃ“N A SIGH_FOOD:
+ * APLICACIÃƒâ€œN A SIGH_FOOD:
  *   Si la Edge Function escribiera directamente al CRM y enviara un email de
- *   confirmaciÃ³n como dos operaciones independientes, un fallo de red entre
- *   esas dos escrituras dejarÃ­a un Lead registrado sin email (o viceversa).
+ *   confirmaciÃƒÂ³n como dos operaciones independientes, un fallo de red entre
+ *   esas dos escrituras dejarÃƒÂ­a un Lead registrado sin email (o viceversa).
  * 
- * SOLUCIÃ“N: PatrÃ³n Outbox (Cola Ãšnica como Fuente de Verdad)
- *   La Edge Function realiza UNA sola escritura atÃ³mica: LPUSH a la cola de
- *   Upstash Redis. El CRM, el email de confirmaciÃ³n, y el dashboard son todos
+ * SOLUCIÃƒâ€œN: PatrÃƒÂ³n Outbox (Cola ÃƒÅ¡nica como Fuente de Verdad)
+ *   La Edge Function realiza UNA sola escritura atÃƒÂ³mica: LPUSH a la cola de
+ *   Upstash Redis. El CRM, el email de confirmaciÃƒÂ³n, y el dashboard son todos
  *   consumidores independientes de esa misma cola.
  * 
  * REFERENCIAS DEL LIBRO:
- *   â€¢ CapÃ­tulo 7: Transacciones
- *   â€¢ SecciÃ³n 7.2: El problema de "dual writes"
- *   â€¢ SecciÃ³n 7.3: Alternativas a 2PC (Two-Phase Commit)
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 7: Transacciones
+ *   Ã¢â‚¬Â¢ SecciÃƒÂ³n 7.2: El problema de "dual writes"
+ *   Ã¢â‚¬Â¢ SecciÃƒÂ³n 7.3: Alternativas a 2PC (Two-Phase Commit)
  * ============================================================================
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
+import { type Lead } from '../sighfood-domain/entities/Lead';
 
 export interface OutboxEvent {
   readonly eventId: string;
@@ -45,7 +45,7 @@ export interface OutboxEvent {
 /**
  * Crea un evento outbox para un Lead nuevo.
  * 
- * Este es el ÃšNICO punto de escritura en el sistema â€” no hay dual writes.
+ * Este es el ÃƒÅ¡NICO punto de escritura en el sistema Ã¢â‚¬â€ no hay dual writes.
  * Todos los sistemas downstream (CRM, email, dashboard) leen de este mismo log.
  */
 export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent {
@@ -59,14 +59,14 @@ export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent 
 }
 
 /**
- * PatrÃ³n de consumo: mÃºltiples lectores independientes del mismo log.
+ * PatrÃƒÂ³n de consumo: mÃƒÂºltiples lectores independientes del mismo log.
  * 
  * Cada consumidor procesa eventos de forma independiente:
  *   - Consumidor 1: Sincroniza al CRM (HubSpot/Pipedrive)
- *   - Consumidor 2: EnvÃ­a email de confirmaciÃ³n
+ *   - Consumidor 2: EnvÃƒÂ­a email de confirmaciÃƒÂ³n
  *   - Consumidor 3: Actualiza dashboard en tiempo real
  * 
- * Ninguno de los 3 bloquea a los otros ni depende de que los otros tengan Ã©xito.
+ * Ninguno de los 3 bloquea a los otros ni depende de que los otros tengan ÃƒÂ©xito.
  * Si el CRM falla, el email y el dashboard no se ven afectados.
  */
 export interface EventConsumer {
@@ -80,7 +80,7 @@ export class CrmSyncConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // SimulaciÃ³n: en producciÃ³n, esto llamarÃ­a a HubSpot/Pipedrive API
+    // SimulaciÃƒÂ³n: en producciÃƒÂ³n, esto llamarÃƒÂ­a a HubSpot/Pipedrive API
     console.log(`[${this.name}] Syncing lead ${event.payload.establecimiento} to CRM`);
     // await hubspotApi.createContact(event.payload);
   }
@@ -92,7 +92,7 @@ export class EmailConfirmationConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // SimulaciÃ³n: en producciÃ³n, esto enviarÃ­a un email vÃ­a Resend
+    // SimulaciÃƒÂ³n: en producciÃƒÂ³n, esto enviarÃƒÂ­a un email vÃƒÂ­a Resend
     console.log(`[${this.name}] Sending confirmation email to ${event.payload.whatsapp}`);
     // await resendApi.sendEmail({ to: event.payload.whatsapp, ... });
   }
@@ -104,7 +104,7 @@ export class DashboardConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // SimulaciÃ³n: en producciÃ³n, esto actualizarÃ­a un contador en Redis
+    // SimulaciÃƒÂ³n: en producciÃƒÂ³n, esto actualizarÃƒÂ­a un contador en Redis
     console.log(`[${this.name}] Updating dashboard counter for lead ${event.eventId}`);
     // await redis.incr('leads_today_count');
   }
@@ -114,8 +114,8 @@ export class DashboardConsumer implements EventConsumer {
  * Orquestador de consumidores: procesa un evento con todos los consumidores.
  * 
  * Nota: cada consumidor se ejecuta de forma independiente. Si uno falla, los
- * demÃ¡s continÃºan. El evento permanece en la cola para reintento del consumidor
- * fallido (garantÃ­a at-least-once de Upstash Redis).
+ * demÃƒÂ¡s continÃƒÂºan. El evento permanece en la cola para reintento del consumidor
+ * fallido (garantÃƒÂ­a at-least-once de Upstash Redis).
  */
 export async function processEventWithAllConsumers(
   event: OutboxEvent,

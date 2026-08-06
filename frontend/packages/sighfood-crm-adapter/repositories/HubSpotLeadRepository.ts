@@ -1,19 +1,19 @@
 /**
- * HUBSPOT LEAD REPOSITORY â€” Adaptador Concreto para HubSpot CRM
+ * HUBSPOT LEAD REPOSITORY Ã¢â‚¬â€ Adaptador Concreto para HubSpot CRM
  * 
  * Este adaptador implementa la interfaz LeadRepository del dominio,
- * siguiendo el patrÃ³n de puertos y adaptadores de Clean Architecture.
+ * siguiendo el patrÃƒÂ³n de puertos y adaptadores de Clean Architecture.
  * 
- * NOTA: En producciÃ³n, este adaptador NO escribe directamente a HubSpot.
+ * NOTA: En producciÃƒÂ³n, este adaptador NO escribe directamente a HubSpot.
  * En su lugar, la Edge Function realiza un LPUSH a la cola de Upstash Redis
- * (patrÃ³n append-only, similar a LSM-Tree), y un consumidor asÃ­ncrono
+ * (patrÃƒÂ³n append-only, similar a LSM-Tree), y un consumidor asÃƒÂ­ncrono
  * sincroniza los leads al CRM.
  * 
- * Ver RFC-DDIA SecciÃ³n 3.2: "Upstash Redis como LSM-Tree"
+ * Ver RFC-DDIA SecciÃƒÂ³n 3.2: "Upstash Redis como LSM-Tree"
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
-import { type LeadRepository } from '../../sighfood-domain/ports/LeadRepository';
+import { type Lead } from '../sighfood-domain/entities/Lead';
+import { type LeadRepository } from '../sighfood-domain/ports/LeadRepository';
 
 export class HubSpotLeadRepository implements LeadRepository {
   private readonly apiKey: string;
@@ -26,13 +26,13 @@ export class HubSpotLeadRepository implements LeadRepository {
   /**
    * Guarda un lead en HubSpot CRM.
    * 
-   * En producciÃ³n, este mÃ©todo es invocado por el consumidor asÃ­ncrono
+   * En producciÃƒÂ³n, este mÃƒÂ©todo es invocado por el consumidor asÃƒÂ­ncrono
    * de la cola de Upstash Redis, NO directamente por la Edge Function.
    * 
    * La Edge Function solo hace:
    *   await redis.lpush('lead-events-log', JSON.stringify(lead));
    * 
-   * Esto sigue el patrÃ³n append-only de LSM-Tree descrito en RFC-DDIA.
+   * Esto sigue el patrÃƒÂ³n append-only de LSM-Tree descrito en RFC-DDIA.
    */
   async guardar(lead: Lead): Promise<void> {
     const payload = {

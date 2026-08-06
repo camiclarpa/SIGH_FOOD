@@ -1,35 +1,35 @@
 /**
  * ============================================================================
- * LEAD ENTITY Ã¢â‚¬â€ DIP: Entidad de Dominio sin Dependencias de Framework
+ * LEAD ENTITY ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â DIP: Entidad de Dominio sin Dependencias de Framework
  * ============================================================================
  * 
- * PRINCIPIO DIP (CapÃƒÂ­tulo 11):
- * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
- * Uncle Bob formula el DIP como: los mÃƒÂ³dulos de mÃƒÂ¡s alto nivel (las polÃƒÂ­ticas,
- * las reglas de negocio) no deben depender de mÃƒÂ³dulos de mÃƒÂ¡s bajo nivel (los
- * detalles de implementaciÃƒÂ³n) Ã¢â‚¬â€ ambos deben depender de abstracciones.
+ * PRINCIPIO DIP (CapÃƒÆ’Ã‚Â­tulo 11):
+ * ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+ * Uncle Bob formula el DIP como: los mÃƒÆ’Ã‚Â³dulos de mÃƒÆ’Ã‚Â¡s alto nivel (las polÃƒÆ’Ã‚Â­ticas,
+ * las reglas de negocio) no deben depender de mÃƒÆ’Ã‚Â³dulos de mÃƒÆ’Ã‚Â¡s bajo nivel (los
+ * detalles de implementaciÃƒÆ’Ã‚Â³n) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ambos deben depender de abstracciones.
  * 
- * APLICACIÃƒâ€œN:
- *   Esta entidad NO importa React, Next.js, ni ningÃƒÂºn SDK de CRM. PodrÃƒÂ­a
- *   compilarse y probarse con Node.js puro, sin ningÃƒÂºn navegador Ã¢â‚¬â€ la prueba
- *   definitiva de que el DIP se cumpliÃƒÂ³ correctamente.
+ * APLICACIÃƒÆ’Ã¢â‚¬Å“N:
+ *   Esta entidad NO importa React, Next.js, ni ningÃƒÆ’Ã‚Âºn SDK de CRM. PodrÃƒÆ’Ã‚Â­a
+ *   compilarse y probarse con Node.js puro, sin ningÃƒÆ’Ã‚Âºn navegador ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â la prueba
+ *   definitiva de que el DIP se cumpliÃƒÆ’Ã‚Â³ correctamente.
  * 
  * REFERENCIAS DEL LIBRO:
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 11: DIP Ã¢â‚¬â€ Principio de InversiÃƒÂ³n de Dependencias
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 22: Entities Ã¢â‚¬â€ Reglas de negocio empresariales
- *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 31: La Web Es un Detalle
+ *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ CapÃƒÆ’Ã‚Â­tulo 11: DIP ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Principio de InversiÃƒÆ’Ã‚Â³n de Dependencias
+ *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ CapÃƒÆ’Ã‚Â­tulo 22: Entities ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Reglas de negocio empresariales
+ *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ CapÃƒÆ’Ã‚Â­tulo 31: La Web Es un Detalle
  * 
- * DIRECCIÃƒâ€œN DE DEPENDENCIA:
- *   React/Next.js Ã¢â€â‚¬depende deÃ¢â€â‚¬Ã¢â€â‚¬Ã¢â€“Â¶ Interfaces del Dominio Ã¢â€”â‚¬Ã¢â€â‚¬Ã¢â€â‚¬depende deÃ¢â€â‚¬Ã¢â€â‚¬ HubSpot Adapter
+ * DIRECCIÃƒÆ’Ã¢â‚¬Å“N DE DEPENDENCIA:
+ *   React/Next.js ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬depende deÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¶ Interfaces del Dominio ÃƒÂ¢Ã¢â‚¬â€Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬depende deÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ HubSpot Adapter
  *        (detalle)                 (LeadRepository,                          (detalle)
  *                                   ValidadorFormulario)
  * 
- *   NUNCA una flecha en sentido contrario Ã¢â‚¬â€ el dominio JAMÃƒÂS importa 'react',
+ *   NUNCA una flecha en sentido contrario ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â el dominio JAMÃƒÆ’Ã‚ÂS importa 'react',
  *   'next', ni el SDK de HubSpot.
  * ============================================================================
  */
 
-export type RolTomadorDecision = 'DueÃƒÂ±o' | 'Gerente A&B' | 'Head Bartender';
+export type RolTomadorDecision = 'DueÃƒÆ’Ã‚Â±o' | 'Gerente A&B' | 'Head Bartender';
 
 export interface TomadorDecision {
   readonly nombre: string;
@@ -47,9 +47,9 @@ export interface Lead {
 }
 
 /**
- * FunciÃƒÂ³n fÃƒÂ¡brica para crear un Lead validado
+ * FunciÃƒÆ’Ã‚Â³n fÃƒÆ’Ã‚Â¡brica para crear un Lead validado
  * 
- * Esta funciÃƒÂ³n es pura y no depende de ningÃƒÂºn framework Ã¢â‚¬â€ puede ejecutarse
+ * Esta funciÃƒÆ’Ã‚Â³n es pura y no depende de ningÃƒÆ’Ã‚Âºn framework ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â puede ejecutarse
  * en cualquier entorno (Node.js, navegador, test unitario).
  */
 export function crearLead(
@@ -66,5 +66,6 @@ export function crearLead(
     licoresDominantes: Object.freeze([...licoresDominantes]),
     ciudad,
     fechaCreacion: new Date(),
+    timestamp: Date.now(),
   });
 }

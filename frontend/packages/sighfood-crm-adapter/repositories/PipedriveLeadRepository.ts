@@ -1,19 +1,19 @@
 /**
- * PIPEDRIVE LEAD REPOSITORY — Adaptador Concreto para Pipedrive CRM
+ * PIPEDRIVE LEAD REPOSITORY â€” Adaptador Concreto para Pipedrive CRM
  * 
  * Este adaptador implementa la interfaz LeadRepository del dominio,
- * siguiendo el patrón de puertos y adaptadores de Clean Architecture.
+ * siguiendo el patrÃ³n de puertos y adaptadores de Clean Architecture.
  * 
- * NOTA: En producción, este adaptador NO escribe directamente a Pipedrive.
+ * NOTA: En producciÃ³n, este adaptador NO escribe directamente a Pipedrive.
  * En su lugar, la Edge Function realiza un LPUSH a la cola de Upstash Redis
- * (patrón append-only, similar a LSM-Tree), y un consumidor asíncrono
+ * (patrÃ³n append-only, similar a LSM-Tree), y un consumidor asÃ­ncrono
  * sincroniza los leads al CRM.
  * 
- * Ver RFC-DDIA Sección 3.2: "Upstash Redis como LSM-Tree"
+ * Ver RFC-DDIA SecciÃ³n 3.2: "Upstash Redis como LSM-Tree"
  */
 
-import { type Lead } from '../sighfood-domain/entities/Lead';
-import { type LeadRepository } from '../sighfood-domain/ports/LeadRepository';
+import { type Lead } from '../../sighfood-domain/entities/Lead';
+import { type LeadRepository } from '../../sighfood-domain/ports/LeadRepository';
 
 export class PipedriveLeadRepository implements LeadRepository {
   private readonly apiToken: string;
@@ -26,13 +26,13 @@ export class PipedriveLeadRepository implements LeadRepository {
   /**
    * Guarda un lead en Pipedrive CRM.
    * 
-   * En producción, este método es invocado por el consumidor asíncrono
+   * En producciÃ³n, este mÃ©todo es invocado por el consumidor asÃ­ncrono
    * de la cola de Upstash Redis, NO directamente por la Edge Function.
    * 
    * La Edge Function solo hace:
    *   await redis.lpush('lead-events-log', JSON.stringify(lead));
    * 
-   * Esto sigue el patrón append-only de LSM-Tree descrito en RFC-DDIA.
+   * Esto sigue el patrÃ³n append-only de LSM-Tree descrito en RFC-DDIA.
    */
   async guardar(lead: Lead): Promise<void> {
     const payload = {

@@ -1,39 +1,39 @@
 /**
  * ============================================================================
- * ASYNC REPLICATION - Patrón de Replicación Asíncrona (DDIA, Capítulo 5)
+ * ASYNC REPLICATION - PatrÃ³n de ReplicaciÃ³n AsÃ­ncrona (DDIA, CapÃ­tulo 5)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (Capítulo 5):
- * ──────────────────────────────────────────────────────────────────────────
- * Kleppmann describe la replicación asíncrona como el patrón más común en la
- * práctica: el escritor (leader) no espera confirmación de las réplicas
+ * CONCEPTO VERIFICADO (CapÃ­tulo 5):
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Kleppmann describe la replicaciÃ³n asÃ­ncrona como el patrÃ³n mÃ¡s comÃºn en la
+ * prÃ¡ctica: el escritor (leader) no espera confirmaciÃ³n de las rÃ©plicas
  * (followers) antes de responder al cliente. Esto reduce la latencia percibida
  * pero introduce una ventana de inconsistencia (replication lag).
  * 
- * APLICACIÓN A SIGH_FOOD:
+ * APLICACIÃ“N A SIGH_FOOD:
  *   La Edge Function escribe el Lead en la cola de Upstash Redis (leader) y
  *   responde 202 Accepted inmediatamente, sin esperar a que el CRM (follower)
- *   procese el evento. Esto es replicación asíncrona pura.
+ *   procese el evento. Esto es replicaciÃ³n asÃ­ncrona pura.
  * 
- * PROBLEMA DE REPLICATION LAG (Sección 5.2):
- *   Si la página de "Gracias" intentara leer el estado del Lead desde el CRM
- *   inmediatamente después del envío, existiría una ventana donde el CRM
- *   todavía no procesó el evento — el usuario vería un estado vacío.
+ * PROBLEMA DE REPLICATION LAG (SecciÃ³n 5.2):
+ *   Si la pÃ¡gina de "Gracias" intentara leer el estado del Lead desde el CRM
+ *   inmediatamente despuÃ©s del envÃ­o, existirÃ­a una ventana donde el CRM
+ *   todavÃ­a no procesÃ³ el evento â€” el usuario verÃ­a un estado vacÃ­o.
  * 
- * SOLUCIÓN APLICADA:
- *   La página de "Gracias" de SIGH_FOOD nunca depende del CRM para renderizarse
- *   — es contenido estático (SSG) con un mensaje genérico de confirmación.
- *   Cualquier dato específico del Lead se toma del estado local del formulario
- *   en el cliente, eliminando estructuralmente la anomalía de replication lag.
+ * SOLUCIÃ“N APLICADA:
+ *   La pÃ¡gina de "Gracias" de SIGH_FOOD nunca depende del CRM para renderizarse
+ *   â€” es contenido estÃ¡tico (SSG) con un mensaje genÃ©rico de confirmaciÃ³n.
+ *   Cualquier dato especÃ­fico del Lead se toma del estado local del formulario
+ *   en el cliente, eliminando estructuralmente la anomalÃ­a de replication lag.
  * 
  * REFERENCIAS DEL LIBRO:
- *   • Capítulo 5: Replicación
- *   • Sección 5.2: Replication Lag y anomalías de consistencia
- *   • Sección 5.3: Problema de "leer tus propias escrituras"
+ *   â€¢ CapÃ­tulo 5: ReplicaciÃ³n
+ *   â€¢ SecciÃ³n 5.2: Replication Lag y anomalÃ­as de consistencia
+ *   â€¢ SecciÃ³n 5.3: Problema de "leer tus propias escrituras"
  * ============================================================================
  */
 
-import { type Lead } from '../sighfood-domain/entities/Lead';
+import { type Lead } from '../../sighfood-domain/entities/Lead';
 
 export interface ReplicationStatus {
   readonly queuedAt: number;
@@ -43,39 +43,39 @@ export interface ReplicationStatus {
 }
 
 /**
- * Simula el estado de replicación asíncrona de un Lead hacia el CRM.
+ * Simula el estado de replicaciÃ³n asÃ­ncrona de un Lead hacia el CRM.
  * 
- * En producción, esto se implementaría con:
+ * En producciÃ³n, esto se implementarÃ­a con:
  *   1. Un campo `queuedAt` en el evento de la cola (timestamp de escritura)
- *   2. Un webhook de confirmación del CRM que actualice `crmSyncedAt`
- *   3. Cálculo de `replicationLagMs = crmSyncedAt - queuedAt`
+ *   2. Un webhook de confirmaciÃ³n del CRM que actualice `crmSyncedAt`
+ *   3. CÃ¡lculo de `replicationLagMs = crmSyncedAt - queuedAt`
  * 
- * Para SIGH_FOOD, no necesitamos exponer este estado al usuario — la página
- * de "Gracias" es SSG y no lee del CRM, eliminando la anomalía por diseño.
+ * Para SIGH_FOOD, no necesitamos exponer este estado al usuario â€” la pÃ¡gina
+ * de "Gracias" es SSG y no lee del CRM, eliminando la anomalÃ­a por diseÃ±o.
  */
 export function getReplicationStatus(lead: Lead): ReplicationStatus {
   return {
     queuedAt: Date.now(),
-    isSynced: false, // El CRM aún no ha procesado el evento
-    // crmSyncedAt y replicationLagMs se actualizarían vía webhook
+    isSynced: false, // El CRM aÃºn no ha procesado el evento
+    // crmSyncedAt y replicationLagMs se actualizarÃ­an vÃ­a webhook
   };
 }
 
 /**
- * Patrón de mitigación: "Leer del líder para datos propios recientes"
+ * PatrÃ³n de mitigaciÃ³n: "Leer del lÃ­der para datos propios recientes"
  * 
  * Kleppmann recomienda que, cuando un usuario acaba de escribir un dato y
- * necesita leerlo inmediatamente después, la lectura debe dirigirse al líder
- * (la fuente de escritura) en vez de a una réplica que podría tener lag.
+ * necesita leerlo inmediatamente despuÃ©s, la lectura debe dirigirse al lÃ­der
+ * (la fuente de escritura) en vez de a una rÃ©plica que podrÃ­a tener lag.
  * 
- * Aplicación: Si SIGH_FOOD necesitara mostrar el estado del Lead en la página
- * de "Gracias", debería leerlo de la cola de Upstash (líder) en vez del CRM
- * (réplica asíncrona), o mejor aún, usar el estado local del formulario.
+ * AplicaciÃ³n: Si SIGH_FOOD necesitara mostrar el estado del Lead en la pÃ¡gina
+ * de "Gracias", deberÃ­a leerlo de la cola de Upstash (lÃ­der) en vez del CRM
+ * (rÃ©plica asÃ­ncrona), o mejor aÃºn, usar el estado local del formulario.
  */
 export function shouldReadFromLeader(
   timeSinceWriteMs: number,
   expectedReplicationLagMs: number = 5000
 ): boolean {
-  // Si han pasado menos de 5 segundos desde la escritura, leer del líder
+  // Si han pasado menos de 5 segundos desde la escritura, leer del lÃ­der
   return timeSinceWriteMs < expectedReplicationLagMs;
 }

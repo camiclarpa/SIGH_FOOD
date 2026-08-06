@@ -1,38 +1,38 @@
 /**
  * ============================================================================
- * OUTBOX PATTERN - Evitar Dual Writes (DDIA, Capítulo 7)
+ * OUTBOX PATTERN - Evitar Dual Writes (DDIA, CapÃ­tulo 7)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (Capítulo 7):
- * ──────────────────────────────────────────────────────────────────────────
- * Kleppmann describe el problema de "dual writes": cuando una aplicación
- * escribe explícitamente a dos sistemas distintos (ej. base de datos + índice
- * de búsqueda), pueden ocurrir dos fallas independientes:
+ * CONCEPTO VERIFICADO (CapÃ­tulo 7):
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Kleppmann describe el problema de "dual writes": cuando una aplicaciÃ³n
+ * escribe explÃ­citamente a dos sistemas distintos (ej. base de datos + Ã­ndice
+ * de bÃºsqueda), pueden ocurrir dos fallas independientes:
  * 
- * 1. Condición de carrera: dos escrituras concurrentes llegan en orden distinto
- *    a cada sistema, dejándolos permanentemente inconsistentes.
+ * 1. CondiciÃ³n de carrera: dos escrituras concurrentes llegan en orden distinto
+ *    a cada sistema, dejÃ¡ndolos permanentemente inconsistentes.
  * 
- * 2. Falla parcial: una escritura tiene éxito y la otra falla, sin ningún
+ * 2. Falla parcial: una escritura tiene Ã©xito y la otra falla, sin ningÃºn
  *    mecanismo que garantice que ambas se completen juntas.
  * 
- * APLICACIÓN A SIGH_FOOD:
+ * APLICACIÃ“N A SIGH_FOOD:
  *   Si la Edge Function escribiera directamente al CRM y enviara un email de
- *   confirmación como dos operaciones independientes, un fallo de red entre
- *   esas dos escrituras dejaría un Lead registrado sin email (o viceversa).
+ *   confirmaciÃ³n como dos operaciones independientes, un fallo de red entre
+ *   esas dos escrituras dejarÃ­a un Lead registrado sin email (o viceversa).
  * 
- * SOLUCIÓN: Patrón Outbox (Cola Única como Fuente de Verdad)
- *   La Edge Function realiza UNA sola escritura atómica: LPUSH a la cola de
- *   Upstash Redis. El CRM, el email de confirmación, y el dashboard son todos
+ * SOLUCIÃ“N: PatrÃ³n Outbox (Cola Ãšnica como Fuente de Verdad)
+ *   La Edge Function realiza UNA sola escritura atÃ³mica: LPUSH a la cola de
+ *   Upstash Redis. El CRM, el email de confirmaciÃ³n, y el dashboard son todos
  *   consumidores independientes de esa misma cola.
  * 
  * REFERENCIAS DEL LIBRO:
- *   • Capítulo 7: Transacciones
- *   • Sección 7.2: El problema de "dual writes"
- *   • Sección 7.3: Alternativas a 2PC (Two-Phase Commit)
+ *   â€¢ CapÃ­tulo 7: Transacciones
+ *   â€¢ SecciÃ³n 7.2: El problema de "dual writes"
+ *   â€¢ SecciÃ³n 7.3: Alternativas a 2PC (Two-Phase Commit)
  * ============================================================================
  */
 
-import { type Lead } from '../sighfood-domain/entities/Lead';
+import { type Lead } from '../../sighfood-domain/entities/Lead';
 
 export interface OutboxEvent {
   readonly eventId: string;
@@ -45,7 +45,7 @@ export interface OutboxEvent {
 /**
  * Crea un evento outbox para un Lead nuevo.
  * 
- * Este es el ÚNICO punto de escritura en el sistema — no hay dual writes.
+ * Este es el ÃšNICO punto de escritura en el sistema â€” no hay dual writes.
  * Todos los sistemas downstream (CRM, email, dashboard) leen de este mismo log.
  */
 export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent {
@@ -59,14 +59,14 @@ export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent 
 }
 
 /**
- * Patrón de consumo: múltiples lectores independientes del mismo log.
+ * PatrÃ³n de consumo: mÃºltiples lectores independientes del mismo log.
  * 
  * Cada consumidor procesa eventos de forma independiente:
  *   - Consumidor 1: Sincroniza al CRM (HubSpot/Pipedrive)
- *   - Consumidor 2: Envía email de confirmación
+ *   - Consumidor 2: EnvÃ­a email de confirmaciÃ³n
  *   - Consumidor 3: Actualiza dashboard en tiempo real
  * 
- * Ninguno de los 3 bloquea a los otros ni depende de que los otros tengan éxito.
+ * Ninguno de los 3 bloquea a los otros ni depende de que los otros tengan Ã©xito.
  * Si el CRM falla, el email y el dashboard no se ven afectados.
  */
 export interface EventConsumer {
@@ -80,7 +80,7 @@ export class CrmSyncConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // Simulación: en producción, esto llamaría a HubSpot/Pipedrive API
+    // SimulaciÃ³n: en producciÃ³n, esto llamarÃ­a a HubSpot/Pipedrive API
     console.log(`[${this.name}] Syncing lead ${event.payload.establecimiento} to CRM`);
     // await hubspotApi.createContact(event.payload);
   }
@@ -92,7 +92,7 @@ export class EmailConfirmationConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // Simulación: en producción, esto enviaría un email vía Resend
+    // SimulaciÃ³n: en producciÃ³n, esto enviarÃ­a un email vÃ­a Resend
     console.log(`[${this.name}] Sending confirmation email to ${event.payload.whatsapp}`);
     // await resendApi.sendEmail({ to: event.payload.whatsapp, ... });
   }
@@ -104,7 +104,7 @@ export class DashboardConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // Simulación: en producción, esto actualizaría un contador en Redis
+    // SimulaciÃ³n: en producciÃ³n, esto actualizarÃ­a un contador en Redis
     console.log(`[${this.name}] Updating dashboard counter for lead ${event.eventId}`);
     // await redis.incr('leads_today_count');
   }
@@ -114,8 +114,8 @@ export class DashboardConsumer implements EventConsumer {
  * Orquestador de consumidores: procesa un evento con todos los consumidores.
  * 
  * Nota: cada consumidor se ejecuta de forma independiente. Si uno falla, los
- * demás continúan. El evento permanece en la cola para reintento del consumidor
- * fallido (garantía at-least-once de Upstash Redis).
+ * demÃ¡s continÃºan. El evento permanece en la cola para reintento del consumidor
+ * fallido (garantÃ­a at-least-once de Upstash Redis).
  */
 export async function processEventWithAllConsumers(
   event: OutboxEvent,

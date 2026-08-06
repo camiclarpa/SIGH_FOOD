@@ -1,10 +1,12 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { loginAction } from './actions';
 
-export default function LoginPage() {
+// useSearchParams() obliga a renderizado en cliente: el formulario vive en un
+// componente aparte para poder envolverlo en <Suspense> y no romper el prerender.
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/admin';
@@ -91,5 +93,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+          <p className="text-gray-400">Cargando...</p>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

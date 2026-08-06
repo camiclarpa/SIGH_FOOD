@@ -1,5 +1,5 @@
 {
-  "onlyBuiltDependencies": [
+  "allowedBuilds": [
     "esbuild",
     "@swc/core",
     "sharp",

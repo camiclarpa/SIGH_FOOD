@@ -1,27 +1,27 @@
 /**
  * ============================================================================
- * LEAD REPOSITORY — ISP: Interfaz Segregada para Persistencia
+ * LEAD REPOSITORY â€” ISP: Interfaz Segregada para Persistencia
  * ============================================================================
  * 
- * PRINCIPIO ISP (Capítulo 10):
- * ───────────────────────────────────────────────────────────────────────────
+ * PRINCIPIO ISP (CapÃ­tulo 10):
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Uncle Bob advierte contra interfaces "gordas" que fuerzan a sus
- * implementadores o consumidores a depender de métodos que no usan —
+ * implementadores o consumidores a depender de mÃ©todos que no usan â€”
  * generando acoplamiento innecesario y recompilaciones/redespliegues no
  * relacionados con el cambio real.
  * 
- * APLICACIÓN:
- *   Esta interfaz SOLO expone el método guardar — no mezcla validación,
- *   notificación, ni generación de reportes. Un consumidor que solo necesita
- *   guardar un Lead no depende de métodos que no usa.
+ * APLICACIÃ“N:
+ *   Esta interfaz SOLO expone el mÃ©todo guardar â€” no mezcla validaciÃ³n,
+ *   notificaciÃ³n, ni generaciÃ³n de reportes. Un consumidor que solo necesita
+ *   guardar un Lead no depende de mÃ©todos que no usa.
  * 
  * REFERENCIAS DEL LIBRO:
- *   • Capítulo 10: ISP — Principio de Segregación de Interfaces
- *   • Capítulo 11: DIP — Principio de Inversión de Dependencias
+ *   â€¢ CapÃ­tulo 10: ISP â€” Principio de SegregaciÃ³n de Interfaces
+ *   â€¢ CapÃ­tulo 11: DIP â€” Principio de InversiÃ³n de Dependencias
  * ============================================================================
  */
 
-import { type Lead } from '../entities/Lead';
+export { type Lead } from '../entities/Lead';
 
 export interface LeadRepository {
   /**

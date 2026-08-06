@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 ADMIN_TOKEN_BACKUP.txt
 .env.local
+
+# Wrangler
+wrangler.toml

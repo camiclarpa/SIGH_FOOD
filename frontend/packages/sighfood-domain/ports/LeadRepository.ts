@@ -1,26 +1,27 @@
 /**
  * ============================================================================
- * LEAD REPOSITORY â€” ISP: Interfaz Segregada para Persistencia
+ * LEAD REPOSITORY Ã¢â‚¬â€ ISP: Interfaz Segregada para Persistencia
  * ============================================================================
  * 
- * PRINCIPIO ISP (CapÃ­tulo 10):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * PRINCIPIO ISP (CapÃƒÂ­tulo 10):
+ * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
  * Uncle Bob advierte contra interfaces "gordas" que fuerzan a sus
- * implementadores o consumidores a depender de mÃ©todos que no usan â€”
+ * implementadores o consumidores a depender de mÃƒÂ©todos que no usan Ã¢â‚¬â€
  * generando acoplamiento innecesario y recompilaciones/redespliegues no
  * relacionados con el cambio real.
  * 
- * APLICACIÃ“N:
- *   Esta interfaz SOLO expone el mÃ©todo guardar â€” no mezcla validaciÃ³n,
- *   notificaciÃ³n, ni generaciÃ³n de reportes. Un consumidor que solo necesita
- *   guardar un Lead no depende de mÃ©todos que no usa.
+ * APLICACIÃƒâ€œN:
+ *   Esta interfaz SOLO expone el mÃƒÂ©todo guardar Ã¢â‚¬â€ no mezcla validaciÃƒÂ³n,
+ *   notificaciÃƒÂ³n, ni generaciÃƒÂ³n de reportes. Un consumidor que solo necesita
+ *   guardar un Lead no depende de mÃƒÂ©todos que no usa.
  * 
  * REFERENCIAS DEL LIBRO:
- *   â€¢ CapÃ­tulo 10: ISP â€” Principio de SegregaciÃ³n de Interfaces
- *   â€¢ CapÃ­tulo 11: DIP â€” Principio de InversiÃ³n de Dependencias
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 10: ISP Ã¢â‚¬â€ Principio de SegregaciÃƒÂ³n de Interfaces
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 11: DIP Ã¢â‚¬â€ Principio de InversiÃƒÂ³n de Dependencias
  * ============================================================================
  */
 
+import { type Lead } from '../entities/Lead';
 export { type Lead } from '../entities/Lead';
 
 export interface LeadRepository {

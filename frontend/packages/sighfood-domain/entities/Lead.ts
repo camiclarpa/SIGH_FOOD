@@ -1,35 +1,35 @@
 /**
  * ============================================================================
- * LEAD ENTITY â€” DIP: Entidad de Dominio sin Dependencias de Framework
+ * LEAD ENTITY Ã¢â‚¬â€ DIP: Entidad de Dominio sin Dependencias de Framework
  * ============================================================================
  * 
- * PRINCIPIO DIP (CapÃ­tulo 11):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Uncle Bob formula el DIP como: los mÃ³dulos de mÃ¡s alto nivel (las polÃ­ticas,
- * las reglas de negocio) no deben depender de mÃ³dulos de mÃ¡s bajo nivel (los
- * detalles de implementaciÃ³n) â€” ambos deben depender de abstracciones.
+ * PRINCIPIO DIP (CapÃƒÂ­tulo 11):
+ * Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+ * Uncle Bob formula el DIP como: los mÃƒÂ³dulos de mÃƒÂ¡s alto nivel (las polÃƒÂ­ticas,
+ * las reglas de negocio) no deben depender de mÃƒÂ³dulos de mÃƒÂ¡s bajo nivel (los
+ * detalles de implementaciÃƒÂ³n) Ã¢â‚¬â€ ambos deben depender de abstracciones.
  * 
- * APLICACIÃ“N:
- *   Esta entidad NO importa React, Next.js, ni ningÃºn SDK de CRM. PodrÃ­a
- *   compilarse y probarse con Node.js puro, sin ningÃºn navegador â€” la prueba
- *   definitiva de que el DIP se cumpliÃ³ correctamente.
+ * APLICACIÃƒâ€œN:
+ *   Esta entidad NO importa React, Next.js, ni ningÃƒÂºn SDK de CRM. PodrÃƒÂ­a
+ *   compilarse y probarse con Node.js puro, sin ningÃƒÂºn navegador Ã¢â‚¬â€ la prueba
+ *   definitiva de que el DIP se cumpliÃƒÂ³ correctamente.
  * 
  * REFERENCIAS DEL LIBRO:
- *   â€¢ CapÃ­tulo 11: DIP â€” Principio de InversiÃ³n de Dependencias
- *   â€¢ CapÃ­tulo 22: Entities â€” Reglas de negocio empresariales
- *   â€¢ CapÃ­tulo 31: La Web Es un Detalle
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 11: DIP Ã¢â‚¬â€ Principio de InversiÃƒÂ³n de Dependencias
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 22: Entities Ã¢â‚¬â€ Reglas de negocio empresariales
+ *   Ã¢â‚¬Â¢ CapÃƒÂ­tulo 31: La Web Es un Detalle
  * 
- * DIRECCIÃ“N DE DEPENDENCIA:
- *   React/Next.js â”€depende deâ”€â”€â–¶ Interfaces del Dominio â—€â”€â”€depende deâ”€â”€ HubSpot Adapter
+ * DIRECCIÃƒâ€œN DE DEPENDENCIA:
+ *   React/Next.js Ã¢â€â‚¬depende deÃ¢â€â‚¬Ã¢â€â‚¬Ã¢â€“Â¶ Interfaces del Dominio Ã¢â€”â‚¬Ã¢â€â‚¬Ã¢â€â‚¬depende deÃ¢â€â‚¬Ã¢â€â‚¬ HubSpot Adapter
  *        (detalle)                 (LeadRepository,                          (detalle)
  *                                   ValidadorFormulario)
  * 
- *   NUNCA una flecha en sentido contrario â€” el dominio JAMÃS importa 'react',
+ *   NUNCA una flecha en sentido contrario Ã¢â‚¬â€ el dominio JAMÃƒÂS importa 'react',
  *   'next', ni el SDK de HubSpot.
  * ============================================================================
  */
 
-export type RolTomadorDecision = 'DueÃ±o' | 'Gerente A&B' | 'Head Bartender';
+export type RolTomadorDecision = 'DueÃƒÂ±o' | 'Gerente A&B' | 'Head Bartender';
 
 export interface TomadorDecision {
   readonly nombre: string;
@@ -43,13 +43,13 @@ export interface Lead {
   readonly licoresDominantes: readonly string[];
   readonly ciudad?: string;
   readonly fechaCreacion?: Date;
-  readonly timestamp?: number;
+  readonly timestamp: number;
 }
 
 /**
- * FunciÃ³n fÃ¡brica para crear un Lead validado
+ * FunciÃƒÂ³n fÃƒÂ¡brica para crear un Lead validado
  * 
- * Esta funciÃ³n es pura y no depende de ningÃºn framework â€” puede ejecutarse
+ * Esta funciÃƒÂ³n es pura y no depende de ningÃƒÂºn framework Ã¢â‚¬â€ puede ejecutarse
  * en cualquier entorno (Node.js, navegador, test unitario).
  */
 export function crearLead(

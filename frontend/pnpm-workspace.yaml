@@ -1,8 +1,7 @@
 packages:
   - 'packages/*'
   - 'apps/*'
-overrides:
-  '@types/react': ^19
-  '@types/react-dom': ^19
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

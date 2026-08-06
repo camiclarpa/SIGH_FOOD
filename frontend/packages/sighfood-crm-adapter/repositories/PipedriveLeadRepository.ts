@@ -12,8 +12,8 @@
  * Ver RFC-DDIA Sección 3.2: "Upstash Redis como LSM-Tree"
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
-import { type LeadRepository } from '../../sighfood-domain/ports/LeadRepository';
+import { type Lead } from '../sighfood-domain/entities/Lead';
+import { type LeadRepository } from '../sighfood-domain/ports/LeadRepository';
 
 export class PipedriveLeadRepository implements LeadRepository {
   private readonly apiToken: string;

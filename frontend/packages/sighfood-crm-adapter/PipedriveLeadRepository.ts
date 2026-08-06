@@ -4,7 +4,7 @@
  * Implementa la interfaz LeadRepository del dominio
  */
 
-import { type Lead } from '../../sighfood-domain/ports/LeadRepository';
+import { type Lead } from '../sighfood-domain/ports/LeadRepository';
 
 export class PipedriveLeadRepository {
   async guardar(lead: Lead): Promise<void> {

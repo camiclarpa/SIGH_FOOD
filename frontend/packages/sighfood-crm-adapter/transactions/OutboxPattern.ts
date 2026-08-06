@@ -32,7 +32,7 @@
  * ============================================================================
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
+import { type Lead } from '../sighfood-domain/entities/Lead';
 
 export interface OutboxEvent {
   readonly eventId: string;

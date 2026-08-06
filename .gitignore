@@ -9,3 +9,6 @@ coverage
 
 # Carpeta de documentación confidencial
 DOCUMENTACION/
+
+# Wrangler
+wrangler.toml

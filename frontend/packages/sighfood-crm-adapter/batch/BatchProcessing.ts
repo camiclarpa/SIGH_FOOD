@@ -29,7 +29,7 @@
  * ============================================================================
  */
 
-import { type Lead } from '../sighfood-domain/entities/Lead';
+import { type Lead } from '../../sighfood-domain/entities/Lead';
 
 export interface BatchJobConfig {
   readonly scheduledTime: string; // "02:00" en formato HH:MM

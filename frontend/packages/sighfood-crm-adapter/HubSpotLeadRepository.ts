@@ -1,14 +1,14 @@
 /**
  * HUBSPOT LEAD REPOSITORY
- * Parte VI: BD/CRM son detalles (CapÃ­tulo 30)
+ * Parte VI: BD/CRM son detalles (CapÃƒÂ­tulo 30)
  * Implementa la interfaz LeadRepository del dominio
  */
 
-import { type Lead } from '../sighfood-domain/ports/LeadRepository';
+import { type Lead } from '../../sighfood-domain/ports/LeadRepository';
 
 export class HubSpotLeadRepository {
   async guardar(lead: Lead): Promise<void> {
-    // ImplementaciÃ³n concreta para HubSpot CRM
+    // ImplementaciÃƒÂ³n concreta para HubSpot CRM
     console.log('Guardando lead en HubSpot:', lead);
   }
 }

@@ -1,39 +1,39 @@
 /**
  * ============================================================================
- * ASYNC REPLICATION - PatrÃƒÆ’Ã‚Â³n de ReplicaciÃƒÆ’Ã‚Â³n AsÃƒÆ’Ã‚Â­ncrona (DDIA, CapÃƒÆ’Ã‚Â­tulo 5)
+ * ASYNC REPLICATION - PatrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de ReplicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n AsÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ncrona (DDIA, CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 5)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (CapÃƒÆ’Ã‚Â­tulo 5):
- * ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
- * Kleppmann describe la replicaciÃƒÆ’Ã‚Â³n asÃƒÆ’Ã‚Â­ncrona como el patrÃƒÆ’Ã‚Â³n mÃƒÆ’Ã‚Â¡s comÃƒÆ’Ã‚Âºn en la
- * prÃƒÆ’Ã‚Â¡ctica: el escritor (leader) no espera confirmaciÃƒÆ’Ã‚Â³n de las rÃƒÆ’Ã‚Â©plicas
+ * CONCEPTO VERIFICADO (CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 5):
+ * ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
+ * Kleppmann describe la replicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n asÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ncrona como el patrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s comÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºn en la
+ * prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ctica: el escritor (leader) no espera confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de las rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©plicas
  * (followers) antes de responder al cliente. Esto reduce la latencia percibida
  * pero introduce una ventana de inconsistencia (replication lag).
  * 
- * APLICACIÃƒÆ’Ã¢â‚¬Å“N A SIGH_FOOD:
+ * APLICACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN A SIGH_FOOD:
  *   La Edge Function escribe el Lead en la cola de Upstash Redis (leader) y
  *   responde 202 Accepted inmediatamente, sin esperar a que el CRM (follower)
- *   procese el evento. Esto es replicaciÃƒÆ’Ã‚Â³n asÃƒÆ’Ã‚Â­ncrona pura.
+ *   procese el evento. Esto es replicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n asÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ncrona pura.
  * 
- * PROBLEMA DE REPLICATION LAG (SecciÃƒÆ’Ã‚Â³n 5.2):
- *   Si la pÃƒÆ’Ã‚Â¡gina de "Gracias" intentara leer el estado del Lead desde el CRM
- *   inmediatamente despuÃƒÆ’Ã‚Â©s del envÃƒÆ’Ã‚Â­o, existirÃƒÆ’Ã‚Â­a una ventana donde el CRM
- *   todavÃƒÆ’Ã‚Â­a no procesÃƒÆ’Ã‚Â³ el evento ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â el usuario verÃƒÆ’Ã‚Â­a un estado vacÃƒÆ’Ã‚Â­o.
+ * PROBLEMA DE REPLICATION LAG (SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 5.2):
+ *   Si la pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina de "Gracias" intentara leer el estado del Lead desde el CRM
+ *   inmediatamente despuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s del envÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o, existirÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a una ventana donde el CRM
+ *   todavÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a no procesÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ el evento ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â el usuario verÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a un estado vacÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o.
  * 
- * SOLUCIÃƒÆ’Ã¢â‚¬Å“N APLICADA:
- *   La pÃƒÆ’Ã‚Â¡gina de "Gracias" de SIGH_FOOD nunca depende del CRM para renderizarse
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â es contenido estÃƒÆ’Ã‚Â¡tico (SSG) con un mensaje genÃƒÆ’Ã‚Â©rico de confirmaciÃƒÆ’Ã‚Â³n.
- *   Cualquier dato especÃƒÆ’Ã‚Â­fico del Lead se toma del estado local del formulario
- *   en el cliente, eliminando estructuralmente la anomalÃƒÆ’Ã‚Â­a de replication lag.
+ * SOLUCIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN APLICADA:
+ *   La pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina de "Gracias" de SIGH_FOOD nunca depende del CRM para renderizarse
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â es contenido estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡tico (SSG) con un mensaje genÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rico de confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n.
+ *   Cualquier dato especÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­fico del Lead se toma del estado local del formulario
+ *   en el cliente, eliminando estructuralmente la anomalÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a de replication lag.
  * 
  * REFERENCIAS DEL LIBRO:
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ CapÃƒÆ’Ã‚Â­tulo 5: ReplicaciÃƒÆ’Ã‚Â³n
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ SecciÃƒÆ’Ã‚Â³n 5.2: Replication Lag y anomalÃƒÆ’Ã‚Â­as de consistencia
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ SecciÃƒÆ’Ã‚Â³n 5.3: Problema de "leer tus propias escrituras"
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 5: ReplicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 5.2: Replication Lag y anomalÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as de consistencia
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 5.3: Problema de "leer tus propias escrituras"
  * ============================================================================
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
+import { type Lead } from '../sighfood-domain/entities/Lead';
 
 export interface ReplicationStatus {
   readonly queuedAt: number;
@@ -43,39 +43,39 @@ export interface ReplicationStatus {
 }
 
 /**
- * Simula el estado de replicaciÃƒÆ’Ã‚Â³n asÃƒÆ’Ã‚Â­ncrona de un Lead hacia el CRM.
+ * Simula el estado de replicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n asÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ncrona de un Lead hacia el CRM.
  * 
- * En producciÃƒÆ’Ã‚Â³n, esto se implementarÃƒÆ’Ã‚Â­a con:
+ * En producciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n, esto se implementarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a con:
  *   1. Un campo `queuedAt` en el evento de la cola (timestamp de escritura)
- *   2. Un webhook de confirmaciÃƒÆ’Ã‚Â³n del CRM que actualice `crmSyncedAt`
- *   3. CÃƒÆ’Ã‚Â¡lculo de `replicationLagMs = crmSyncedAt - queuedAt`
+ *   2. Un webhook de confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n del CRM que actualice `crmSyncedAt`
+ *   3. CÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lculo de `replicationLagMs = crmSyncedAt - queuedAt`
  * 
- * Para SIGH_FOOD, no necesitamos exponer este estado al usuario ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â la pÃƒÆ’Ã‚Â¡gina
- * de "Gracias" es SSG y no lee del CRM, eliminando la anomalÃƒÆ’Ã‚Â­a por diseÃƒÆ’Ã‚Â±o.
+ * Para SIGH_FOOD, no necesitamos exponer este estado al usuario ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â la pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina
+ * de "Gracias" es SSG y no lee del CRM, eliminando la anomalÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a por diseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±o.
  */
 export function getReplicationStatus(lead: Lead): ReplicationStatus {
   return {
     queuedAt: Date.now(),
-    isSynced: false, // El CRM aÃƒÆ’Ã‚Âºn no ha procesado el evento
-    // crmSyncedAt y replicationLagMs se actualizarÃƒÆ’Ã‚Â­an vÃƒÆ’Ã‚Â­a webhook
+    isSynced: false, // El CRM aÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºn no ha procesado el evento
+    // crmSyncedAt y replicationLagMs se actualizarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­an vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a webhook
   };
 }
 
 /**
- * PatrÃƒÆ’Ã‚Â³n de mitigaciÃƒÆ’Ã‚Â³n: "Leer del lÃƒÆ’Ã‚Â­der para datos propios recientes"
+ * PatrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de mitigaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n: "Leer del lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­der para datos propios recientes"
  * 
  * Kleppmann recomienda que, cuando un usuario acaba de escribir un dato y
- * necesita leerlo inmediatamente despuÃƒÆ’Ã‚Â©s, la lectura debe dirigirse al lÃƒÆ’Ã‚Â­der
- * (la fuente de escritura) en vez de a una rÃƒÆ’Ã‚Â©plica que podrÃƒÆ’Ã‚Â­a tener lag.
+ * necesita leerlo inmediatamente despuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s, la lectura debe dirigirse al lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­der
+ * (la fuente de escritura) en vez de a una rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©plica que podrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a tener lag.
  * 
- * AplicaciÃƒÆ’Ã‚Â³n: Si SIGH_FOOD necesitara mostrar el estado del Lead en la pÃƒÆ’Ã‚Â¡gina
- * de "Gracias", deberÃƒÆ’Ã‚Â­a leerlo de la cola de Upstash (lÃƒÆ’Ã‚Â­der) en vez del CRM
- * (rÃƒÆ’Ã‚Â©plica asÃƒÆ’Ã‚Â­ncrona), o mejor aÃƒÆ’Ã‚Âºn, usar el estado local del formulario.
+ * AplicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n: Si SIGH_FOOD necesitara mostrar el estado del Lead en la pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina
+ * de "Gracias", deberÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a leerlo de la cola de Upstash (lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­der) en vez del CRM
+ * (rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©plica asÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ncrona), o mejor aÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºn, usar el estado local del formulario.
  */
 export function shouldReadFromLeader(
   timeSinceWriteMs: number,
   expectedReplicationLagMs: number = 5000
 ): boolean {
-  // Si han pasado menos de 5 segundos desde la escritura, leer del lÃƒÆ’Ã‚Â­der
+  // Si han pasado menos de 5 segundos desde la escritura, leer del lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­der
   return timeSinceWriteMs < expectedReplicationLagMs;
 }

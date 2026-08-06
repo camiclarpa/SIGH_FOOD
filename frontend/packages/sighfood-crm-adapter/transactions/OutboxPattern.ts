@@ -1,38 +1,38 @@
 /**
  * ============================================================================
- * OUTBOX PATTERN - Evitar Dual Writes (DDIA, CapÃƒÆ’Ã‚Â­tulo 7)
+ * OUTBOX PATTERN - Evitar Dual Writes (DDIA, CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 7)
  * ============================================================================
  * 
- * CONCEPTO VERIFICADO (CapÃƒÆ’Ã‚Â­tulo 7):
- * ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
- * Kleppmann describe el problema de "dual writes": cuando una aplicaciÃƒÆ’Ã‚Â³n
- * escribe explÃƒÆ’Ã‚Â­citamente a dos sistemas distintos (ej. base de datos + ÃƒÆ’Ã‚Â­ndice
- * de bÃƒÆ’Ã‚Âºsqueda), pueden ocurrir dos fallas independientes:
+ * CONCEPTO VERIFICADO (CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 7):
+ * ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
+ * Kleppmann describe el problema de "dual writes": cuando una aplicaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
+ * escribe explÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­citamente a dos sistemas distintos (ej. base de datos + ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ndice
+ * de bÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºsqueda), pueden ocurrir dos fallas independientes:
  * 
- * 1. CondiciÃƒÆ’Ã‚Â³n de carrera: dos escrituras concurrentes llegan en orden distinto
- *    a cada sistema, dejÃƒÆ’Ã‚Â¡ndolos permanentemente inconsistentes.
+ * 1. CondiciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de carrera: dos escrituras concurrentes llegan en orden distinto
+ *    a cada sistema, dejÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ndolos permanentemente inconsistentes.
  * 
- * 2. Falla parcial: una escritura tiene ÃƒÆ’Ã‚Â©xito y la otra falla, sin ningÃƒÆ’Ã‚Âºn
+ * 2. Falla parcial: una escritura tiene ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©xito y la otra falla, sin ningÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºn
  *    mecanismo que garantice que ambas se completen juntas.
  * 
- * APLICACIÃƒÆ’Ã¢â‚¬Å“N A SIGH_FOOD:
+ * APLICACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN A SIGH_FOOD:
  *   Si la Edge Function escribiera directamente al CRM y enviara un email de
- *   confirmaciÃƒÆ’Ã‚Â³n como dos operaciones independientes, un fallo de red entre
- *   esas dos escrituras dejarÃƒÆ’Ã‚Â­a un Lead registrado sin email (o viceversa).
+ *   confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n como dos operaciones independientes, un fallo de red entre
+ *   esas dos escrituras dejarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a un Lead registrado sin email (o viceversa).
  * 
- * SOLUCIÃƒÆ’Ã¢â‚¬Å“N: PatrÃƒÆ’Ã‚Â³n Outbox (Cola ÃƒÆ’Ã…Â¡nica como Fuente de Verdad)
- *   La Edge Function realiza UNA sola escritura atÃƒÆ’Ã‚Â³mica: LPUSH a la cola de
- *   Upstash Redis. El CRM, el email de confirmaciÃƒÆ’Ã‚Â³n, y el dashboard son todos
+ * SOLUCIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN: PatrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n Outbox (Cola ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¡nica como Fuente de Verdad)
+ *   La Edge Function realiza UNA sola escritura atÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³mica: LPUSH a la cola de
+ *   Upstash Redis. El CRM, el email de confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n, y el dashboard son todos
  *   consumidores independientes de esa misma cola.
  * 
  * REFERENCIAS DEL LIBRO:
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ CapÃƒÆ’Ã‚Â­tulo 7: Transacciones
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ SecciÃƒÆ’Ã‚Â³n 7.2: El problema de "dual writes"
- *   ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ SecciÃƒÆ’Ã‚Â³n 7.3: Alternativas a 2PC (Two-Phase Commit)
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ CapÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tulo 7: Transacciones
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 7.2: El problema de "dual writes"
+ *   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n 7.3: Alternativas a 2PC (Two-Phase Commit)
  * ============================================================================
  */
 
-import { type Lead } from '../../sighfood-domain/entities/Lead';
+import { type Lead } from '../sighfood-domain/entities/Lead';
 
 export interface OutboxEvent {
   readonly eventId: string;
@@ -45,7 +45,7 @@ export interface OutboxEvent {
 /**
  * Crea un evento outbox para un Lead nuevo.
  * 
- * Este es el ÃƒÆ’Ã…Â¡NICO punto de escritura en el sistema ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no hay dual writes.
+ * Este es el ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¡NICO punto de escritura en el sistema ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no hay dual writes.
  * Todos los sistemas downstream (CRM, email, dashboard) leen de este mismo log.
  */
 export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent {
@@ -59,14 +59,14 @@ export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent 
 }
 
 /**
- * PatrÃƒÆ’Ã‚Â³n de consumo: mÃƒÆ’Ã‚Âºltiples lectores independientes del mismo log.
+ * PatrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de consumo: mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºltiples lectores independientes del mismo log.
  * 
  * Cada consumidor procesa eventos de forma independiente:
  *   - Consumidor 1: Sincroniza al CRM (HubSpot/Pipedrive)
- *   - Consumidor 2: EnvÃƒÆ’Ã‚Â­a email de confirmaciÃƒÆ’Ã‚Â³n
+ *   - Consumidor 2: EnvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a email de confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
  *   - Consumidor 3: Actualiza dashboard en tiempo real
  * 
- * Ninguno de los 3 bloquea a los otros ni depende de que los otros tengan ÃƒÆ’Ã‚Â©xito.
+ * Ninguno de los 3 bloquea a los otros ni depende de que los otros tengan ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©xito.
  * Si el CRM falla, el email y el dashboard no se ven afectados.
  */
 export interface EventConsumer {
@@ -80,7 +80,7 @@ export class CrmSyncConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // SimulaciÃƒÆ’Ã‚Â³n: en producciÃƒÆ’Ã‚Â³n, esto llamarÃƒÆ’Ã‚Â­a a HubSpot/Pipedrive API
+    // SimulaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n: en producciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n, esto llamarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a a HubSpot/Pipedrive API
     console.log(`[${this.name}] Syncing lead ${event.payload.establecimiento} to CRM`);
     // await hubspotApi.createContact(event.payload);
   }
@@ -92,7 +92,7 @@ export class EmailConfirmationConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // SimulaciÃƒÆ’Ã‚Â³n: en producciÃƒÆ’Ã‚Â³n, esto enviarÃƒÆ’Ã‚Â­a un email vÃƒÆ’Ã‚Â­a Resend
+    // SimulaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n: en producciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n, esto enviarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a un email vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a Resend
     console.log(`[${this.name}] Sending confirmation email to ${event.payload.whatsapp}`);
     // await resendApi.sendEmail({ to: event.payload.whatsapp, ... });
   }
@@ -104,7 +104,7 @@ export class DashboardConsumer implements EventConsumer {
   async process(event: OutboxEvent): Promise<void> {
     if (event.eventType !== 'lead_created') return;
     
-    // SimulaciÃƒÆ’Ã‚Â³n: en producciÃƒÆ’Ã‚Â³n, esto actualizarÃƒÆ’Ã‚Â­a un contador en Redis
+    // SimulaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n: en producciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n, esto actualizarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a un contador en Redis
     console.log(`[${this.name}] Updating dashboard counter for lead ${event.eventId}`);
     // await redis.incr('leads_today_count');
   }
@@ -114,8 +114,8 @@ export class DashboardConsumer implements EventConsumer {
  * Orquestador de consumidores: procesa un evento con todos los consumidores.
  * 
  * Nota: cada consumidor se ejecuta de forma independiente. Si uno falla, los
- * demÃƒÆ’Ã‚Â¡s continÃƒÆ’Ã‚Âºan. El evento permanece en la cola para reintento del consumidor
- * fallido (garantÃƒÆ’Ã‚Â­a at-least-once de Upstash Redis).
+ * demÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s continÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºan. El evento permanece en la cola para reintento del consumidor
+ * fallido (garantÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a at-least-once de Upstash Redis).
  */
 export async function processEventWithAllConsumers(
   event: OutboxEvent,

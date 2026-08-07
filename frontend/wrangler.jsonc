@@ -1,14 +1,25 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // Debe coincidir EXACTAMENTE con el nombre del Worker en el dashboard.
   "name": "sigh-bocazo",
+
+  // Salida de @opennextjs/cloudflare (no es un entrypoint propio: lo genera el build).
   "main": ".open-next/worker.js",
-  "compatibility_date": "2026-08-06",
+
+  // OpenNext exige 2024-09-23 o posterior + nodejs_compat.
+  "compatibility_date": "2026-08-07",
   "compatibility_flags": ["nodejs_compat"],
+
+  // Assets estáticos modernos (Workers Static Assets).
+  // NO usar "site": esa es la API legada de Workers Sites, incompatible con OpenNext.
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "head_sampling_rate": 1
   }
 }

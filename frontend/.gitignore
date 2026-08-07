@@ -44,3 +44,7 @@ ADMIN_TOKEN_BACKUP.txt
 
 # Wrangler
 wrangler.toml
+
+# Cloudflare / OpenNext (artefactos de build)
+/.open-next/
+/.wrangler/

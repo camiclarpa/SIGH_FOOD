@@ -5,7 +5,8 @@
  * Alineado con RFC-001 (cola Upstash Redis), RFC-DDIA (patrón outbox, idempotencia),
  * RFC-HPBN (Edge Runtime), y Clean Architecture (función pura calcularRoi).
  */
-export const runtime = 'edge';
+// Runtime Node.js: el adaptador de Cloudflare Workers no soporta 'edge'.
+// El Worker igual se ejecuta en el edge, cerca del usuario.
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';

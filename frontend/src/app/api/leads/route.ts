@@ -37,7 +37,8 @@
  * ============================================================================
  */
 
-export const runtime = 'edge';
+// Runtime Node.js: el adaptador de Cloudflare Workers no soporta 'edge'.
+// El Worker igual se ejecuta en el edge, cerca del usuario.
 
 import { Redis } from '@upstash/redis';
 

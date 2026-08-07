@@ -1,7 +1,14 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+
+# node_modules plano: el empaquetado de OpenNext copia el árbol de
+# dependencias y no puede recrear los symlinks de pnpm en Windows sin
+# permisos de administrador (EPERM). Con hoisted no hay symlinks que copiar.
+nodeLinker: hoisted
+
 allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  workerd: true

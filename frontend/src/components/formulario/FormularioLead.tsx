@@ -61,8 +61,8 @@ export default function FormularioLead() {
       const latency = performance.now() - startTime;
 
       // Reportar latencia real a RUM (si Datadog está disponible)
-      if (typeof window !== 'undefined' && (window as any).datadogRum) {
-        (window as any).datadogRum.addAction('pilot_form_submit', {
+      if (typeof window !== 'undefined' && window.datadogRum) {
+        window.datadogRum.addAction('pilot_form_submit', {
           latency_ms: Math.round(latency),
           status: response.status,
         });

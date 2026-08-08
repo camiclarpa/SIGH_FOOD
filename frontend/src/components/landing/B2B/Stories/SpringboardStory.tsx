@@ -95,7 +95,7 @@ export function SpringboardStory() {
       <div className="space-y-6 text-xl md:text-2xl text-gray-200 leading-relaxed">
         
         <p>
-          El viernes a las 6 PM llegó el kit de SIGH_FOOD a <span className="text-[#d97325] font-semibold">tu bar</span>. El bartender jefe, escéptico, lo abrió: 5 conos, 5 elixires, instrucciones de menos de 20 segundos. <em className="text-gray-400">"Esto no va a funcionar"</em>, pensó.
+          El viernes a las 6 PM llegó el kit de SIGH_FOOD a <span className="text-[#d97325] font-semibold">tu bar</span>. El bartender jefe, escéptico, lo abrió: 5 conos, 5 elixires, instrucciones de menos de 20 segundos. <em className="text-gray-400">“Esto no va a funcionar”</em>, pensó.
         </p>
 
         <p>
@@ -143,7 +143,7 @@ export function SpringboardStory() {
         </p>
 
         <p>
-          El lunes, el bartender jefe llamó a SIGH_FOOD: <em className="text-[#f5f5f5] font-semibold">"No me quiten los conos. Queremos el contrato anual."</em>
+          El lunes, el bartender jefe llamó a SIGH_FOOD: <em className="text-[#f5f5f5] font-semibold">“No me quiten los conos. Queremos el contrato anual.”</em>
         </p>
 
       </div>
@@ -171,7 +171,7 @@ export function SpringboardStory() {
             Esta es una springboard story arquetípica. Las cifras están verificadas aritméticamente
             (120 × $32,000 = $3,840,000 ventas; 120 × $23,500 = $2,820,000 utilidad neta), pero la
             narrativa es ficticia hasta que exista un caso real que la reemplace. El borrador original
-            presentaba $2,820,000 simultáneamente como "ventas" y "ganancia neta" — corregido en v2.0
+            presentaba $2,820,000 simultáneamente como “ventas” y “ganancia neta” — corregido en v2.0
             del RFC antes de esta implementación.
           </p>
         </div>

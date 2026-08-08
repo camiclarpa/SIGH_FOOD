@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { loginAction } from './actions';
 
 // useSearchParams() obliga a renderizado en cliente: el formulario vive en un
@@ -29,7 +30,7 @@ function LoginForm() {
       } else {
         setError(result.error || 'Token inválido');
       }
-    } catch (err) {
+    } catch {
       setError('Error de conexión. Intenta nuevamente.');
     } finally {
       setIsSubmitting(false);
@@ -87,9 +88,9 @@ function LoginForm() {
         </form>
 
         <div className="mt-6 text-center">
-          <a href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
+          <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
             ← Volver al sitio público
-          </a>
+          </Link>
         </div>
       </div>
     </div>

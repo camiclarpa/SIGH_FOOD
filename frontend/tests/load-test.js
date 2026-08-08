@@ -1,4 +1,4 @@
-﻿import http from 'k6/http';
+import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 
@@ -32,7 +32,7 @@ const testLead = {
   estimatedWeeklyVolume: 100,
 };
 
-export default function () {
+export default function escenarioDeCarga() {
   const baseUrl = __ENV.BASE_URL || 'http://localhost:3000';
   
   // 1. Crear un lead (POST /api/leads)

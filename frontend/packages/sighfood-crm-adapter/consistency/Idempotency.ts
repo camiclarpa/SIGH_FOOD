@@ -31,7 +31,6 @@
  * ============================================================================
  */
 
-import * as crypto from 'crypto';
 
 export interface IdempotencyKey {
   readonly key: string;

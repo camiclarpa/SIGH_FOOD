@@ -1,4 +1,4 @@
-﻿export interface Metric {
+export interface Metric {
   name: string;
   value: number;
   timestamp: string;
@@ -61,7 +61,7 @@ class InMemoryMetrics implements MetricsClient {
 export function createMetricsMiddleware(metrics: MetricsClient) {
   return async (request: Request, next: () => Promise<Response>) => {
     const startTime = Date.now();
-    const requestId = request.headers.get('x-request-id') || 'unknown';
+    const _requestId = request.headers.get('x-request-id') || 'unknown';
     
     try {
       metrics.increment('http.requests.total', 1, {

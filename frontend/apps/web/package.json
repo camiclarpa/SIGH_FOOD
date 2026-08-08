@@ -9,16 +9,18 @@
     "start": "next start"
   },
   "dependencies": {
+    "@sighfood/crm-adapter": "workspace:*",
     "@sighfood/domain": "workspace:*",
     "@sighfood/ui": "workspace:*",
-    "@sighfood/crm-adapter": "workspace:*",
-    "next": "^14.1.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "^5.3.0",
     "@types/node": "^20.11.0",
-    "@types/react": "^19"
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.3.0"
   }
 }

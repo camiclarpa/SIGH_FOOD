@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    // El paquete se publica como TypeScript (main/types apuntan a index.ts) y
+    // lo transpila quien lo consume, así que `build` es solo verificación.
+    "noEmit": true,
+    // @sighfood/domain se consume como fuente TypeScript, sin `exports` que
+    // expongan subrutas: se mapea igual que en el tsconfig de la raíz.
+    "baseUrl": ".",
+    "paths": {
+      "@sighfood/domain": ["../sighfood-domain"],
+      "@sighfood/domain/*": ["../sighfood-domain/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

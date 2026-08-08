@@ -80,7 +80,9 @@ export class PipedriveLeadRepository implements LeadRepository {
         error: `Pipedrive API error ${response.status}: ${errorBody}`,
       };
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      // El abort de fetch llega como DOMException, que no siempre es
+      // instanceof Error; basta comprobar el name.
+      if ((error as { name?: string } | null)?.name === 'AbortError') {
         return {
           success: false,
           error: `Pipedrive timeout after ${this.timeoutMs}ms`,

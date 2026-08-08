@@ -12,8 +12,6 @@ import { describe, it, expectTypeOf } from 'vitest';
 import { z } from 'zod';
 import { B2BLeadFormPayloadSchema } from '../../src/schemas/leadForm.schema';
 import { CRMWebhookPayloadSchema } from '../../src/schemas/crmWebhook.schema';
-import { ROICalculatorInputSchema } from '../../src/schemas/roi.schema';
-import { ROICalculatorOutputSchema } from '../../src/schemas/roi.schema';
 
 type B2BLeadFormPayloadInferred = z.infer<typeof B2BLeadFormPayloadSchema>;
 type CRMWebhookPayloadInferred = z.infer<typeof CRMWebhookPayloadSchema>;

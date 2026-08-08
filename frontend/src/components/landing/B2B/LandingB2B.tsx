@@ -1,6 +1,5 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
 import MarginCalculator from './MarginCalculator';
 import PilotKitForm from './PilotKitForm';
 

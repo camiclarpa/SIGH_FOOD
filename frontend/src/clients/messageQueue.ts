@@ -1,6 +1,4 @@
-﻿import { config } from '../config';
-
-export interface LeadMessagePayload {
+﻿export interface LeadMessagePayload {
   idempotencyKey: string;
   timestamp: string;
   data: {
@@ -31,7 +29,7 @@ export interface MessageQueueClient {
   deleteMessage(receiptHandle: string): Promise<void>;
   moveToDLQ(payload: LeadMessagePayload, reason: string): Promise<void>;
   isAlreadyProcessed(idempotencyKey: string): Promise<boolean>;
-  markAsProcessed(idempotencyKey: string, metadata?: Record<string, any>): Promise<void>;
+  markAsProcessed(idempotencyKey: string, metadata?: Record<string, unknown>): Promise<void>;
   incrementRetryCount(idempotencyKey: string): Promise<number>;
   resetRetryCount(idempotencyKey: string): Promise<void>;
   getLeadStatus(idempotencyKey: string): Promise<LeadStatus | null>;
@@ -53,7 +51,7 @@ export class UpstashQueueClient implements MessageQueueClient {
     this.maxRetries = parseInt(process.env.MAX_RETRIES || '3');
   }
 
-  private async execRedisCommand(command: string[]): Promise<any> {
+  private async execRedisCommand<T = unknown>(command: string[]): Promise<{ result: T }> {
     if (this.baseUrl.includes('your-region')) {
       throw new Error('CONFIG_ERROR: Actualiza UPSTASH_REDIS_REST_URL en tu .env');
     }
@@ -69,7 +67,7 @@ export class UpstashQueueClient implements MessageQueueClient {
     if (!response.ok) {
       throw new Error(`Upstash Error: ${response.statusText}`);
     }
-    return response.json();
+    return response.json() as Promise<{ result: T }>;
   }
 
   async sendMessage(payload: LeadMessagePayload): Promise<string> {
@@ -85,7 +83,7 @@ export class UpstashQueueClient implements MessageQueueClient {
     
     await this.execRedisCommand(['SET', statusKey, initialStatus, 'EX', '604800']); // TTL 7 días
     
-    const result = await this.execRedisCommand([
+    const result = await this.execRedisCommand<string>([
       'XADD',
       streamKey,
       '*',
@@ -99,7 +97,9 @@ export class UpstashQueueClient implements MessageQueueClient {
     const streamKey = `stream:${this.queueName}`;
     
     try {
-      const result = await this.execRedisCommand([
+      // XREAD devuelve [[nombreDelStream, [[idDelMensaje, [campo, valor, …]], …]], …]
+      type RespuestaXRead = Array<[string, Array<[string, string[]]>]>;
+      const result = await this.execRedisCommand<RespuestaXRead | null>([
         'XREAD',
         'COUNT', '1',
         'BLOCK', '5000',
@@ -112,10 +112,10 @@ export class UpstashQueueClient implements MessageQueueClient {
         const streamData = result.result[0][1][0];
         const messageId = streamData[0];
         const payloadStr = streamData[1][1];
-        
+
         return {
           _receiptHandle: messageId,
-          ...JSON.parse(payloadStr),
+          ...(JSON.parse(payloadStr) as LeadMessagePayload),
         };
       }
       return null;
@@ -160,11 +160,11 @@ export class UpstashQueueClient implements MessageQueueClient {
 
   async isAlreadyProcessed(idempotencyKey: string): Promise<boolean> {
     const key = `processed:${idempotencyKey}`;
-    const result = await this.execRedisCommand(['GET', key]);
+    const result = await this.execRedisCommand<string | null>(['GET', key]);
     return result.result !== null;
   }
 
-  async markAsProcessed(idempotencyKey: string, metadata?: Record<string, any>): Promise<void> {
+  async markAsProcessed(idempotencyKey: string, metadata?: Record<string, unknown>): Promise<void> {
     const key = `processed:${idempotencyKey}`;
     await this.execRedisCommand(['SET', key, 'true', 'EX', '86400']);
     
@@ -182,7 +182,7 @@ export class UpstashQueueClient implements MessageQueueClient {
 
   async incrementRetryCount(idempotencyKey: string): Promise<number> {
     const key = `retry:${idempotencyKey}`;
-    const result = await this.execRedisCommand(['INCR', key]);
+    const result = await this.execRedisCommand<number>(['INCR', key]);
     await this.execRedisCommand(['EXPIRE', key, '3600']);
     
     // Actualizar estado a "processing" con contador de reintentos
@@ -205,8 +205,8 @@ export class UpstashQueueClient implements MessageQueueClient {
 
   async getLeadStatus(idempotencyKey: string): Promise<LeadStatus | null> {
     const statusKey = `status:${idempotencyKey}`;
-    const result = await this.execRedisCommand(['GET', statusKey]);
-    
+    const result = await this.execRedisCommand<string | null>(['GET', statusKey]);
+
     if (result.result === null) {
       return null;
     }

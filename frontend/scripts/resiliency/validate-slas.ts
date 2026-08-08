@@ -68,7 +68,7 @@ async function simularEnvioFormulario(endpoint: string): Promise<{
       tiempoMs,
       estadoFinal: response.status === 202 ? 'success' : 'error',
     };
-  } catch (error) {
+  } catch {
     return {
       exitoso: false,
       tiempoMs: Date.now() - startTime,
@@ -240,7 +240,7 @@ async function main() {
 
   reporte.resultados.forEach((resultado) => {
     const icono = resultado.cumple ? '✓' : '✗';
-    const color = resultado.cumple ? 'GREEN' : 'RED';
+    const _color = resultado.cumple ? 'GREEN' : 'RED';
     console.log(`  ${icono} ${resultado.sla}`);
     console.log(`     Objetivo: ${resultado.objetivo}`);
     console.log(`     Medido: ${resultado.medido}`);

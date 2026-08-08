@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 import { B2BLeadFormPayloadSchema } from '../../schemas/leadForm.schema';
 import { EB2BRole } from '../../domain/enums/EB2BRole';
@@ -40,7 +40,7 @@ export default function B2BLeadCaptureForm() {
     setRoiCalculado(output);
   };
 
-  const handleChange = (field: keyof FormPayload, value: any) => {
+  const handleChange = <K extends keyof FormPayload>(field: K, value: FormPayload[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setBackendErrors((prev) => prev.filter((e) => e.campo !== field));
   };
@@ -112,8 +112,8 @@ export default function B2BLeadCaptureForm() {
 
       const latency = performance.now() - startTime;
 
-      if (typeof window !== 'undefined' && (window as any).datadogRum) {
-        (window as any).datadogRum.addAction('lead_form_submit', {
+      if (typeof window !== 'undefined' && window.datadogRum) {
+        window.datadogRum.addAction('lead_form_submit', {
           latency_ms: Math.round(latency),
           status: response.status,
         });
@@ -211,7 +211,7 @@ export default function B2BLeadCaptureForm() {
             <select
               id="rol"
               value={formData.rol || EB2BRole.GERENTE_AB}
-              onChange={(e) => handleChange('rol', e.target.value)}
+              onChange={(e) => handleChange('rol', e.target.value as EB2BRole)}
               className={`w-full bg-[#2a2a2a] border rounded-lg px-4 py-3 text-[#f5f5f5] focus:outline-none focus:ring-1 transition ${
                 getFieldError('rol')
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500'

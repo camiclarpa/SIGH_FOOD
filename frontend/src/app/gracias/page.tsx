@@ -6,6 +6,7 @@
  */
 
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Solicitud Recibida | SIGH_FOOD',
@@ -75,12 +76,12 @@ export default function GraciasPage() {
         </div>
 
         <div className="space-y-4">
-          <a
+          <Link
             href="/"
             className="inline-block bg-[#d97325] hover:bg-[#c4641f] text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105"
           >
             Volver al inicio
-          </a>
+          </Link>
 
           <p className="text-sm text-gray-500">
             ¿Tienes preguntas urgentes? Escríbenos a{' '}

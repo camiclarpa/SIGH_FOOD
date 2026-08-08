@@ -1,15 +1,20 @@
-﻿/**
+﻿/** Respuesta REST de Upstash: siempre viene envuelta en `{ result: … }` */
+export interface UpstashResult<T = unknown> {
+  result: T;
+}
+
+/**
  * Helper para ejecutar comandos de Redis vía REST API (Upstash)
  * desde los Server Components de Next.js.
  */
-export async function redisCommand(command: string[]): Promise<any> {
+export async function redisCommand<T = unknown>(command: string[]): Promise<UpstashResult<T>> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   // Modo Mock si no hay credenciales configuradas
   if (!url || !token || url.includes('your-region')) {
     console.warn('[Redis Admin] Usando modo MOCK (sin credenciales reales)');
-    return { result: 0 };
+    return { result: 0 as T };
   }
 
   try {
@@ -25,28 +30,28 @@ export async function redisCommand(command: string[]): Promise<any> {
 
     if (!response.ok) {
       console.error(`[Redis Admin] Error: ${response.statusText}`);
-      return { result: 0 };
+      return { result: 0 as T };
     }
 
-    return await response.json();
+    return (await response.json()) as UpstashResult<T>;
   } catch (error) {
     console.error('[Redis Admin] Fetch error:', error);
-    return { result: 0 };
+    return { result: 0 as T };
   }
 }
 
 export async function getQueueLength(): Promise<number> {
-  const result = await redisCommand(['XLEN', 'stream:sighfood-leads-queue']);
+  const result = await redisCommand<number>(['XLEN', 'stream:sighfood-leads-queue']);
   return result.result || 0;
 }
 
 export async function getDLQLength(): Promise<number> {
-  const result = await redisCommand(['XLEN', 'stream:sighfood-leads-dlq']);
+  const result = await redisCommand<number>(['XLEN', 'stream:sighfood-leads-dlq']);
   return result.result || 0;
 }
 
 export async function getProcessedToday(): Promise<number> {
   const today = new Date().toISOString().split('T')[0];
-  const result = await redisCommand(['GET', `metrics:processed:${today}`]);
+  const result = await redisCommand<string | null>(['GET', `metrics:processed:${today}`]);
   return result.result ? parseInt(result.result, 10) : 0;
 }

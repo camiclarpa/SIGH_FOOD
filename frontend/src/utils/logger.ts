@@ -1,4 +1,4 @@
-﻿export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface LogEntry {
   timestamp: string;
@@ -6,7 +6,8 @@ export interface LogEntry {
   message: string;
   requestId?: string;
   duration?: number;
-  metadata?: Record<string, any>;
+  context?: Record<string, string>;
+  metadata?: Record<string, unknown>;
   error?: {
     message: string;
     stack?: string;
@@ -15,10 +16,10 @@ export interface LogEntry {
 }
 
 export interface Logger {
-  debug(message: string, metadata?: Record<string, any>): void;
-  info(message: string, metadata?: Record<string, any>): void;
-  warn(message: string, metadata?: Record<string, any>): void;
-  error(message: string, error?: Error, metadata?: Record<string, any>): void;
+  debug(message: string, metadata?: Record<string, unknown>): void;
+  info(message: string, metadata?: Record<string, unknown>): void;
+  warn(message: string, metadata?: Record<string, unknown>): void;
+  error(message: string, error?: Error, metadata?: Record<string, unknown>): void;
   setContext(context: Record<string, string>): void;
 }
 
@@ -40,7 +41,7 @@ class StructuredLogger implements Logger {
     return this.levelPriority[level] >= this.levelPriority[this.minLevel];
   }
 
-  private formatLog(level: LogLevel, message: string, metadata?: Record<string, any>): LogEntry {
+  private formatLog(level: LogLevel, message: string, metadata?: Record<string, unknown>): LogEntry {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -52,25 +53,25 @@ class StructuredLogger implements Logger {
     return entry;
   }
 
-  debug(message: string, metadata?: Record<string, any>): void {
+  debug(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog('debug')) return;
     const log = this.formatLog('debug', message, metadata);
     console.debug(JSON.stringify(log));
   }
 
-  info(message: string, metadata?: Record<string, any>): void {
+  info(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog('info')) return;
     const log = this.formatLog('info', message, metadata);
     console.info(JSON.stringify(log));
   }
 
-  warn(message: string, metadata?: Record<string, any>): void {
+  warn(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog('warn')) return;
     const log = this.formatLog('warn', message, metadata);
     console.warn(JSON.stringify(log));
   }
 
-  error(message: string, error?: Error, metadata?: Record<string, any>): void {
+  error(message: string, error?: Error, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog('error')) return;
     const log: LogEntry = {
       ...this.formatLog('error', message, metadata),

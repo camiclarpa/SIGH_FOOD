@@ -63,19 +63,19 @@ export function ConnectionPlot() {
       protagonista="Diego, Head Bartender de un rooftop en Bogotá"
       escenario={
         <>
-          Hacía los mejores Old Fashioned de la ciudad, pero odiaba cuando los clientes pedían <em className="text-gray-400">"algo para picar"</em> — siempre terminaba mandándolos a la cocina, <span className="text-[#d97325] font-semibold">rompiendo el momento</span>.
+          Hacía los mejores Old Fashioned de la ciudad, pero odiaba cuando los clientes pedían <em className="text-gray-400">“algo para picar”</em> — siempre terminaba mandándolos a la cocina, <span className="text-[#d97325] font-semibold">rompiendo el momento</span>.
         </>
       }
       desarrollo={
         <>
-          Cuando probó el Sweet & Salty Caramel Cone de SIGH_FOOD, empezó a recomendarlo específicamente con su Old Fashioned de bourbon ahumado: <em className="text-[#f5f5f5]">"El crujido de la sal rompe la dulzura pegajosa del bourbon, y el caramelo eleva las notas de vainilla del barril."</em>
+          Cuando probó el Sweet & Salty Caramel Cone de SIGH_FOOD, empezó a recomendarlo específicamente con su Old Fashioned de bourbon ahumado: <em className="text-[#f5f5f5]">“El crujido de la sal rompe la dulzura pegajosa del bourbon, y el caramelo eleva las notas de vainilla del barril.”</em>
           <br /><br />
-          Los clientes empezaron a pedirlo por su nombre: <em className="text-[#d97325] font-semibold">"Diego, tráenos el cono de caramelo con los Old Fashioned."</em>
+          Los clientes empezaron a pedirlo por su nombre: <em className="text-[#d97325] font-semibold">“Diego, tráenos el cono de caramelo con los Old Fashioned.”</em>
         </>
       }
       desenlace={
         <>
-          Diego dejó de ser <em className="text-gray-400">"el que sirve tragos"</em> y se convirtió en <em className="text-[#f5f5f5] font-semibold">"el que diseña la experiencia completa."</em>
+          Diego dejó de ser <em className="text-gray-400">“el que sirve tragos”</em> y se convirtió en <em className="text-[#f5f5f5] font-semibold">“el que diseña la experiencia completa.”</em>
           <br /><br />
           Sus propinas aumentaron <span className="text-[#d97325] font-bold">40% en el primer mes</span>.
         </>

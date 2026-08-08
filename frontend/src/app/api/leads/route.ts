@@ -49,9 +49,11 @@ export async function POST(request: Request) {
   
   try {
     // Parsear body (validación de formato)
-    let formData: any;
+    // El body llega sin validar: se tipa como registro de `unknown` para que
+    // cada campo tenga que comprobarse antes de usarse.
+    let formData: Record<string, unknown>;
     try {
-      formData = await request.json();
+      formData = (await request.json()) as Record<string, unknown>;
     } catch {
       return new Response(
         JSON.stringify({ error: 'Body inválido, debe ser JSON' }),
@@ -114,7 +116,7 @@ export async function POST(request: Request) {
       { status: 202, headers: { 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch {
     const latency = performance.now() - startTime;
     
     // Error interno del servidor (Upstash Redis caído, etc.)

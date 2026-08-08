@@ -6,7 +6,7 @@ export interface CRMContact {
   email?: string;
   phone: string;
   company?: string;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export interface CRMDeal {
@@ -15,13 +15,23 @@ export interface CRMDeal {
   currency: string;
   stageId?: number;
   contactId?: string;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export interface CRMClient {
   createContact(contact: CRMContact): Promise<string>;
   createDeal(deal: CRMDeal): Promise<string>;
   updateDealStatus(dealId: string, status: string): Promise<void>;
+}
+
+/** Envoltura estándar de las respuestas de la API de Pipedrive */
+interface PipedriveResponse<T> {
+  data: T;
+}
+
+/** Entidad creada por Pipedrive (persona, deal…). El id llega como número. */
+interface PipedriveEntity {
+  id: number;
 }
 
 /**
@@ -37,7 +47,7 @@ export class PipedriveClient implements CRMClient {
     this.apiToken = process.env.PIPEDRIVE_API_TOKEN || '';
   }
 
-  private async makeRequest(method: string, endpoint: string, body?: any): Promise<any> {
+  private async makeRequest<T>(method: string, endpoint: string, body?: unknown): Promise<T> {
     if (!this.apiToken || this.apiToken === 'your_pipedrive_api_token_here') {
       throw new Error('CONFIG_ERROR: Configura PIPEDRIVE_API_TOKEN en tu .env');
     }
@@ -57,7 +67,7 @@ export class PipedriveClient implements CRMClient {
       throw new Error(`Pipedrive API Error ${response.status}: ${errorText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   async createContact(contact: CRMContact): Promise<string> {
@@ -72,8 +82,8 @@ export class PipedriveClient implements CRMClient {
       ...contact.customFields,
     };
 
-    const result = await this.makeRequest('POST', '/persons', payload);
-    const contactId = result.data.id;
+    const result = await this.makeRequest<PipedriveResponse<PipedriveEntity>>('POST', '/persons', payload);
+    const contactId = String(result.data.id);
     
     logger.info('Contacto creado exitosamente', { contactId });
     metricsClient.increment('crm.contact_created');
@@ -93,8 +103,8 @@ export class PipedriveClient implements CRMClient {
       ...deal.customFields,
     };
 
-    const result = await this.makeRequest('POST', '/deals', payload);
-    const dealId = result.data.id;
+    const result = await this.makeRequest<PipedriveResponse<PipedriveEntity>>('POST', '/deals', payload);
+    const dealId = String(result.data.id);
     
     logger.info('Deal creado exitosamente', { dealId });
     metricsClient.increment('crm.deal_created');
@@ -120,7 +130,7 @@ export class PipedriveClient implements CRMClient {
       return;
     }
 
-    await this.makeRequest('PUT', `/deals/${dealId}`, { stage_id: stageId });
+    await this.makeRequest<PipedriveResponse<PipedriveEntity>>('PUT', `/deals/${dealId}`, { stage_id: stageId });
     logger.info('Deal actualizado', { dealId, stageId });
   }
 }

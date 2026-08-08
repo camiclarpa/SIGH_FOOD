@@ -101,7 +101,7 @@ async function reenviarLeadDesdeServiceWorker(tag) {
     }
     // Si falla (4xx o 5xx), no eliminamos de IndexedDB — el navegador
     // re-disparará el evento 'sync' más tarde (reintentos automáticos)
-  } catch (error) {
+  } catch {
     // Error de red o IndexedDB — el navegador reintentará automáticamente
   }
 }
@@ -179,7 +179,7 @@ async function limpiarLeadsAntiguos(maxDias = 30) {
     };
 
     await tx.done;
-  } catch (error) {
+  } catch {
     // Fallo silencioso — no crítico
   }
 }

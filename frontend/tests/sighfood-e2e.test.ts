@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LeadSchema } from '../src/validators/api';
 import { messageQueueClient } from '../src/clients/messageQueue';
 import { crmClient } from '../src/integrations/crmClient';
@@ -150,7 +150,7 @@ describe('SIGH_FOOD E2E Integration Tests', () => {
 
     it('debería manejar idempotencia correctamente (no duplicar)', async () => {
       const mockLead = { idempotencyKey: 'duplicate-test-key' };
-      (messageQueueClient.isAlreadyProcessed as any).mockResolvedValueOnce(true);
+      vi.mocked(messageQueueClient.isAlreadyProcessed).mockResolvedValueOnce(true);
 
       const isProcessed = await messageQueueClient.isAlreadyProcessed(mockLead.idempotencyKey);
       expect(isProcessed).toBe(true);
@@ -201,7 +201,7 @@ describe('SIGH_FOOD E2E Integration Tests', () => {
     });
 
     it('debería retornar null para un lead inexistente', async () => {
-      (messageQueueClient.getLeadStatus as any).mockResolvedValueOnce(null);
+      vi.mocked(messageQueueClient.getLeadStatus).mockResolvedValueOnce(null);
       const status = await messageQueueClient.getLeadStatus('non-existent-key');
       expect(status).toBeNull();
     });

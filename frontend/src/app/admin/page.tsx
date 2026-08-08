@@ -1,5 +1,4 @@
-﻿import { logoutAction } from './login/actions';
-import { getQueueLength, getDLQLength, getProcessedToday } from '@/lib/redisAdmin';
+﻿import { getQueueLength, getDLQLength, getProcessedToday } from '@/lib/redisAdmin';
 
 // Componente UI para las tarjetas de métricas
 function MetricCard({ title, value, subtitle, color }: { title: string; value: number | string; subtitle: string; color: string }) {

@@ -27,6 +27,27 @@
  */
 
 /**
+ * SDKs de observabilidad que se inyectan en `window` desde fuera del bundle
+ * (script de Sentry, snippet de Segment/analytics). Ambos son opcionales:
+ * si no están cargados, la telemetría degrada a un no-op silencioso.
+ */
+interface VentanaConObservabilidad extends Window {
+  Sentry?: {
+    captureMessage(
+      mensaje: string,
+      contexto?: {
+        level?: string;
+        extra?: unknown;
+        tags?: Record<string, string | undefined>;
+      },
+    ): void;
+  };
+  analytics?: {
+    track(evento: string, propiedades?: Record<string, unknown>): void;
+  };
+}
+
+/**
  * Tipos de evento de resiliencia — discriminated union para exhaustividad
  * en el renderizado de dashboards y en el manejo condicional de alertas.
  *
@@ -99,9 +120,13 @@ export function enviarEventoAObservabilidad(evento: EventoResilienciaLead): void
   try {
     const nivel = NIVEL_POR_EVENTO[evento.evento];
 
+    const ventana = typeof window !== 'undefined'
+      ? (window as VentanaConObservabilidad)
+      : undefined;
+
     // 1. Envío a Sentry (si está disponible en el entorno)
-    if (typeof window !== 'undefined' && (window as any).Sentry) {
-      (window as any).Sentry.captureMessage(`[Resiliency] ${evento.evento}`, {
+    if (ventana?.Sentry) {
+      ventana.Sentry.captureMessage(`[Resiliency] ${evento.evento}`, {
         level: nivel,
         extra: evento,
         tags: {
@@ -112,8 +137,8 @@ export function enviarEventoAObservabilidad(evento: EventoResilienciaLead): void
     }
 
     // 2. Envío a Analytics (si está disponible en el entorno)
-    if (typeof window !== 'undefined' && (window as any).analytics) {
-      (window as any).analytics.track('lead_resiliency_event', {
+    if (ventana?.analytics) {
+      ventana.analytics.track('lead_resiliency_event', {
         ...evento,
         nivel,
       });

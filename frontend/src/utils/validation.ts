@@ -1,4 +1,4 @@
-﻿import { z, ZodError } from 'zod';
+import { z } from 'zod';
 
 export interface ValidationResult<T> {
   success: boolean;
@@ -43,10 +43,10 @@ export function createErrorResponse(
   };
 }
 
-export async function validateAndProcess<T>(
+export async function validateAndProcess<T, R>(
   schema: z.ZodType<T>,
   data: unknown,
-  processor: (validatedData: T) => Promise<any>
+  processor: (validatedData: T) => Promise<R>
 ) {
   const validation = validateSchema(schema, data);
   

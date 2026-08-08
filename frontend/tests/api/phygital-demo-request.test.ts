@@ -9,7 +9,7 @@
  *   - RFC-002 Sección 7: Endpoints de API
  *   - RFC-002 Sección 7.2: Tabla de códigos de respuesta
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { B2BLeadFormPayloadSchema } from '../../src/schemas/leadForm.schema';
 import { CRMWebhookPayloadSchema } from '../../src/schemas/crmWebhook.schema';
 import { EB2BRole } from '../../src/domain/enums/EB2BRole';

@@ -18,6 +18,15 @@
     "binding": "ASSETS"
   },
 
+  // Hyperdrive: agrupa conexiones a la base PostgreSQL de Neon (config "sighfood-db").
+  // Se accede desde las rutas de Next con getCloudflareContext(), NO con un handler fetch(env).
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "be704b244ff041d0b3200284bff8c965"
+    }
+  ],
+
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

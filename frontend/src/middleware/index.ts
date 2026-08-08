@@ -104,7 +104,10 @@ export async function metricsMiddleware(
   }
 }
 
-export function createMiddlewareChain(...middlewares: Function[]) {
+/** Un middleware envuelve al siguiente handler de la cadena. */
+type MiddlewareFn = (request: Request, next: () => Promise<Response>) => Promise<Response>;
+
+export function createMiddlewareChain(...middlewares: MiddlewareFn[]) {
   return async (request: Request, handler: () => Promise<Response>): Promise<Response> => {
     let currentHandler = handler;
     

@@ -2,6 +2,19 @@
 import { redisCommand } from '@/lib/redisAdmin';
 
 /**
+ * Lead recuperado de la DLQ. El JSON del stream no está tipado en origen, así
+ * que solo se declaran los campos que la alerta necesita leer; si el parseo
+ * falla se conserva el mensaje crudo en `raw`.
+ */
+interface FailedLead {
+  establishmentName?: string;
+  data?: { establishmentName?: string };
+  dlqReason?: string;
+  lastError?: string;
+  raw?: [string, string[]];
+}
+
+/**
  * API Route protegida que verifica la Dead Letter Queue (DLQ)
  * y envía alertas al equipo si hay leads fallidos.
  * 
@@ -38,7 +51,7 @@ export async function GET(request: NextRequest) {
   
   try {
     // 2. CONSULTAR TAMAÑO DE LA DLQ EN REDIS
-    const dlqResult = await redisCommand(['XLEN', 'stream:sighfood-leads-dlq']);
+    const dlqResult = await redisCommand<number>(['XLEN', 'stream:sighfood-leads-dlq']);
     const dlqSize = dlqResult.result || 0;
     
     const threshold = parseInt(process.env.CRON_DLQ_THRESHOLD || '1');
@@ -50,7 +63,8 @@ export async function GET(request: NextRequest) {
       console.warn(`[Cron DLQ] ⚠ ALERTA: ${dlqSize} leads en DLQ requieren atención`);
       
       // Leer los últimos N mensajes de la DLQ para incluirlos en la alerta
-      const messagesResult = await redisCommand([
+      // XRANGE devuelve [idDelMensaje, [campo1, valor1, campo2, valor2, …]]
+      const messagesResult = await redisCommand<Array<[string, string[]]>>([
         'XRANGE',
         'stream:sighfood-leads-dlq',
         '-',
@@ -58,8 +72,8 @@ export async function GET(request: NextRequest) {
         'COUNT',
         '10' // Máximo 10 mensajes en la alerta
       ]);
-      
-      const failedLeads = (messagesResult.result || []).map((msg: any[]) => {
+
+      const failedLeads: FailedLead[] = (messagesResult.result || []).map((msg) => {
         try {
           const dataStr = msg[1][1]; // El campo 'data' del stream
           return JSON.parse(dataStr);
@@ -116,7 +130,7 @@ export async function GET(request: NextRequest) {
  * Envía alerta de DLQ al equipo de ventas
  * Usa Resend (email) como canal principal por ser más confiable para alertas
  */
-async function sendDLQAlert(dlqSize: number, failedLeads: any[]): Promise<void> {
+async function sendDLQAlert(dlqSize: number, failedLeads: FailedLead[]): Promise<void> {
   const resendKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'noreply@sighfood.com';
   const toEmail = process.env.SALES_TEAM_EMAIL || 'ventas@sighfood.com';

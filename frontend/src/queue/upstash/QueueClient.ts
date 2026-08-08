@@ -90,7 +90,7 @@ export class QueueClient {
    * Usa BRPOP para consumo asíncrono — el worker espera hasta que haya
    * un evento disponible, evitando polling innecesario.
    */
-  async dequeueLead(timeoutSeconds: number = 5): Promise<string | null> {
+  async dequeueLead(_timeoutSeconds: number = 5): Promise<string | null> {
     const result = await this.redis.rpop<string>(this.config.queueName);
     return result ?? null;
   }

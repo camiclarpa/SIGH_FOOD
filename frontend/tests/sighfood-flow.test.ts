@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { LeadSchema } from '../src/validators/api';
 import { messageQueueClient } from '../src/clients/messageQueue';
 import { logger } from '../src/utils/logger';
@@ -67,7 +67,7 @@ describe('SIGH_FOOD Integration Tests', () => {
     });
 
     it('debería saltar el procesamiento si el lead ya fue procesado (Idempotencia)', async () => {
-      (messageQueueClient.isAlreadyProcessed as any).mockResolvedValueOnce(true);
+      vi.mocked(messageQueueClient.isAlreadyProcessed).mockResolvedValueOnce(true);
 
       const mockMessage = { idempotencyKey: 'key-duplicate' };
       

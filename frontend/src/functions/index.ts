@@ -1,7 +1,6 @@
-﻿import { z } from 'zod';
 import { LeadSchema } from '../validators/api';
 import { messageQueueClient } from '../clients/messageQueue';
-import { validateAndProcess, createErrorResponse } from '../utils/validation';
+import { createErrorResponse } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { metricsClient } from '../utils/metrics';
 
@@ -16,7 +15,8 @@ import { metricsClient } from '../utils/metrics';
 interface EdgeResponse {
   status: number;
   headers: Record<string, string>;
-  body: any;
+  /** Se serializa con JSON.stringify antes de salir. */
+  body: unknown;
 }
 
 export async function handleRequest(request: Request): Promise<Response> {
@@ -115,7 +115,7 @@ async function handleCreateLead(request: Request, requestId: string): Promise<Ed
   }
 }
 
-async function handleGetLeadStatus(url: URL, requestId: string): Promise<EdgeResponse> {
+async function handleGetLeadStatus(url: URL, _requestId: string): Promise<EdgeResponse> {
   const idempotencyKey = url.searchParams.get('idempotencyKey');
   if (!idempotencyKey) {
     return { status: 400, headers: { 'content-type': 'application/json' }, body: { error: 'Missing idempotencyKey' } };
@@ -133,7 +133,7 @@ async function handleGetLeadStatus(url: URL, requestId: string): Promise<EdgeRes
   };
 }
 
-async function handleHealthCheck(requestId: string): Promise<EdgeResponse> {
+async function handleHealthCheck(_requestId: string): Promise<EdgeResponse> {
   return {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -141,8 +141,10 @@ async function handleHealthCheck(requestId: string): Promise<EdgeResponse> {
   };
 }
 
-export default {
+const edgeHandler = {
   async fetch(request: Request): Promise<Response> {
     return handleRequest(request);
   },
 };
+
+export default edgeHandler;

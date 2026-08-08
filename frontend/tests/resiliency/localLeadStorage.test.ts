@@ -31,7 +31,7 @@ const localStorageMock = (() => {
     setItem: vi.fn((key: string, value: string) => {
       if (shouldThrowQuotaExceeded) {
         const error = new DOMException('Quota exceeded', 'QuotaExceededError');
-        (error as any).code = 22;
+        (error as { code: number }).code = 22;
         throw error;
       }
       store[key] = value;

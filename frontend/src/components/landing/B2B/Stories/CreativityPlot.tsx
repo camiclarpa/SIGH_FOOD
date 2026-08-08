@@ -74,12 +74,12 @@ export function CreativityPlot() {
           <br /><br />
           El primer lunes, <span className="text-[#d97325] font-semibold">el caneco de basura de la prep-cocina estaba completamente vacío</span>.
           <br /><br />
-          El bartender jefe rediseñó el flujo de la barra: los kits RTA ahora viven en un cajón debajo de la estación de garnish, y el tiempo de <em className="text-gray-400">"trago + snack"</em> bajó de <span className="text-[#d97325] font-semibold">8 minutos a 45 segundos</span>.
+          El bartender jefe rediseñó el flujo de la barra: los kits RTA ahora viven en un cajón debajo de la estación de garnish, y el tiempo de <em className="text-gray-400">“trago + snack”</em> bajó de <span className="text-[#d97325] font-semibold">8 minutos a 45 segundos</span>.
         </>
       }
       desenlace={
         <>
-          Andrés lo promovió a <em className="text-[#f5f5f5] font-semibold">"Director de Experiencia de Barra."</em>
+          Andrés lo promovió a <em className="text-[#f5f5f5] font-semibold">“Director de Experiencia de Barra.”</em>
         </>
       }
       cifrasVerificadas={[

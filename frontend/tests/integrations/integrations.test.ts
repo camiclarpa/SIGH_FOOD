@@ -8,6 +8,7 @@ import { HubSpotLeadRepository } from '../../src/integrations/crm/HubSpotClient'
 import { PipedriveLeadRepository } from '../../src/integrations/crm/PipedriveClient';
 import { SlackNotifier } from '../../src/integrations/notifications/SlackNotifier';
 import { IntegrationOrchestrator } from '../../src/integrations/IntegrationOrchestrator';
+import type { LeadRepository } from '../../src/domain/ports/LeadRepository';
 
 // Mock de fetch global
 const mockFetch = vi.fn();
@@ -81,11 +82,12 @@ describe('HubSpotLeadRepository', () => {
   });
 
   it('debería manejar timeout', async () => {
-    mockFetch.mockImplementationOnce(() => {
-      return new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('AbortError')), 100);
-      });
-    });
+    // El cliente distingue el timeout por `error.name === 'AbortError'`, y
+    // `new Error('AbortError')` solo pone ese texto en el mensaje: name sigue
+    // siendo 'Error'. Un abort real es un DOMException con ese name.
+    mockFetch.mockRejectedValueOnce(
+      new DOMException('The operation was aborted', 'AbortError')
+    );
 
     const repository = new HubSpotLeadRepository('test-token', 'https://api.hubapi.com', 50);
 
@@ -178,9 +180,10 @@ describe('IntegrationOrchestrator', () => {
       notifyNewLead: vi.fn().mockResolvedValue(undefined),
     };
 
+    // Dobles parciales: solo implementan los métodos que ejercita este test.
     const orchestrator = new IntegrationOrchestrator(
-      mockCrm as any,
-      mockSlack as any
+      mockCrm as unknown as LeadRepository,
+      mockSlack as unknown as SlackNotifier
     );
 
     const lead = {

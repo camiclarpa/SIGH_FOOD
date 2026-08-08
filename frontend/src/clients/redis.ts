@@ -1,12 +1,15 @@
-﻿import { config } from '../config';
-
-export interface RedisClient {
+﻿export interface RedisClient {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttl?: number): Promise<void>;
   delete(key: string): Promise<boolean>;
   expire(key: string, ttl: number): Promise<void>;
   ping(): Promise<string>;
   disconnect(): Promise<void>;
+}
+
+/** Respuesta REST de Upstash: siempre viene envuelta en `{ result: … }` */
+interface UpstashResponse<T> {
+  result: T;
 }
 
 // Implementación para Cloudflare Workers (Upstash Redis)
@@ -19,7 +22,7 @@ export class UpstashRedisClient implements RedisClient {
     this.token = process.env.UPSTASH_REDIS_REST_TOKEN || '';
   }
 
-  private async request(command: string[], options?: any): Promise<any> {
+  private async request<T>(command: string[], options?: RequestInit): Promise<UpstashResponse<T>> {
     const path = command.map(encodeURIComponent).join('/');
     const response = await fetch(`${this.baseUrl}/${path}`, {
       headers: {
@@ -32,33 +35,33 @@ export class UpstashRedisClient implements RedisClient {
       throw new Error(`Redis error: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<UpstashResponse<T>>;
   }
 
   async get(key: string): Promise<string | null> {
-    const result = await this.request(['get', key]);
+    const result = await this.request<string | null>(['get', key]);
     return result.result;
   }
 
   async set(key: string, value: string, ttl?: number): Promise<void> {
     if (ttl) {
-      await this.request(['set', key, value, 'EX', ttl.toString()]);
+      await this.request<string>(['set', key, value, 'EX', ttl.toString()]);
     } else {
-      await this.request(['set', key, value]);
+      await this.request<string>(['set', key, value]);
     }
   }
 
   async delete(key: string): Promise<boolean> {
-    const result = await this.request(['del', key]);
+    const result = await this.request<number>(['del', key]);
     return result.result > 0;
   }
 
   async expire(key: string, ttl: number): Promise<void> {
-    await this.request(['expire', key, ttl.toString()]);
+    await this.request<number>(['expire', key, ttl.toString()]);
   }
 
   async ping(): Promise<string> {
-    const result = await this.request(['ping']);
+    const result = await this.request<string>(['ping']);
     return result.result;
   }
 
@@ -69,19 +72,19 @@ export class UpstashRedisClient implements RedisClient {
 
 // Implementación genérica
 export class GenericRedisClient implements RedisClient {
-  private client: any;
+  // El cliente subyacente (ioredis o similar) se declarará al implementar esta clase.
 
   constructor() {
     // Implementación para ioredis o similar
     // this.client = new Redis(config.redis.url);
   }
 
-  async get(key: string): Promise<string | null> {
+  async get(_key: string): Promise<string | null> {
     // return this.client.get(key);
     throw new Error('Not implemented');
   }
 
-  async set(key: string, value: string, ttl?: number): Promise<void> {
+  async set(_key: string, _value: string, _ttl?: number): Promise<void> {
     // if (ttl) {
     //   await this.client.setex(key, ttl, value);
     // } else {
@@ -90,13 +93,13 @@ export class GenericRedisClient implements RedisClient {
     throw new Error('Not implemented');
   }
 
-  async delete(key: string): Promise<boolean> {
+  async delete(_key: string): Promise<boolean> {
     // const result = await this.client.del(key);
     // return result > 0;
     throw new Error('Not implemented');
   }
 
-  async expire(key: string, ttl: number): Promise<void> {
+  async expire(_key: string, _ttl: number): Promise<void> {
     // await this.client.expire(key, ttl);
     throw new Error('Not implemented');
   }

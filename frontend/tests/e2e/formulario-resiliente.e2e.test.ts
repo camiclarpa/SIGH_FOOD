@@ -25,6 +25,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useEnvioResilienteDeLead } from '../../src/components/resiliency/FormularioLeadResiliente';
 import type { B2BLeadFormPayloadInferred } from '../../src/domain/leads/B2BLeadFormPayload';
+import {
+  instalarServiceWorker,
+  quitarServiceWorker,
+  instalarSyncManager,
+  quitarSyncManager,
+  instalarGlobalDeVentana,
+  quitarGlobalDeVentana,
+} from '../helpers/browserEnv';
 
 // Mock de fetch global
 const mockFetch = vi.fn();
@@ -40,7 +48,7 @@ const localStorageMock = (() => {
     setItem: vi.fn((key: string, value: string) => {
       if (shouldThrowQuotaExceeded) {
         const error = new DOMException('Quota exceeded', 'QuotaExceededError');
-        (error as any).code = 22;
+        (error as { code: number }).code = 22;
         throw error;
       }
       store[key] = value;
@@ -65,19 +73,14 @@ const mockServiceWorker = {
   }),
 };
 
-Object.defineProperty(globalThis, 'navigator', {
-  value: { serviceWorker: mockServiceWorker },
-  writable: true,
-});
-
-Object.defineProperty(globalThis, 'window', {
-  value: { SyncManager: {} },
-  writable: true,
-});
+// Se parchean solo estas dos capacidades: reemplazar `window`/`navigator`
+// enteros dejaría a React sin DOM y renderHook devolvería null.
+instalarServiceWorker(mockServiceWorker);
+instalarSyncManager();
 
 // Mock de AbortSignal.timeout
 if (!AbortSignal.timeout) {
-  (AbortSignal as any).timeout = (ms: number) => {
+  (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout = (ms: number) => {
     const controller = new AbortController();
     setTimeout(() => controller.abort(new DOMException('Timeout', 'TimeoutError')), ms);
     return controller.signal;
@@ -97,16 +100,49 @@ const payloadDePrueba: B2BLeadFormPayloadInferred = {
   },
 };
 
+/** Forma mínima de lo que devuelve renderHook para este hook. */
+type ResultadoDelHook = {
+  current: {
+    enviar: (payload: B2BLeadFormPayloadInferred) => Promise<void>;
+    estado: { tipo: string; enlaceWhatsApp?: string };
+  };
+};
+
+/**
+ * Lanza `enviar` y hace correr los timers falsos durante toda la ventana de
+ * reintentos (2s + 4s + 8s = 14s).
+ *
+ * No sirve un `await enviar(...)` a secas: el backoff usa setTimeout y, con
+ * fake timers activos, esos temporizadores no avanzan solos. La promesa se
+ * quedaría pendiente y el test expiraría antes de comprobar nada — que es
+ * justo lo que hacía fallar a esta suite entera.
+ */
+async function enviarYAgotarReintentos(
+  result: ResultadoDelHook,
+  msAAvanzar = 15_000
+): Promise<void> {
+  await act(async () => {
+    const envio = result.current.enviar(payloadDePrueba);
+    await vi.advanceTimersByTimeAsync(msAAvanzar);
+    await envio;
+  });
+}
+
 describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
   beforeEach(() => {
     localStorageMock.clear();
     localStorageMock.simularQuotaExceeded(false);
     vi.clearAllMocks();
     vi.useFakeTimers();
+    // Punto de partida común: los tests que simulan Safari/iOS retiran estas
+    // capacidades, así que hay que reponerlas antes de cada caso.
+    instalarServiceWorker(mockServiceWorker);
+    instalarSyncManager();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    quitarGlobalDeVentana('Sentry');
   });
 
   // ────────────────────────────────────────────────────────────────────────
@@ -114,22 +150,18 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
   // ─────────────────────────────────────────────────────────────────────────
   describe('F1: Timeout de API (5s)', () => {
     it('debería escalar a Estrategia A cuando la API tarda más de 5s', async () => {
-      // Simular respuesta lenta (6s)
-      mockFetch.mockImplementationOnce(
-        () => new Promise((resolve) => setTimeout(() => resolve({ status: 202 }), 6000))
+      // Se simula el efecto observable del timeout —el AbortError que emite
+      // AbortSignal.timeout(5000)— en vez de esperar 5 segundos de reloj.
+      // Con fake timers el temporizador interno de AbortSignal no avanza, así
+      // que dejar correr el tiempo colgaría el test sin probar nada.
+      mockFetch.mockRejectedValueOnce(
+        new DOMException('The operation was aborted', 'AbortError')
       );
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
-      const startTime = Date.now();
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
+      await enviarYAgotarReintentos(result);
 
-      const elapsed = Date.now() - startTime;
-
-      // Debería fallar por timeout antes de 6s (AbortSignal.timeout = 5s)
-      expect(elapsed).toBeLessThan(6000);
       // Debería haber escalado a Estrategia A (loading → fallback)
       expect(result.current.estado.tipo).not.toBe('idle');
     });
@@ -143,9 +175,9 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
       const { result } = renderHook(() => useEnvioResilienteDeLead());
       const startTime = Date.now();
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
+      // Sin avanzar el reloj: el camino feliz no debe consumir nada de la
+      // ventana de 5s, y adelantar timers falsearía la medición.
+      await enviarYAgotarReintentos(result, 0);
 
       const elapsed = Date.now() - startTime;
       expect(elapsed).toBeLessThan(5000);
@@ -163,14 +195,8 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      // Avanzar tiempo para los 3 reintentos (2s + 4s + 8s = 14s)
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      // El helper ya cubre los 3 reintentos (2s + 4s + 8s = 14s)
+      await enviarYAgotarReintentos(result);
 
       // Verificar que el Lead fue guardado en LocalStorage
       const stored = localStorageMock.getItem('sighfood_pending_leads');
@@ -186,13 +212,7 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      await enviarYAgotarReintentos(result);
 
       expect(result.current.estado.tipo).toBe('fallback-required');
       if (result.current.estado.tipo === 'fallback-required') {
@@ -211,9 +231,7 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
+      await enviarYAgotarReintentos(result);
 
       // Debería estar en fallback-required inmediatamente, sin reintentos
       expect(result.current.estado.tipo).toBe('fallback-required');
@@ -225,16 +243,11 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const mockSentry = { captureMessage: vi.fn() };
-      Object.defineProperty(globalThis, 'window', {
-        value: { Sentry: mockSentry, SyncManager: {} },
-        writable: true,
-      });
+      instalarGlobalDeVentana('Sentry', mockSentry);
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
+      await enviarYAgotarReintentos(result);
 
       expect(mockSentry.captureMessage).toHaveBeenCalledWith(
         expect.stringContaining('localstorage_quota_exceeded'),
@@ -252,13 +265,7 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      await enviarYAgotarReintentos(result);
 
       // Verificar que se registró el sync tag
       expect(mockServiceWorker.ready).toBeDefined();
@@ -271,13 +278,7 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      await enviarYAgotarReintentos(result);
 
       expect(result.current.estado.tipo).toBe('fallback-required');
     });
@@ -289,45 +290,30 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
   describe('F6: Navegador sin soporte de Background Sync', () => {
     it('debería detectar ausencia de soporte y escalar a WhatsApp', async () => {
       // Simular Safari/iOS sin SyncManager
-      Object.defineProperty(globalThis, 'navigator', { value: {}, writable: true });
-      Object.defineProperty(globalThis, 'window', { value: {}, writable: true });
+      quitarServiceWorker();
+      quitarSyncManager();
 
       mockFetch.mockRejectedValue(new Error('Network error'));
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      await enviarYAgotarReintentos(result);
 
       expect(result.current.estado.tipo).toBe('fallback-required');
     });
 
     it('debería notificar evento background_sync_unsupported', async () => {
-      Object.defineProperty(globalThis, 'navigator', { value: {}, writable: true });
-      Object.defineProperty(globalThis, 'window', { value: {}, writable: true });
+      quitarServiceWorker();
+      quitarSyncManager();
 
       const mockSentry = { captureMessage: vi.fn() };
-      Object.defineProperty(globalThis, 'window', {
-        value: { Sentry: mockSentry },
-        writable: true,
-      });
+      instalarGlobalDeVentana('Sentry', mockSentry);
 
       mockFetch.mockRejectedValue(new Error('Network error'));
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      await enviarYAgotarReintentos(result);
 
       expect(mockSentry.captureMessage).toHaveBeenCalledWith(
         expect.stringContaining('background_sync_unsupported'),
@@ -356,13 +342,9 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
         mockFetch.mockImplementationOnce(escenario.fetch);
         const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-        await act(async () => {
-          await result.current.enviar(payloadDePrueba);
-        });
-
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(15000);
-        });
+        // 30s: el escenario 'F1 timeout' tarda 6s en rechazar y solo entonces
+        // arranca la ventana de reintentos de 14s.
+        await enviarYAgotarReintentos(result, 30_000);
 
         const estadoFinal = result.current.estado.tipo;
         const esEstadoTerminal =
@@ -379,13 +361,7 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
 
       const { result } = renderHook(() => useEnvioResilienteDeLead());
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(15000);
-      });
+      await enviarYAgotarReintentos(result);
 
       // Verificar que hay registro en LocalStorage O enlace WhatsApp
       const stored = localStorageMock.getItem('sighfood_pending_leads');
@@ -402,9 +378,9 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
       const { result } = renderHook(() => useEnvioResilienteDeLead());
       const startTime = Date.now();
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
+      // Con la cuota agotada se salta a WhatsApp sin reintentos, así que no hay
+      // timers que adelantar: el reloj tiene que quedarse quieto para medir.
+      await enviarYAgotarReintentos(result, 0);
 
       const elapsed = Date.now() - startTime;
 
@@ -418,14 +394,8 @@ describe('Tests E2E - Modos de Fallo del FMEA (RFC-003)', () => {
       const { result } = renderHook(() => useEnvioResilienteDeLead());
       const startTime = Date.now();
 
-      await act(async () => {
-        await result.current.enviar(payloadDePrueba);
-      });
-
-      // Avanzar exactamente 14s (2s + 4s + 8s)
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(14000);
-      });
+      // Exactamente 14s (2s + 4s + 8s): es la ventana que este SLA verifica.
+      await enviarYAgotarReintentos(result, 14_000);
 
       const elapsed = Date.now() - startTime;
 

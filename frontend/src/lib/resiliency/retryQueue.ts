@@ -22,7 +22,6 @@
  *     escale a Background Sync o Estrategia C (WhatsApp)
  */
 import {
-  guardarLeadPendiente,
   obtenerLeadsPendientes,
   actualizarIntentosDeReintento,
   marcarComoSincronizado as marcarSincronizadoStorage,
@@ -113,7 +112,7 @@ export async function reintentarConBackoff(
       }
 
       // 5xx: error del servidor — continuar al siguiente intento del backoff
-    } catch (error) {
+    } catch {
       // Error de red (fetch falló) o timeout — continuar al siguiente intento
       // No logueamos aquí para no saturar la consola con errores esperados
     }

@@ -25,9 +25,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calcularRoiMensual } from '../packages/sighfood-domain/rules/calcularRoi';
-import { validarFormularioLead } from '../packages/sighfood-domain/rules/validarFormularioLead';
-import { obtenerConoPorId, PORTAFOLIO_CONOS } from '../packages/sighfood-domain/entities/Cono';
+import { calcularRoiMensual } from '../../packages/sighfood-domain/rules/calcularRoi';
+import { validarFormularioLead } from '../../packages/sighfood-domain/rules/validarFormularioLead';
+import { obtenerConoPorId, PORTAFOLIO_CONOS } from '../../packages/sighfood-domain/entities/Cono';
 
 describe('Dominio SIGH_FOOD - Tests sin navegador', () => {
   describe('calcularRoiMensual', () => {

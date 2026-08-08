@@ -25,8 +25,8 @@ import * as path from 'path';
 
 function checkForCyclicImports(): void {
   const domainPath = path.join(__dirname, '../packages/sighfood-domain');
-  const uiPath = path.join(__dirname, '../packages/sighfood-ui');
-  const crmAdapterPath = path.join(__dirname, '../packages/sighfood-crm-adapter');
+  const _uiPath = path.join(__dirname, '../packages/sighfood-ui');
+  const _crmAdapterPath = path.join(__dirname, '../packages/sighfood-crm-adapter');
 
   let hasCycles = false;
 

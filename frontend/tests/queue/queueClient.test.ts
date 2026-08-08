@@ -6,14 +6,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueueClient, DEFAULT_QUEUE_CONFIG } from '../../src/queue/upstash/QueueClient';
 
-// Mock de Redis
-const mockRedis = {
+// Mock de Redis.
+// vi.hoisted() es necesario: vi.mock() se eleva al principio del módulo, así que
+// su factory se ejecuta antes de que un `const` normal esté inicializado.
+const mockRedis = vi.hoisted(() => ({
   get: vi.fn(),
   set: vi.fn(),
   lpush: vi.fn(),
   brpop: vi.fn(),
   llen: vi.fn(),
-};
+}));
 
 vi.mock('@upstash/redis', () => ({
   Redis: {

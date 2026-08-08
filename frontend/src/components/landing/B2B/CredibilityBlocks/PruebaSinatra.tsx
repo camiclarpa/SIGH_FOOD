@@ -90,8 +90,8 @@ export function PruebaSinatra() {
               Copy reservado (activar con caso real):
             </div>
             <p className="text-yellow-200/80 italic">
-              "Ya servimos en [NOMBRE DEL ESTABLECIMIENTO DE MAYOR PRESTIGIO] —
-              si funciona ahí, funciona en cualquier barra."
+              “Ya servimos en [NOMBRE DEL ESTABLECIMIENTO DE MAYOR PRESTIGIO] —
+              si funciona ahí, funciona en cualquier barra.”
             </p>
           </div>
         )}

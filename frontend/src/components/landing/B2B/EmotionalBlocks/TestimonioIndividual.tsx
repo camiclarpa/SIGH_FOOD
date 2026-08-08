@@ -109,11 +109,11 @@ export function TestimonioIndividual({ testimonio }: TestimonioIndividualProps =
                 Estructura requerida (activar con testimonio real):
               </div>
               <div className="space-y-2 text-amber-200/80 text-sm">
-                <p><strong>Nombre:</strong> [Nombre propio, no "un cliente"]</p>
+                <p><strong>Nombre:</strong> [Nombre propio, no “un cliente”]</p>
                 <p><strong>Rol:</strong> [Head Bartender / Gerente A&B / Dueño]</p>
                 <p><strong>Escena:</strong> [Momento específico, no generalidad]</p>
-                <p><strong>Cifra:</strong> [Número verificado, no "mejoró mucho"]</p>
-                <p><strong>Acción:</strong> [Qué hizo después, no "recomendado"]</p>
+                <p><strong>Cifra:</strong> [Número verificado, no “mejoró mucho”]</p>
+                <p><strong>Acción:</strong> [Qué hizo después, no “recomendado”]</p>
               </div>
             </div>
           )}
@@ -127,7 +127,7 @@ export function TestimonioIndividual({ testimonio }: TestimonioIndividualProps =
           <ul className="space-y-2 text-sm text-gray-400">
             <li className="flex items-start gap-2">
               <span className="text-gray-600 mt-1"></span>
-              <span>Una sola persona con nombre propio (no "nuestros clientes")</span>
+              <span>Una sola persona con nombre propio (no “nuestros clientes”)</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-gray-600 mt-1">☐</span>
@@ -135,7 +135,7 @@ export function TestimonioIndividual({ testimonio }: TestimonioIndividualProps =
             </li>
             <li className="flex items-start gap-2">
               <span className="text-gray-600 mt-1">☐</span>
-              <span>Una escena concreta (no generalidades tipo "excelente servicio")</span>
+              <span>Una escena concreta (no generalidades tipo “excelente servicio”)</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-gray-600 mt-1">☐</span>
@@ -143,7 +143,7 @@ export function TestimonioIndividual({ testimonio }: TestimonioIndividualProps =
             </li>
             <li className="flex items-start gap-2">
               <span className="text-gray-600 mt-1">☐</span>
-              <span>Una acción inspiradora al final (no solo "recomendado")</span>
+              <span>Una acción inspiradora al final (no solo “recomendado”)</span>
             </li>
           </ul>
         </div>
@@ -151,7 +151,7 @@ export function TestimonioIndividual({ testimonio }: TestimonioIndividualProps =
         {/* EXPLICACIÓN DE POR QUÉ NO USAMOS ESTADÍSTICAS */}
         <div className="border-t border-gray-800 pt-6 mt-6">
           <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">
-            Por qué no usamos "87% de nuestros clientes reportan mejores resultados":
+            Por qué no usamos “87% de nuestros clientes reportan mejores resultados”:
           </div>
           <p className="text-sm text-gray-400 leading-relaxed">
             El estudio de Carnegie Mellon mostró que las estadísticas agregadas{' '}
@@ -181,7 +181,7 @@ export function TestimonioIndividual({ testimonio }: TestimonioIndividualProps =
           {/* CITA DEL TESTIMONIO */}
           <blockquote className="border-l-4 border-[#d97325] pl-6 py-2">
             <p className="text-2xl md:text-3xl text-[#f5f5f5] leading-relaxed italic">
-              "{testimonio.escena}"
+              “{testimonio.escena}”
             </p>
           </blockquote>
 

@@ -74,8 +74,8 @@ export default function PilotForm({ onSuccess, onError }: PilotFormProps) {
       const latency = performance.now() - startTime;
 
       // Reportar latencia real a RUM (si Datadog está disponible)
-      if (typeof window !== 'undefined' && (window as any).datadogRum) {
-        (window as any).datadogRum.addAction('pilot_form_submit', {
+      if (typeof window !== 'undefined' && window.datadogRum) {
+        window.datadogRum.addAction('pilot_form_submit', {
           latency_ms: Math.round(latency),
           status: response.status,
         });
@@ -95,8 +95,7 @@ export default function PilotForm({ onSuccess, onError }: PilotFormProps) {
         onError?.(data.error);
       }
     } catch (err) {
-      const latency = performance.now() - startTime;
-      
+
       if (err instanceof DOMException && err.name === 'AbortError') {
         setStatus('error');
         setErrorMessage('La solicitud tardó demasiado. Por favor, intenta de nuevo.');

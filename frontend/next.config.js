@@ -165,7 +165,7 @@ const nextConfig = {
     // No ignorar errores de TypeScript en build
     ignoreBuildErrors: false,
   },
-  
+
   };
 
 module.exports = nextConfig;

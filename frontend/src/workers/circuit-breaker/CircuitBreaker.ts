@@ -73,6 +73,7 @@ export class CircuitBreaker {
    * Verifica el estado actual del circuito.
    */
   getState(): CircuitState {
+    this.aplicarTransicionPorTiempo();
     return this.state;
   }
 
@@ -80,6 +81,7 @@ export class CircuitBreaker {
    * Verifica si el circuito permite llamadas.
    */
   isClosed(): boolean {
+    this.aplicarTransicionPorTiempo();
     return this.state === 'CLOSED';
   }
 
@@ -87,6 +89,7 @@ export class CircuitBreaker {
    * Verifica si el circuito está abierto (rechazando llamadas).
    */
   isOpen(): boolean {
+    this.aplicarTransicionPorTiempo();
     return this.state === 'OPEN';
   }
 
@@ -94,6 +97,7 @@ export class CircuitBreaker {
    * Verifica si el circuito está en estado HALF-OPEN (prueba de recuperación).
    */
   isHalfOpen(): boolean {
+    this.aplicarTransicionPorTiempo();
     return this.state === 'HALF-OPEN';
   }
 
@@ -135,14 +139,31 @@ export class CircuitBreaker {
    * Verifica transiciones de estado basadas en el tiempo.
    */
   private checkState(): void {
+    this.aplicarTransicionPorTiempo();
+
     if (this.state === 'OPEN') {
       const timeSinceLastFailure = Date.now() - this.lastFailureTime;
-      if (timeSinceLastFailure >= this.config.recoveryTimeoutMs) {
-        this.state = 'HALF-OPEN';
-        this.successCount = 0;
-      } else {
-        throw new Error(`Circuit breaker is OPEN. Retry after ${Math.ceil((this.config.recoveryTimeoutMs - timeSinceLastFailure) / 1000)}s`);
-      }
+      throw new Error(`Circuit breaker is OPEN. Retry after ${Math.ceil((this.config.recoveryTimeoutMs - timeSinceLastFailure) / 1000)}s`);
+    }
+  }
+
+  /**
+   * Aplica la transición OPEN → HALF-OPEN cuando ya venció el tiempo de
+   * recuperación. Idempotente y sin efectos si no toca cambiar.
+   *
+   * La consultan también los métodos de lectura: si solo transicionara dentro
+   * de execute(), getState() seguiría diciendo 'OPEN' indefinidamente mientras
+   * nadie llamara al circuito, y cualquier dashboard o health check que lo
+   * observe estaría informando un estado que ya no es el real.
+   */
+  private aplicarTransicionPorTiempo(): void {
+    if (this.state !== 'OPEN') {
+      return;
+    }
+
+    if (Date.now() - this.lastFailureTime >= this.config.recoveryTimeoutMs) {
+      this.state = 'HALF-OPEN';
+      this.successCount = 0;
     }
   }
 

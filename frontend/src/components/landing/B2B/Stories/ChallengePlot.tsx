@@ -79,7 +79,7 @@ export function ChallengePlot() {
       }
       desarrollo={
         <>
-          En marzo agendó la Demo Phygital de SIGH_FOOD. El viernes a las 6 PM llegó el kit piloto en consignación: 50 conos, instrucciones de ensamble en menos de 20 segundos. Laura pensó: <em className="text-gray-400">"Esto no va a funcionar. Mis bartenders van a resistirse."</em>
+          En marzo agendó la Demo Phygital de SIGH_FOOD. El viernes a las 6 PM llegó el kit piloto en consignación: 50 conos, instrucciones de ensamble en menos de 20 segundos. Laura pensó: <em className="text-gray-400">“Esto no va a funcionar. Mis bartenders van a resistirse.”</em>
           <br /><br />
           El sábado a las 10 PM, el local estaba lleno. Carlos, el Head Bartender, tomó el primer Herbal Citrus Botanical Cone, rompió el elixir, lo vertió, lo sirvió junto a un Gin-Tonic. <span className="text-[#d97325] font-semibold">Tiempo total: 19 segundos.</span>
         </>
@@ -88,7 +88,7 @@ export function ChallengePlot() {
         <>
           El domingo por la noche, Laura revisó los números: <span className="text-[#d97325] font-bold">87 conos vendidos</span>, <span className="text-[#d97325] font-bold">$2,044,500 COP de utilidad neta</span>. Cero merma. Cero dependencia de cocina.
           <br /><br />
-          El lunes por la mañana, Laura llamó a SIGH_FOOD: <em className="text-[#f5f5f5]">"No me quiten los conos. Queremos el contrato anual."</em>
+          El lunes por la mañana, Laura llamó a SIGH_FOOD: <em className="text-[#f5f5f5]">“No me quiten los conos. Queremos el contrato anual.”</em>
         </>
       }
       cifrasVerificadas={[

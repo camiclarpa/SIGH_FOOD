@@ -21,7 +21,7 @@
  */
 
 import { Lead, actualizarEstado } from './Lead';
-import { LeadState, isValidTransition } from '../states/LeadState';
+import { LeadState } from '../states/LeadState';
 
 export class LeadStateMachine {
   /**

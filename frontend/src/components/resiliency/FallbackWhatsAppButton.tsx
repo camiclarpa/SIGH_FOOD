@@ -145,7 +145,7 @@ export default function FallbackWhatsAppButton({
           {/* Nota de tranquilidad */}
           <p className="text-xs text-amber-700 mt-3">
             Al hacer clic, se abrirá WhatsApp con sus datos ya completados.
-            Solo necesita presionar "Enviar".
+            Solo necesita presionar “Enviar”.
           </p>
         </div>
       </div>

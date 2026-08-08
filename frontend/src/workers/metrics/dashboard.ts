@@ -12,8 +12,8 @@
  * ============================================================================
  */
 
-import { MetricsCollector, metricsCollector } from './MetricsCollector';
-import { AlertManager, alertManager } from '../alerting/AlertManager';
+import { metricsCollector } from './MetricsCollector';
+import { alertManager } from '../alerting/AlertManager';
 
 function printDashboard(): void {
   const metrics = metricsCollector.getMetrics();

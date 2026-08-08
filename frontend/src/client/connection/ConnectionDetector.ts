@@ -40,12 +40,12 @@ export interface ConnectionInfo {
 }
 
 export class ConnectionDetector {
-  private connection: any;
+  private connection: NetworkInformation | null;
 
   constructor() {
     // Network Information API - solo disponible en algunos navegadores
-    this.connection = typeof navigator !== 'undefined' 
-      ? (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
+    this.connection = typeof navigator !== 'undefined'
+      ? navigator.connection ?? navigator.mozConnection ?? navigator.webkitConnection ?? null
       : null;
   }
 
@@ -128,11 +128,12 @@ export class ConnectionDetector {
       callback(this.getConnectionInfo());
     };
 
-    this.connection.addEventListener('change', handler);
+    const connection = this.connection;
+    connection.addEventListener('change', handler);
 
     // Retornar función de cleanup
     return () => {
-      this.connection.removeEventListener('change', handler);
+      connection.removeEventListener('change', handler);
     };
   }
 

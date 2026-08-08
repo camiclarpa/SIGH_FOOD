@@ -84,12 +84,12 @@ export function VisualizacionTempe() {
           </p>
           <p className="mb-3">
             El mecanismo: cuando su cerebro simula una experiencia futura vívidamente, la percibe como más
-            probable y más deseable. Por eso este bloque usa <strong className="text-[#f5f5f5]">"Imagínese"</strong>{' '}
+            probable y más deseable. Por eso este bloque usa <strong className="text-[#f5f5f5]">“Imagínese”</strong>{' '}
             como primera palabra, y ancla la escena en un viernes específico a las 11pm.
           </p>
           <p>
-            Note que todo está en <strong className="text-[#f5f5f5]">segunda persona</strong> ("su barra", "su mesero",
-            "usted lo está viendo"). No hablamos de "el establecimiento" ni de "los clientes" — hablamos de{' '}
+            Note que todo está en <strong className="text-[#f5f5f5]">segunda persona</strong> (“su barra”, “su mesero”,
+            “usted lo está viendo”). No hablamos de “el establecimiento” ni de “los clientes” — hablamos de{' '}
             <strong className="text-[#f5f5f5]">usted</strong>.
           </p>
         </>

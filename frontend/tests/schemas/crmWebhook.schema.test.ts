@@ -46,7 +46,7 @@ describe('CRMWebhookPayloadSchema', () => {
 
   it('debería rechazar leadId que no sea UUID', () => {
     const invalido = { ...payloadValido, leadId: 'no-es-uuid' };
-    const resultado = CRMWebhookPayloadSchema.safeParse(invalidido);
+    const resultado = CRMWebhookPayloadSchema.safeParse(invalido);
     expect(resultado.success).toBe(false);
   });
 

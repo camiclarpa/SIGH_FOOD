@@ -36,58 +36,77 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { calculateBarRoi } from '@/lib/performance/calculateBarRoi';
 
 interface RoiResult {
   conosEstimados: number;
   utilidadMensualCOP: number;
 }
 
+/** Respuesta que publica roiCalculator.worker.ts */
+interface RoiWorkerResponse {
+  success?: boolean;
+  data?: RoiResult;
+  input?: { tragos: number };
+  error?: string;
+}
+
 export default function RoiCalculator() {
   const [tragos, setTragos] = useState(100);
-  const [resultado, setResultado] = useState<RoiResult | null>(null);
+  // Última respuesta del worker, junto al valor de slider que la produjo.
+  const [respuestaWorker, setRespuestaWorker] = useState<{ tragos: number; data: RoiResult } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const workerRef = useRef<Worker | null>(null);
 
   // Inicializar Web Worker
   useEffect(() => {
+    let worker: Worker;
     try {
       // Crear worker desde el archivo (ruta relativa al componente)
-      workerRef.current = new Worker(
+      worker = new Worker(
         new URL('../../workers/roiCalculator.worker.ts', import.meta.url)
       );
-
-      workerRef.current.onmessage = (event: MessageEvent) => {
-        if (event.data.success) {
-          setResultado(event.data.data);
-          setError(null);
-        } else {
-          setError(event.data.error);
-          setResultado(null);
-        }
-      };
-
-      workerRef.current.onerror = (err) => {
-        setError('Error en el Web Worker: ' + err.message);
-        setResultado(null);
-      };
-
-      // Cleanup al desmontar
-      return () => {
-        workerRef.current?.terminate();
-      };
-    } catch (err) {
-      // Fallback: si Web Workers no están soportados, calcular en hilo principal
+    } catch {
+      // Fallback: si Web Workers no están soportados el cálculo se resuelve
+      // en el hilo principal durante el render (ver `resultado` más abajo).
       console.warn('Web Workers no soportados, usando cálculo en hilo principal');
-      setError(null);
+      return;
     }
+
+    worker.onmessage = (event: MessageEvent<RoiWorkerResponse>) => {
+      const { success, data, input, error: errorDelWorker } = event.data;
+      if (success && data) {
+        setRespuestaWorker({ tragos: input?.tragos ?? 0, data });
+        setError(null);
+      } else {
+        setError(errorDelWorker ?? 'Error desconocido en el cálculo');
+      }
+    };
+
+    worker.onerror = (err) => {
+      setError('Error en el Web Worker: ' + err.message);
+    };
+
+    workerRef.current = worker;
+
+    // Cleanup al desmontar
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
   }, []);
 
   // Enviar cálculo al worker cuando cambia el slider
   useEffect(() => {
-    if (workerRef.current) {
-      workerRef.current.postMessage({ tragos });
-    }
+    workerRef.current?.postMessage({ tragos });
   }, [tragos]);
+
+  // El worker responde de forma asíncrona. Mientras su respuesta no corresponda
+  // al valor actual del slider —o si no hay worker— calculamos con la misma
+  // función pura en el hilo principal: es aritmética simple y así el número
+  // mostrado nunca se desfasa del slider.
+  const resultado: RoiResult =
+    respuestaWorker?.tragos === tragos ? respuestaWorker.data : calculateBarRoi(tragos);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CO', {

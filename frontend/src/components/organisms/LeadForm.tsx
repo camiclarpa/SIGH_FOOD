@@ -17,8 +17,7 @@ export default function LeadForm() {
     isSubmitting, 
     submitError, 
     whatsappLink, 
-    handleSubmit,
-    clearPending 
+    handleSubmit
   } = useResilientForm();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

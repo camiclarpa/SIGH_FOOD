@@ -37,7 +37,7 @@ export class SQSClientImpl implements SQSClient {
     this.secretAccessKey = config.sqs.secretAccessKey;
   }
 
-  private async signRequest(method: string, body: any): Promise<RequestInit> {
+  private async signRequest(method: string, body: unknown): Promise<RequestInit> {
     // Implementación de AWS Signature Version 4
     // Para producción, usar una librería como @aws-sdk/signature-v4
     return {

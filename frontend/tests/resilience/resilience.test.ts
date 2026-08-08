@@ -34,7 +34,7 @@ describe('CircuitBreaker', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(operation);
-        } catch (e) {
+        } catch {
           // Esperado
         }
       }
@@ -84,7 +84,7 @@ describe('CircuitBreaker', () => {
 
       try {
         await circuitBreaker.execute(operation);
-      } catch (e) {
+      } catch {
         // Esperado
       }
 

@@ -25,7 +25,7 @@
  * ============================================================================
  */
 
-import { ConnectionDetector, AdaptiveStrategy } from '../connection/ConnectionDetector';
+import { ConnectionDetector } from '../connection/ConnectionDetector';
 import { HardwareDetector } from '../hardware/HardwareDetector';
 
 export interface ResourceLoadStrategy {

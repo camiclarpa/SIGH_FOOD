@@ -1,0 +1,5 @@
+{
+  "/api/leads/b2b/route": "app/api/leads/b2b/route.js",
+  "/b2b/page": "app/b2b/page.js",
+  "/page": "app/page.js"
+}

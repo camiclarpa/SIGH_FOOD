@@ -72,9 +72,12 @@ export async function registrarReintentoEnSegundoPlano(
 
   try {
     const registration = await navigator.serviceWorker.ready;
-    await (registration as any).sync.register(`sync-lead-${leadId}`);
+    if (!registration.sync) {
+      return false;
+    }
+    await registration.sync.register(`sync-lead-${leadId}`);
     return true;
-  } catch (error) {
+  } catch {
     // Fallo al registrar — puede ser por permisos, Service Worker no registrado,
     // o cualquier otra razón. El llamador debe escalar a Estrategia C.
     return false;
@@ -110,7 +113,7 @@ export async function migrarAIndexedDB(
       tx.onabort = () => reject(tx.error);
     });
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

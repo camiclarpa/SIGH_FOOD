@@ -27,8 +27,8 @@
  * ============================================================================
  */
 
-import { SlackNotifier, SlackNotification } from './notifications/SlackNotifier';
-import { WhatsAppNotifier, WhatsAppNotification } from './notifications/WhatsAppNotifier';
+import { SlackNotifier } from './notifications/SlackNotifier';
+import { WhatsAppNotifier } from './notifications/WhatsAppNotifier';
 import { LeadRepository, LeadData } from '../domain/ports/LeadRepository';
 
 export interface IntegrationResult {

@@ -56,7 +56,7 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
-export default function () {
+export default function escenarioDeCarga() {
   // Test 1: GET / - Landing SSG
   const landingResponse = http.get(BASE_URL + '/');
   

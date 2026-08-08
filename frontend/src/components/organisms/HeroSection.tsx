@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 /**
  * Hero Component Optimizado para LCP (Largest Contentful Paint)
@@ -13,11 +13,9 @@ import { useState, useEffect } from 'react';
  * - sizes optimizados para diferentes viewports
  */
 export default function HeroSection() {
+  // El placeholder borroso se retira cuando la imagen termina de cargar.
+  // (Antes un efecto de montaje lo desactivaba de inmediato, anulando el blur.)
   const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    setIsLoaded(true);
-  }, []);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">

@@ -37,12 +37,9 @@ import {
   type PendingLeadRecord,
 } from '../../lib/resiliency/localLeadStorage';
 import { reintentarConBackoff } from '../../lib/resiliency/retryQueue';
-import {
-  soportaBackgroundSync,
-  registrarReintentoEnSegundoPlano,
-} from '../../lib/resiliency/backgroundSync';
+import { registrarReintentoEnSegundoPlano } from '../../lib/resiliency/backgroundSync';
 import { construirEnlaceWhatsAppFallback } from '../../lib/resiliency/whatsappFallback';
-import { enviarEventoAObservabilidad, registrarEvento } from '../../lib/resiliency/telemetry';
+import { registrarEvento } from '../../lib/resiliency/telemetry';
 import type { B2BLeadFormPayloadInferred } from '../../domain/leads/B2BLeadFormPayload';
 import type { EstadoEnvioFormulario } from '../../lib/resiliency/formState';
 import FallbackWhatsAppButton from './FallbackWhatsAppButton';
@@ -97,7 +94,7 @@ export function useEnvioResilienteDeLead() {
 
       // Respuesta inesperada (4xx, 5xx) — tratar como fallo
       throw new Error(`Respuesta inesperada: ${response.status}`);
-    } catch (error) {
+    } catch {
       // F1/F3 del FMEA — el intento primario falló
       // Escalar a Estrategia A (LocalStorage)
       await manejarFalloConFallback(payload, leadId, setEstado);

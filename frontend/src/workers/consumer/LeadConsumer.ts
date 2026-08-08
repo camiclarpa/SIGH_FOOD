@@ -20,7 +20,6 @@ import { MetricsCollector, metricsCollector } from '../metrics/MetricsCollector'
 import { AlertManager, alertManager } from '../alerting/AlertManager';
 import { crearLead, Lead } from '../../domain/lead/Lead';
 import { LeadStateMachine } from '../../domain/lead/LeadStateMachine';
-import { LeadState } from '../../domain/states/LeadState';
 
 export interface LeadEvent {
   readonly establecimiento: string;

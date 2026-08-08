@@ -6,10 +6,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  EConeReference,
   ELiquorCategory,
   CONE_LIQUOR_PAIRING,
 } from '../../../src/domain/enums/ELiquorCategory';
+// EConeReference vive en su propio módulo; ELiquorCategory.ts lo consume pero
+// no lo re-exporta, así que importarlo de allí devolvía undefined.
+import { EConeReference } from '../../../src/domain/enums/EConeReference';
 
 describe('CONE_LIQUOR_PAIRING', () => {
   it('debería tener exactamente 5 entradas (los 5 conos)', () => {

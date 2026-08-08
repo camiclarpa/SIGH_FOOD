@@ -12,7 +12,7 @@
  *   - Caso borde: timeout de red → continuar al siguiente intento
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { reintentarConBackoff, type ResultadoReintento } from '../../src/lib/resiliency/retryQueue';
+import { reintentarConBackoff } from '../../src/lib/resiliency/retryQueue';
 import type { PendingLeadRecord } from '../../src/lib/resiliency/localLeadStorage';
 
 // Mock de fetch global
@@ -43,7 +43,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 // Mock de AbortSignal.timeout
 if (!AbortSignal.timeout) {
-  (AbortSignal as any).timeout = (ms: number) => {
+  (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout = (ms: number) => {
     const controller = new AbortController();
     setTimeout(() => controller.abort(new DOMException('Timeout', 'TimeoutError')), ms);
     return controller.signal;

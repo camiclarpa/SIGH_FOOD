@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { guardarLeadPendiente } from '../../src/lib/resiliency/localLeadStorage';
 import { reintentarConBackoff } from '../../src/lib/resiliency/retryQueue';
+import { conRelojAdelantado } from '../helpers/browserEnv';
 import { soportaBackgroundSync } from '../../src/lib/resiliency/backgroundSync';
 import { construirEnlaceWhatsAppFallback } from '../../src/lib/resiliency/whatsappFallback';
 import type { PendingLeadRecord } from '../../src/lib/resiliency/localLeadStorage';
@@ -28,7 +29,7 @@ const localStorageMock = (() => {
     setItem: vi.fn((key: string, value: string) => {
       if (shouldThrowQuotaExceeded) {
         const error = new DOMException('Quota exceeded', 'QuotaExceededError');
-        (error as any).code = 22;
+        (error as { code: number }).code = 22;
         throw error;
       }
       store[key] = value;
@@ -85,7 +86,7 @@ describe('FMEA - Modos de Fallo Individuales', () => {
         )
       );
 
-      const resultado = await reintentarConBackoff(recordDePrueba);
+      const resultado = await conRelojAdelantado(() => reintentarConBackoff(recordDePrueba));
       expect(resultado).toBe('exhausted');
     });
 
@@ -94,7 +95,7 @@ describe('FMEA - Modos de Fallo Individuales', () => {
         .mockRejectedValueOnce(new DOMException('Timeout', 'TimeoutError'))
         .mockResolvedValueOnce({ status: 202, json: async () => ({}) });
 
-      const resultado = await reintentarConBackoff(recordDePrueba);
+      const resultado = await conRelojAdelantado(() => reintentarConBackoff(recordDePrueba));
       expect(resultado).toBe('success');
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });

@@ -9,7 +9,6 @@
 // El Worker igual se ejecuta en el edge, cerca del usuario.
 
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { Redis } from '@upstash/redis';
 import { B2BLeadFormPayloadSchema } from '@/schemas/leadForm.schema';
 import { CRMWebhookPayloadSchema } from '@/schemas/crmWebhook.schema';

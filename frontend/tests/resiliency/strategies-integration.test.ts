@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { guardarLeadPendiente } from '../../src/lib/resiliency/localLeadStorage';
 import { reintentarConBackoff } from '../../src/lib/resiliency/retryQueue';
+import { conRelojAdelantado } from '../helpers/browserEnv';
 import { construirEnlaceWhatsAppFallback } from '../../src/lib/resiliency/whatsappFallback';
 import type { PendingLeadRecord } from '../../src/lib/resiliency/localLeadStorage';
 import type { B2BLeadFormPayloadInferred } from '../../src/domain/leads/B2BLeadFormPayload';
@@ -26,7 +27,7 @@ const localStorageMock = (() => {
     setItem: vi.fn((key: string, value: string) => {
       if (shouldThrowQuotaExceeded) {
         const error = new DOMException('Quota exceeded', 'QuotaExceededError');
-        (error as any).code = 22;
+        (error as { code: number }).code = 22;
         throw error;
       }
       store[key] = value;
@@ -83,7 +84,7 @@ describe('Integración de Estrategias A, B, C', () => {
 
       // Estrategia B: reintentos
       mockFetch.mockResolvedValueOnce({ status: 202, json: async () => ({}) });
-      const resultadoB = await reintentarConBackoff(recordDePrueba);
+      const resultadoB = await conRelojAdelantado(() => reintentarConBackoff(recordDePrueba));
       expect(resultadoB).toBe('success');
     });
 
@@ -106,7 +107,7 @@ describe('Integración de Estrategias A, B, C', () => {
 
       // B se ejecuta
       mockFetch.mockRejectedValue(new Error('Network error'));
-      const resultadoB = await reintentarConBackoff(recordDePrueba);
+      const resultadoB = await conRelojAdelantado(() => reintentarConBackoff(recordDePrueba));
       expect(resultadoB).toBe('exhausted');
 
       // C se muestra tras agotar B
@@ -121,11 +122,11 @@ describe('Integración de Estrategias A, B, C', () => {
 
       // Simular flujo completo
       const guardadoA = guardarLeadPendiente(recordDePrueba);
-      const resultadoB = await reintentarConBackoff(recordDePrueba);
+      const resultadoB = await conRelojAdelantado(() => reintentarConBackoff(recordDePrueba));
       const enlaceC = construirEnlaceWhatsAppFallback(payloadDePrueba);
 
       // Solo uno de estos debe ser el estado final
-      const estadosPosibles = [
+      const _estadosPosibles = [
         guardadoA ? 'A-success' : 'A-failed',
         resultadoB,
         enlaceC ? 'C-ready' : 'C-not-ready',

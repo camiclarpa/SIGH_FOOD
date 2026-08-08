@@ -50,9 +50,11 @@ export async function POST(request: Request) {
   
   try {
     // Parsear body (validación de formato)
-    let formData: any;
+    // El body llega sin validar: se tipa como registro de `unknown` para que
+    // cada campo tenga que comprobarse antes de usarse.
+    let formData: Record<string, unknown>;
     try {
-      formData = await request.json();
+      formData = (await request.json()) as Record<string, unknown>;
     } catch {
       return new Response(
         JSON.stringify({ error: 'Body inválido, debe ser JSON' }),
@@ -60,8 +62,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const { whatsapp, establecimiento, ciudad } = formData;
+
     // Validación mínima y rápida (nunca un cómputo pesado en el camino crítico)
-    if (!formData.whatsapp || !formData.establecimiento) {
+    if (!whatsapp || !establecimiento) {
       return new Response(
         JSON.stringify({ error: 'Datos incompletos: whatsapp y establecimiento son requeridos' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -69,18 +73,25 @@ export async function POST(request: Request) {
     }
 
     // Validación de formato de WhatsApp (básica)
-    if (typeof formData.whatsapp !== 'string' || formData.whatsapp.length < 10) {
+    if (typeof whatsapp !== 'string' || whatsapp.length < 10) {
       return new Response(
         JSON.stringify({ error: 'WhatsApp inválido' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    if (typeof establecimiento !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Establecimiento inválido' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Encolar de forma asíncrona (el CRM se actualiza después, fuera del camino crítico)
     const result = await enqueuePilotRequest({
-      whatsapp: formData.whatsapp,
-      establecimiento: formData.establecimiento,
-      ciudad: formData.ciudad,
+      whatsapp,
+      establecimiento,
+      ciudad: typeof ciudad === 'string' ? ciudad : undefined,
       timestamp: Date.now(),
     });
 
@@ -109,7 +120,7 @@ export async function POST(request: Request) {
       { status: 202, headers: { 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch {
     const latency = performance.now() - startTime;
     
     // Error interno del servidor (Upstash Redis caído, etc.)

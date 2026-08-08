@@ -53,7 +53,7 @@ export interface ReplicationStatus {
  * Para SIGH_FOOD, no necesitamos exponer este estado al usuario â€” la pÃ¡gina
  * de "Gracias" es SSG y no lee del CRM, eliminando la anomalía por diseño.
  */
-export function getReplicationStatus(lead: Lead): ReplicationStatus {
+export function getReplicationStatus(_lead: Lead): ReplicationStatus {
   return {
     queuedAt: Date.now(),
     isSynced: false, // El CRM aún no ha procesado el evento

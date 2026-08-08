@@ -27,7 +27,7 @@
  * ============================================================================
  */
 
-import { type Cono } from '../../sighfood-domain/entities/Cono';
+import { type Cono, PORTAFOLIO_CONOS } from '../../sighfood-domain/entities/Cono';
 
 /**
  * CONTRATO COMÚN — Todas las tarjetas de producto deben cumplirlo
@@ -135,9 +135,6 @@ export function PortafolioConos({
 }: { 
   TarjetaComponente: React.FC<TarjetaProductoProps> 
 }) {
-  // Import dinámico para evitar dependencias circulares
-  const { PORTAFOLIO_CONOS } = require('../../sighfood-domain/entities/Cono');
-  
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {PORTAFOLIO_CONOS.map((cono: Cono) => (

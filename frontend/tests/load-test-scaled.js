@@ -1,4 +1,4 @@
-﻿import http from 'k6/http';
+import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
 
@@ -22,7 +22,7 @@ const serverErrors = new Counter('server_errors');
 
 // Métricas de buffer/cola
 const bufferUtilization = new Trend('buffer_utilization', true);
-const dlqRate = new Rate('dlq_rate');
+const _dlqRate = new Rate('dlq_rate');
 
 // =============================================================================
 // CONFIGURACIÓN DE CARGA PROGRESIVA (10,000 usuarios)
@@ -271,8 +271,8 @@ function checkQueueLength() {
 // FUNCIONES PRINCIPALES
 // =============================================================================
 
-export default function () {
-  const baseUrl = __ENV.BASE_URL || 'http://localhost:3000';
+export default function escenarioDeCarga() {
+  const _baseUrl = __ENV.BASE_URL || 'http://localhost:3000';
   
   // Seleccionar un lead aleatorio del pool
   const leadIndex = Math.floor(Math.random() * testLeads.length);
@@ -286,7 +286,7 @@ export default function () {
   try {
     const body = JSON.parse(createResponse.body);
     idempotencyKey = body.idempotencyKey;
-  } catch (e) {
+  } catch {
     // Ignorar error de parsing
   }
   

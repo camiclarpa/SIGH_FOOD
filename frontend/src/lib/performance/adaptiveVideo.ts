@@ -42,12 +42,17 @@ export type VideoStrategy = 'video' | 'static-image';
 
 export function getAdaptiveVideoStrategy(): VideoStrategy {
   // Si no estamos en el navegador, asumir buena conexión (SSG)
-  if (typeof navigator === 'undefined' || !('connection' in navigator)) {
+  if (typeof navigator === 'undefined') {
     return 'video';
   }
 
-  const conn = (navigator as any).connection;
-  
+  // La Network Information API no existe en Safari ni Firefox: sin ella,
+  // asumimos buena conexión en lugar de degradar a imagen estática.
+  const conn = navigator.connection;
+  if (!conn) {
+    return 'video';
+  }
+
   // Detectar conexión lenta o ahorro de datos activado
   const slowConnection =
     conn.effectiveType === 'slow-2g' ||

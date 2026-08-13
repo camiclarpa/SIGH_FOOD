@@ -7,7 +7,18 @@
 // este CRM en producción. Web Crypto está disponible tanto en Workers como en
 // Node 18+, así que el mismo código sirve en local y en el edge.
 
-const ITERACIONES = 210_000; // recomendación OWASP 2023 para PBKDF2-SHA256
+/**
+ * Cloudflare Workers rechaza más de 100.000 iteraciones en PBKDF2:
+ *
+ *   NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are not
+ *   supported (requested 210000)
+ *
+ * OWASP recomienda 210.000 para PBKDF2-SHA256 y ese era el valor original, que
+ * funcionaba en Node y hacía fallar todo login en producción. 100.000 es el
+ * techo de la plataforma, no una elección: si algún día se necesita más margen,
+ * la vía es cambiar de algoritmo (scrypt/argon2 vía WASM), no subir este número.
+ */
+const ITERACIONES = 100_000;
 const LONGITUD_SAL = 16;
 const LONGITUD_CLAVE = 32;
 

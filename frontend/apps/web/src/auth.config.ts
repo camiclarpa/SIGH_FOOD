@@ -17,6 +17,11 @@ import type { NextAuthConfig } from 'next-auth';
 export type RolStaff = 'admin' | 'comercial' | 'lectura';
 
 export const authConfig = {
+  // Auth.js solo confía automáticamente en el host cuando detecta Vercel. En
+  // Cloudflare Workers no lo hace, y todo el flujo de login respondía 500 con
+  // "UntrustedHost: Host must be trusted". El Worker se sirve únicamente desde
+  // su propio dominio, así que confiar en la cabecera Host es seguro aquí.
+  trustHost: true,
   session: {
     strategy: 'jwt',
     maxAge: 60 * 60 * 8, // 8 horas: una jornada laboral

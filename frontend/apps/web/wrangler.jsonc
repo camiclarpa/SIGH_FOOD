@@ -2,7 +2,7 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
 
   // Worker propio del CRM, separado de la landing (sigh-bocazo).
-  "name": "sighfood-crm",
+  "name": "sighbocazo-crm",
 
   // Cuenta: Camiloriverac0@gmail.com's Account
   "account_id": "5e153923b7c5fdd9468c9b184cee5866",

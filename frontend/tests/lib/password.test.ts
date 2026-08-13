@@ -35,10 +35,15 @@ describe('hashearPassword', () => {
     expect(hash).not.toContain('SecretoLiteral999!');
   });
 
-  it('usa al menos 200.000 iteraciones (recomendación OWASP)', async () => {
+  it('no supera el límite de PBKDF2 de Cloudflare Workers', async () => {
     const hash = await hashearPassword('x'.repeat(16));
     const iteraciones = Number.parseInt(hash.split(':')[0], 10);
-    expect(iteraciones).toBeGreaterThanOrEqual(200_000);
+
+    // Workers rechaza por encima de 100.000 con NotSupportedError, y eso
+    // rompía TODO el login en producción aunque en Node funcionara.
+    expect(iteraciones).toBeLessThanOrEqual(100_000);
+    // Suelo razonable: por debajo de esto el hash deja de costar lo suficiente.
+    expect(iteraciones).toBeGreaterThanOrEqual(100_000);
   });
 });
 

@@ -10,7 +10,7 @@
 import postgres from 'postgres';
 import readline from 'node:readline';
 
-const ITERACIONES = 210_000;
+const ITERACIONES = 100_000; // techo de Cloudflare Workers
 
 function arg(nombre) {
   const i = process.argv.indexOf(`--${nombre}`);

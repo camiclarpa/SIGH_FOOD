@@ -18,14 +18,19 @@
     "binding": "ASSETS"
   },
 
-  // Hyperdrive: agrupa conexiones a la base PostgreSQL de Neon (config "sighfood-db").
-  // Se accede desde las rutas de Next con getCloudflareContext(), NO con un handler fetch(env).
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "be704b244ff041d0b3200284bff8c965"
-    }
-  ],
+  // Sin binding de Hyperdrive a propósito.
+  //
+  // La landing no habla con PostgreSQL: sus rutas usan Upstash Redis por REST
+  // (ver src/clients/messageQueue.ts). El binding estaba declarado pero no se
+  // referenciaba desde ningún punto del código, y rompía el despliegue: al
+  // detectar un proyecto OpenNext, `wrangler deploy` delega en
+  // `opennextjs-cloudflare deploy`, que llama a getPlatformProxy() para leer
+  // los bindings y exige una cadena Postgres local con la que emular
+  // Hyperdrive. En el CI no existe, así que el deploy moría con
+  // "no local hyperdrive connection string".
+  //
+  // Quien sí necesita Hyperdrive es el CRM, y lo declara en su propio
+  // apps/web/wrangler.jsonc.
 
   "observability": {
     "enabled": true,

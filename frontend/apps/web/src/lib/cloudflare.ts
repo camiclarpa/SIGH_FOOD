@@ -47,17 +47,7 @@ export async function conBaseDeDatos<T>(trabajo: (db: Database) => Promise<T>): 
   return conDb(trabajo, env, ctx);
 }
 
-/**
- * Conexión suelta, sin cierre gestionado.
- *
- * Es la forma antigua y queda para las rutas que todavía no se han migrado a
- * conBaseDeDatos(); la diferencia es que aquí nadie cierra la conexión al
- * terminar la petición. Hoy no se observa diferencia de comportamiento —el
- * patrón 200/500 del preview en Windows es idéntico con y sin cierre— pero la
- * forma correcta para Workers es conBaseDeDatos, y las rutas deberían migrarse
- * a ella cuando se toquen.
- */
-export async function obtenerDb(): Promise<Database> {
-  const { env } = await contextoCloudflare();
-  return getDb(env);
-}
+// Aquí vivía obtenerDb(), la forma antigua que devolvía una conexión sin
+// cerrarla al terminar la petición. Ya no existe: las cinco rutas que tocan la
+// base usan conBaseDeDatos(), así que mantenerla solo invitaba a volver al
+// patrón que no libera la conexión en Workers.

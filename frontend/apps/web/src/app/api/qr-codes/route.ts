@@ -10,8 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { qrCodes, accounts } from '@sighfood/domain/db/schema';
-import { eq } from 'drizzle-orm';
-import { obtenerDb } from '@/lib/cloudflare';
+import { eq, and } from 'drizzle-orm';
+import { conBaseDeDatos } from '@/lib/cloudflare';
 import { randomUUID } from 'crypto';
 
 // =============================================================================
@@ -59,7 +59,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validationResult.data;
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Validar que la cuenta exista
@@ -88,12 +90,19 @@ export async function POST(request: NextRequest) {
     // =============================================================================
     console.log('ðŸ” Verificando QR existente para mesa:', data.table_number);
     
+    // and() de Drizzle, no el && de JavaScript: `a && b && c` evalúa a `c`
+    // porque los objetos SQL son truthy, así que el WHERE se reducía a
+    // `is_active = true` y encontraba el QR de CUALQUIER cuenta y mesa. En la
+    // práctica, en cuanto existía un QR activo en el sistema ningún
+    // restaurante podía crear otro: siempre respondía 409.
     const existingQr = await db.select()
       .from(qrCodes)
       .where(
-        eq(qrCodes.accountId, data.account_id) && 
-        eq(qrCodes.tableNumber, data.table_number) &&
-        eq(qrCodes.isActive, true)
+        and(
+          eq(qrCodes.accountId, data.account_id),
+          eq(qrCodes.tableNumber, data.table_number),
+          eq(qrCodes.isActive, true)
+        )
       )
       .limit(1);
     
@@ -152,6 +161,8 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
 
+    });
+
   } catch (error) {
     console.error('âŒ Error en POST /api/qr-codes:', error);
     
@@ -201,7 +212,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Validar que la cuenta exista
@@ -258,6 +271,8 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
 
+    });
+
   } catch (error) {
     console.error('âŒ Error en GET /api/qr-codes:', error);
     
@@ -297,7 +312,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     const data = validationResult.data;
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Verificar que el QR exista
@@ -356,6 +373,8 @@ export async function PATCH(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    });
 
   } catch (error) {
     console.error('âŒ Error en PATCH /api/qr-codes:', error);

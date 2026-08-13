@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { consignationLogs, accounts } from '@sighfood/domain/db/schema';
 import { eq, and, desc, lt, sum, count, sql } from 'drizzle-orm';
-import { obtenerDb } from '@/lib/cloudflare';
+import { conBaseDeDatos } from '@/lib/cloudflare';
 
 // =============================================================================
 // Schemas de validacion con Zod
@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validationResult.data;
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Validar que la cuenta exista
@@ -155,6 +157,8 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
 
+    });
+
   } catch (error) {
     console.error('Error en POST /api/consignation:', error);
     
@@ -212,7 +216,9 @@ export async function GET(request: NextRequest) {
     }
 
     const data = validationResult.data;
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Validar que la cuenta exista
@@ -323,6 +329,8 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
 
+    });
+
   } catch (error) {
     console.error('Error en GET /api/consignation:', error);
     
@@ -362,7 +370,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     const data = validationResult.data;
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Verificar que el registro de consignacion exista
@@ -486,6 +496,8 @@ export async function PATCH(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    });
 
   } catch (error) {
     console.error('Error en PATCH /api/consignation:', error);

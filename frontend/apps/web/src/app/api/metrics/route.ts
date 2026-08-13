@@ -18,7 +18,7 @@ import {
 } from '@sighfood/domain/db/schema';
 import { eq, and, count, sum, sql, desc } from 'drizzle-orm';
 import { conCache } from '@sighfood/domain/lib/cache';
-import { obtenerDb } from '@/lib/cloudflare';
+import { conBaseDeDatos } from '@/lib/cloudflare';
 
 // =============================================================================
 // Schemas de validacion con Zod
@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
     const metricType = searchParams.get('type') || 'general';
     const accountId = searchParams.get('account_id');
     
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre al
+    // terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // TIPO 1: Metricas generales (North Star)
@@ -361,6 +363,8 @@ export async function GET(request: NextRequest) {
     // TIPO NO RECONOCIDO
     // =============================================================================
     return errorResponse(`Tipo de metrica no reconocido: ${metricType}. Tipos validos: general, accounts, products, consumers`, 400);
+
+    });
 
   } catch (error) {
     console.error('Error en GET /api/metrics:', error);

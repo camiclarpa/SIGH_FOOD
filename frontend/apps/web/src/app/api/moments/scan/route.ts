@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { qrCodes, sensoryMoments, dataConsents, b2cConsumers } from '@sighfood/domain/db/schema';
 import { eq } from 'drizzle-orm';
-import { obtenerDb } from '@/lib/cloudflare';
+import { conBaseDeDatos } from '@/lib/cloudflare';
 
 // =============================================================================
 // Schema de validación con Zod
@@ -65,12 +65,14 @@ export async function POST(request: NextRequest) {
     const data = validationResult.data;
 
     // Obtener conexión a la base de datos
-    const db = await obtenerDb();
+    // El cuerpo va dentro de conBaseDeDatos para que la conexión se cierre
+    // al terminar la petición: en Workers, dejarla abierta cuelga la respuesta.
+    return await conBaseDeDatos(async (db) => {
 
     // =============================================================================
     // 1. Validar QR Token
     // =============================================================================
-    console.log('ðŸ” Validando QR token...');
+    console.log('🔍 Validando QR token...');
     
     const qrResult = await db.select()
       .from(qrCodes)
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
     // =============================================================================
     // 3. Registrar momento sensorial y consentimiento (transacción)
     // =============================================================================
-    console.log('ðŸ“ Registrando momento sensorial y consentimiento...');
+    console.log('📝 Registrando momento sensorial y consentimiento...');
     
     await db.transaction(async (tx) => {
       // Insertar momento sensorial
@@ -188,6 +190,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    });
 
   } catch (error) {
     const executionTime = Date.now() - startTime;

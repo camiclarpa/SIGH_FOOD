@@ -4,12 +4,12 @@
  * ============================================================================
  * 
  * CONCEPTO VERIFICADO (Capítulo 10):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ──────────────────────────────────────────────────────────────────────────
  * Kleppmann distingue el procesamiento batch por su naturaleza de entrada
  * acotada (un conjunto de datos de tamaño conocido, como "todos los leads
  * de ayer") frente al streaming (entrada ilimitada y continua).
  * 
- * Propiedad central: un job batch es determinista y reproducible â€” correr
+ * Propiedad central: un job batch es determinista y reproducible — correr
  * el mismo job dos veces sobre la misma entrada produce exactamente la misma
  * salida.
  * 
@@ -68,7 +68,7 @@ const DEFAULT_CONFIG: BatchJobConfig = {
  *   - Migrar a Spark solo si el volumen de leads diario excede el límite
  *     de tiempo de ejecución de Lambda (15 minutos)
  * 
- * La entrada es acotada: "leads del dÃ­a calendario anterior" â€” un conjunto
+ * La entrada es acotada: "leads del día calendario anterior" — un conjunto
  * finito y conocido de antemano, cumpliendo la definición de batch.
  */
 export function executeBatchJob(
@@ -84,7 +84,7 @@ export function executeBatchJob(
     (lead) => lead.fechaCreacion && lead.fechaCreacion.getTime() >= periodStart
   );
   
-  // Agrupar por campaign_id (simulado â€” en producciÃ³n vendrÃ­a del CRM)
+  // Agrupar por campaign_id (simulado — en producción vendría del CRM)
   const campaignGroups = new Map<string, Lead[]>();
   for (const lead of leadsInPeriod) {
     const campaignId = 'default-campaign'; // Simulado
@@ -124,7 +124,7 @@ export function executeBatchJob(
  * Verifica la reproducibilidad del job batch.
  * 
  * Kleppmann enfatiza que correr el mismo job dos veces sobre la misma entrada
- * debe producir exactamente la misma salida â€” crÃ­tico para que el equipo de
+ * debe producir exactamente la misma salida — crítico para que el equipo de
  * ventas confíe en las cifras.
  */
 export function verifyBatchReproducibility(

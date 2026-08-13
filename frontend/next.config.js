@@ -114,14 +114,12 @@ const nextConfig = {
   
       async headers() {
     return [
+      // -----------------------------------------------------------------
+      // Cabeceras de seguridad: aplican a TODO, incluidas las rutas de API.
+      // -----------------------------------------------------------------
       {
-        // Excluir rutas protegidas de Next.js (/_next/*)
-        source: '/((?!_next/).*)',
+        source: '/:path*',
         headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
@@ -136,13 +134,53 @@ const nextConfig = {
           },
         ],
       },
-      // Headers específicos para assets estáticos (fuera de /_next)
+
+      // -----------------------------------------------------------------
+      // API: nunca cacheable.
+      //
+      // Antes caía bajo la regla de abajo y salía con
+      // `public, max-age=31536000, immutable`. Eso permitía que un CDN o un
+      // proxy intermedio guardara la respuesta de un usuario y se la sirviera
+      // a otro. `private, no-store` lo impide de raíz.
+      // -----------------------------------------------------------------
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, max-age=0, must-revalidate',
+          },
+        ],
+      },
+
+      // -----------------------------------------------------------------
+      // Assets con hash en el nombre: sí son inmutables de verdad.
+      // -----------------------------------------------------------------
       {
         source: '/assets/:path*',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+
+      // -----------------------------------------------------------------
+      // Páginas HTML: cacheables en el CDN, pero revalidables.
+      //
+      // `immutable` durante un año significaba que al cambiar un precio o un
+      // texto, quien ya hubiera visitado la página no volvería a verla nunca:
+      // el navegador ni siquiera revalidaba. Con stale-while-revalidate el
+      // usuario recibe la versión cacheada al instante y el CDN refresca por
+      // detrás.
+      // -----------------------------------------------------------------
+      {
+        source: '/((?!_next/|api/|assets/).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
           },
         ],
       },
@@ -165,6 +203,36 @@ const nextConfig = {
     // No ignorar errores de TypeScript en build
     ignoreBuildErrors: false,
   },
+
+  // =========================================================================
+  // BUNDLERS
+  // =========================================================================
+
+  // `next build` usa webpack (ver el flag --webpack del script).
+  //
+  // La caché persistente de webpack en .next/cache se corrompe de forma
+  // intermitente en este proyecto: al reutilizarla, algún módulo llega al
+  // hasher con `undefined` y el build muere antes de compilar. Se manifiesta
+  // de dos formas según el algoritmo de hash:
+  //   · xxhash64 (por defecto): "Cannot read properties of undefined
+  //     (reading 'length') at WasmHash._updateWithBuffer"
+  //   · sha256: "The 'data' argument must be of type string... Received
+  //     undefined" (ERR_INVALID_ARG_TYPE)
+  // Es el mismo fallo con distinta cara, y no depende de la versión de Node:
+  // se reprodujo en la 22 y en la 24. Cambiar el hash solo cambia el mensaje.
+  //
+  // Desactivar la caché lo elimina de raíz. El coste es compilar siempre en
+  // frío (~13 s aquí), que es lo que ocurre igualmente en CI, donde no hay
+  // caché previa. `next dev` con Turbopack no se ve afectado.
+  webpack: (config) => {
+    config.cache = false;
+    return config;
+  },
+
+  // `next dev` usa Turbopack, que rechaza convivir con un `webpack` sin una
+  // config propia declarada. Este objeto vacío es justo lo que la propia
+  // advertencia de Next sugiere para dejar clara la intención.
+  turbopack: {},
 
   };
 

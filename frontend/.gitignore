@@ -1,7 +1,10 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+# Sin barra inicial: así también cubren apps/*/node_modules y packages/*.
+# Con `/node_modules` solo se ignoraba el de la raíz, y por eso acabaron
+# versionados 444 archivos de build de apps/web/.next.
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -14,11 +17,12 @@
 /coverage
 
 # next.js
-/.next/
-/out/
+# Sin barra inicial para que aplique en cualquier workspace (apps/web/.next).
+.next/
+out/
 
 # production
-/build
+build/
 
 # misc
 .DS_Store
@@ -46,5 +50,9 @@ ADMIN_TOKEN_BACKUP.txt
 wrangler.toml
 
 # Cloudflare / OpenNext (artefactos de build)
-/.open-next/
-/.wrangler/
+.open-next/
+.wrangler/
+
+# Secretos locales de Cloudflare Workers (wrangler)
+.dev.vars
+.dev.vars.*

@@ -6,9 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getDb, CloudflareEnv } from '@sighfood/domain/db';
 import { accounts } from '@sighfood/domain/db/schema';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { conBaseDeDatos } from '@/lib/cloudflare';
 
 // =============================================================================
 // Schema de validación con Zod
@@ -37,17 +36,6 @@ const b2bLeadSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Obtener Cloudflare environment (si estamos en Workers)
-    let cloudflareEnv: CloudflareEnv | undefined;
-
-    try {
-      const { env } = await getCloudflareContext({ async: true });
-      cloudflareEnv = env as CloudflareEnv;
-    } catch {
-      // Si no estamos en Cloudflare Workers, usará DATABASE_URL del .env
-      console.log('ℹ Ejecutando en modo local (sin Cloudflare Workers)');
-    }
-
     // Obtener y validar el body
     const body = await request.json();
 
@@ -68,24 +56,24 @@ export async function POST(request: NextRequest) {
 
     const data = validationResult.data;
 
-    // Obtener conexión a la base de datos
-    const db = getDb(cloudflareEnv);
-
     // Insertar el lead en la tabla accounts
     console.log('Insertando lead en la base de datos...');
 
-    const [newAccount] = await db.insert(accounts).values({
-      name: data.name,
-      commercialName: data.commercialName,
-      zone: data.zone,
-      address: data.address,
-      decisionMakerName: data.decisionMakerName,
-      decisionMakerRole: data.decisionMakerRole,
-      phone: data.phone,
-      email: data.email,
-      pipelineStage: 'lemon_test_pending', // Estado inicial: Prueba del Limón pendiente
-      currentConsignationStock: 0,
-    }).returning();
+    const newAccount = await conBaseDeDatos(async (db) => {
+      const [fila] = await db.insert(accounts).values({
+        name: data.name,
+        commercialName: data.commercialName,
+        zone: data.zone,
+        address: data.address,
+        decisionMakerName: data.decisionMakerName,
+        decisionMakerRole: data.decisionMakerRole,
+        phone: data.phone,
+        email: data.email,
+        pipelineStage: 'lemon_test_pending', // Estado inicial: Prueba del Limón pendiente
+        currentConsignationStock: 0,
+      }).returning();
+      return fila;
+    });
 
     console.log('✅ Lead insertado exitosamente:', newAccount.id);
 

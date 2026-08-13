@@ -4,7 +4,7 @@
  * ============================================================================
  * 
  * CONCEPTO VERIFICADO (Capítulo 5):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ──────────────────────────────────────────────────────────────────────────
  * Kleppmann describe la replicación asíncrona como el patrón más común en la
  * práctica: el escritor (leader) no espera confirmación de las réplicas
  * (followers) antes de responder al cliente. Esto reduce la latencia percibida
@@ -18,11 +18,11 @@
  * PROBLEMA DE REPLICATION LAG (Sección 5.2):
  *   Si la página de "Gracias" intentara leer el estado del Lead desde el CRM
  *   inmediatamente después del envío, existiría una ventana donde el CRM
- *   todavÃ­a no procesÃ³ el evento â€” el usuario verÃ­a un estado vacÃ­o.
+ *   todavía no procesó el evento — el usuario vería un estado vacío.
  * 
  * SOLUCIÓN APLICADA:
  *   La página de "Gracias" de SIGH_FOOD nunca depende del CRM para renderizarse
- *   â€” es contenido estÃ¡tico (SSG) con un mensaje genÃ©rico de confirmaciÃ³n.
+ *   — es contenido estático (SSG) con un mensaje genérico de confirmación.
  *   Cualquier dato específico del Lead se toma del estado local del formulario
  *   en el cliente, eliminando estructuralmente la anomalía de replication lag.
  * 
@@ -50,7 +50,7 @@ export interface ReplicationStatus {
  *   2. Un webhook de confirmación del CRM que actualice `crmSyncedAt`
  *   3. Cálculo de `replicationLagMs = crmSyncedAt - queuedAt`
  * 
- * Para SIGH_FOOD, no necesitamos exponer este estado al usuario â€” la pÃ¡gina
+ * Para SIGH_FOOD, no necesitamos exponer este estado al usuario — la página
  * de "Gracias" es SSG y no lee del CRM, eliminando la anomalía por diseño.
  */
 export function getReplicationStatus(_lead: Lead): ReplicationStatus {

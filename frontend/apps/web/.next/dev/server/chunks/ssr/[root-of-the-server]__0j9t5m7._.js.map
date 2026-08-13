@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/jrive/Documents/SIGH_FOOD/frontend/apps/web/src/app/page.tsx"],"sourcesContent":["import Link from 'next/link';\n\n/**\n * Raíz de @sighfood/web.\n *\n * Sin este archivo `/` devolvía 404: la app solo tenía /b2b y las rutas de API.\n */\nexport default function HomePage() {\n  return (\n    <main style={{ padding: '3rem 1.5rem', maxWidth: '48rem', margin: '0 auto' }}>\n      <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1rem' }}>\n        SIGH_FOOD\n      </h1>\n      <p style={{ marginBottom: '2rem', lineHeight: 1.6 }}>\n        Portafolio de conos RTA para gastrobares.\n      </p>\n      <Link href=\"/b2b\" style={{ textDecoration: 'underline' }}>\n        Ir a la landing B2B\n      </Link>\n    </main>\n  );\n}\n"],"names":["HomePage","style","padding","maxWidth","margin","fontSize","fontWeight","marginBottom","lineHeight","href","textDecoration"],"mappings":";;;;;AAAA;;;AAOe,SAASA;IACtB,qBACE,8OAAC;QAAKC,OAAO;YAAEC,SAAS;YAAeC,UAAU;YAASC,QAAQ;QAAS;;0BACzE,8OAAC;gBAAGH,OAAO;oBAAEI,UAAU;oBAAQC,YAAY;oBAAKC,cAAc;gBAAO;0BAAG;;;;;;0BAGxE,8OAAC;gBAAEN,OAAO;oBAAEM,cAAc;oBAAQC,YAAY;gBAAI;0BAAG;;;;;;0BAGrD,8OAAC,0LAAI;gBAACC,MAAK;gBAAOR,OAAO;oBAAES,gBAAgB;gBAAY;0BAAG;;;;;;;;;;;;AAKhE"}}]
-}

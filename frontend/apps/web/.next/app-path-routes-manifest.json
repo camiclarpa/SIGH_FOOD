@@ -1,8 +1,0 @@
-{
-  "/_global-error/page": "/_global-error",
-  "/_not-found/page": "/_not-found",
-  "/api/leads/b2b/route": "/api/leads/b2b",
-  "/api/leads/route": "/api/leads",
-  "/b2b/page": "/b2b",
-  "/page": "/"
-}

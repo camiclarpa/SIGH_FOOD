@@ -4,7 +4,7 @@
  * ============================================================================
  * 
  * CONCEPTO VERIFICADO (Capítulo 7):
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ──────────────────────────────────────────────────────────────────────────
  * Kleppmann describe el problema de "dual writes": cuando una aplicación
  * escribe explícitamente a dos sistemas distintos (ej. base de datos + índice
  * de búsqueda), pueden ocurrir dos fallas independientes:
@@ -45,7 +45,7 @@ export interface OutboxEvent {
 /**
  * Crea un evento outbox para un Lead nuevo.
  * 
- * Este es el ÃšNICO punto de escritura en el sistema â€” no hay dual writes.
+ * Este es el ÚNICO punto de escritura en el sistema — no hay dual writes.
  * Todos los sistemas downstream (CRM, email, dashboard) leen de este mismo log.
  */
 export function createOutboxEvent(lead: Lead, partitionId: number): OutboxEvent {

@@ -24,6 +24,9 @@
                                             }
                                         ],
                             "paths":  {
+                                          "@/*":  [
+                                                      "./src/*"
+                                                  ],
                                           "@sighfood/domain/*":  [
                                                                      "../../packages/sighfood-domain/src/*"
                                                                  ]

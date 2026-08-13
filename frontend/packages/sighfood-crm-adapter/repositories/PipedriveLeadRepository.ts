@@ -1,5 +1,5 @@
 /**
- * PIPEDRIVE LEAD REPOSITORY â€” Adaptador Concreto para Pipedrive CRM
+ * PIPEDRIVE LEAD REPOSITORY — Adaptador Concreto para Pipedrive CRM
  * 
  * Este adaptador implementa la interfaz LeadRepository del dominio,
  * siguiendo el patrón de puertos y adaptadores de Clean Architecture.

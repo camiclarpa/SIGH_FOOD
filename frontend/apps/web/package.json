@@ -6,13 +6,18 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "@sighfood/crm-adapter": "workspace:*",
     "@sighfood/domain": "workspace:*",
     "@sighfood/ui": "workspace:*",
     "next": "16.2.12",
+    "next-auth": "5.0.0-beta.32",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.4.3"
@@ -21,6 +26,7 @@
     "@types/node": "^20.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "wrangler": "^4.119.0"
   }
 }

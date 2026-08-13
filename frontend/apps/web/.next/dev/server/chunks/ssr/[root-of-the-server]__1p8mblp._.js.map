@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/jrive/Documents/SIGH_FOOD/frontend/apps/web/src/app/b2b/page.tsx"],"sourcesContent":["/**\n * LANDING B2B PAGE\n * Parte V: Componente Main (Capítulo 26)\n * Página principal del landing page B2B de SIGH_FOOD\n */\n\nexport default function B2BLandingPage() {\n  return (\n    <main>\n      <h1>SIGH_FOOD - Landing B2B</h1>\n      <p>Portafolio de 5 conos RTA para gastrobares</p>\n    </main>\n  );\n}"],"names":["B2BLandingPage"],"mappings":"AAAA;;;;CAIC;;;;;;AAEc,SAASA;IACtB,qBACE,8OAAC;;0BACC,8OAAC;0BAAG;;;;;;0BACJ,8OAAC;0BAAE;;;;;;;;;;;;AAGT"}}]
-}

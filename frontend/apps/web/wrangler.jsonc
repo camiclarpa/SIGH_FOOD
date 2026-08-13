@@ -1,0 +1,46 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+
+  // Worker propio del CRM, separado de la landing (sigh-bocazo).
+  "name": "sighfood-crm",
+
+  // Cuenta: Camiloriverac0@gmail.com's Account
+  "account_id": "5e153923b7c5fdd9468c9b184cee5866",
+
+  // Salida de @opennextjs/cloudflare (no es un entrypoint propio: lo genera el build).
+  "main": ".open-next/worker.js",
+
+  // OpenNext exige 2024-09-23 o posterior + nodejs_compat.
+  "compatibility_date": "2026-08-07",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Assets estáticos modernos (Workers Static Assets).
+  // NO usar "site": esa es la API legada de Workers Sites, incompatible con OpenNext.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Hyperdrive: agrupa las conexiones a Neon para que el Worker no abra una
+  // conexión nueva por isolate. Se reutiliza la configuración existente
+  // "sighfood-db", que ya apunta a esta misma base.
+  //
+  // Se lee con getCloudflareContext() desde las rutas de Next, no con un
+  // handler fetch(env). getDb() detecta este binding y prioriza esa vía sobre
+  // DATABASE_URL, que solo se usa en local.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "be704b244ff041d0b3200284bff8c965"
+    }
+  ],
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+
+  // AUTH_SECRET no se declara aquí: es un secreto y se sube con
+  //   npx wrangler secret put AUTH_SECRET
+  // Ponerlo en "vars" lo dejaría en texto plano en este archivo.
+}

@@ -1,0 +1,116 @@
+name: Verificar y desplegar
+
+# El despliegue del CRM lo hace Cloudflare Workers Builds al recibir un push,
+# así que este workflow NO vuelve a desplegar: duplicarlo daría dos despliegues
+# compitiendo por el mismo Worker, que es justo el problema que tuvimos cuando
+# la landing se publicaba encima del CRM.
+#
+# Lo que aporta es la verificación previa que Workers Builds no hace: tipos,
+# lint y la suite de tests. Si algo de eso falla, el fallo queda visible en el
+# commit aunque el despliegue haya salido.
+#
+# Para desplegar desde aquí en lugar de con Workers Builds, desactiva el
+# despliegue automático en el panel de Cloudflare y descomenta el job `desplegar`
+# del final, añadiendo los secretos CLOUDFLARE_API_TOKEN y CLOUDFLARE_ACCOUNT_ID.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Un push nuevo cancela la verificación anterior de la misma rama.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, lint y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          # Misma versión que .node-version, que es la que usa Cloudflare.
+          node-version-file: frontend/.node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Comprobar tipos
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npx vitest run
+
+      - name: Construir la landing
+        run: npm run build
+
+      - name: Construir los paquetes y el CRM
+        run: pnpm -r --filter "!frontend" build
+
+  # ---------------------------------------------------------------------------
+  # Despliegue alternativo a Workers Builds.
+  #
+  # Actívalo SOLO si desactivas el despliegue automático en Cloudflare; con los
+  # dos a la vez, cada push lanzaría dos despliegues del mismo Worker.
+  #
+  # Requiere en Settings → Secrets and variables → Actions:
+  #   CLOUDFLARE_API_TOKEN    token con permiso "Edit Cloudflare Workers"
+  #   CLOUDFLARE_ACCOUNT_ID   5e153923b7c5fdd9468c9b184cee5866
+  #   DATABASE_URL            cadena de Neon (la usa Hyperdrive al desplegar)
+  # ---------------------------------------------------------------------------
+  #
+  # desplegar:
+  #   name: Desplegar el CRM en Cloudflare
+  #   needs: verificar
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 20
+  #   defaults:
+  #     run:
+  #       working-directory: frontend/apps/web
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 10
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version-file: frontend/.node-version
+  #         cache: pnpm
+  #         cache-dependency-path: frontend/pnpm-lock.yaml
+  #     - name: Instalar dependencias
+  #       run: pnpm install --frozen-lockfile
+  #       working-directory: frontend
+  #     - name: Construir para Cloudflare
+  #       run: npx opennextjs-cloudflare build
+  #     - name: Desplegar
+  #       # wrangler delega en opennextjs-cloudflare, que lee los bindings con
+  #       # getPlatformProxy(); con Hyperdrive declarado exige una cadena
+  #       # Postgres o aborta con "no local hyperdrive connection string".
+  #       run: CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL" npx wrangler deploy
+  #       env:
+  #         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  #         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  #         DATABASE_URL: ${{ secrets.DATABASE_URL }}

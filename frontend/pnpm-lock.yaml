@@ -81,6 +81,9 @@ importers:
       '@sighfood/ui':
         specifier: workspace:*
         version: link:../../packages/sighfood-ui
+      groq-sdk:
+        specifier: ^1.5.0
+        version: 1.5.0
       next:
         specifier: 16.2.12
         version: 16.2.12(@babel/core@7.29.7(supports-color@10.2.2))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -3498,6 +3501,10 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  groq-sdk@1.5.0:
+    resolution: {integrity: sha512-aa5yaMVd8kehBacU3Pp7roObOuPksZNau+nPW+GDDB7OV/8jybVzeeOv54lZj8owNNIc3a7Tu2eYI7/kIwtMNw==}
+    hasBin: true
 
   gzip-size@6.0.0:
     resolution: {integrity: sha512-ax7ZYomf6jqPTQ4+XCpUGyXKHk5WweS+e05MBO4/y3WJ5RkmPXNKvX+bx1behVILVwr6JSQvZAku021CHPXG3Q==}
@@ -8536,6 +8543,8 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  groq-sdk@1.5.0: {}
 
   gzip-size@6.0.0:
     dependencies:

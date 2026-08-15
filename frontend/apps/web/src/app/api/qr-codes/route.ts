@@ -8,6 +8,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { log, conTrazas } from '@sighfood/domain/lib/observabilidad';
 import { z } from 'zod';
 import { qrCodes, accounts } from '@sighfood/domain/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -38,7 +39,7 @@ const updateQrSchema = z.object({
 // POST Handler - Generar nuevo QR Code
 // =============================================================================
 
-export async function POST(request: NextRequest) {
+export const POST = conTrazas('/api/qr-codes', async (request: NextRequest) => {
   try {
     const body = await request.json();
     
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     const validationResult = createQrSchema.safeParse(body);
     
     if (!validationResult.success) {
-      console.error('âŒ Validación fallida:', validationResult.error.issues);
+      log.warn('Validación fallida', { ruta: '/api/qr-codes', issues: validationResult.error.issues });
       
       return NextResponse.json(
         { 
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     // =============================================================================
     // 1. Validar que la cuenta exista
     // =============================================================================
-    console.log('ðŸ” Validando account_id:', data.account_id);
+    log.debug('Validando account_id', { ruta: '/api/qr-codes', detalle: data.account_id });
     
     const accountResult = await db.select()
       .from(accounts)
@@ -83,12 +84,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('✓ Cuenta válida:', accountResult[0].name);
+    log.debug('Cuenta válida', { ruta: '/api/qr-codes', detalle: accountResult[0].name });
 
     // =============================================================================
     // 2. Verificar que no exista un QR activo para esa mesa
     // =============================================================================
-    console.log('ðŸ” Verificando QR existente para mesa:', data.table_number);
+    log.debug('Verificando QR existente para mesa', { ruta: '/api/qr-codes', detalle: data.table_number });
     
     // and() de Drizzle, no el && de JavaScript: `a && b && c` evalúa a `c`
     // porque los objetos SQL son truthy, así que el WHERE se reducía a
@@ -124,10 +125,10 @@ export async function POST(request: NextRequest) {
     // =============================================================================
     // 3. Generar token único y crear QR
     // =============================================================================
-    console.log('🎲 Generando token único...');
+    log.debug('Generando token único...', { ruta: '/api/qr-codes' });
     
     const qrToken = randomUUID();
-    console.log('✓ Token generado:', qrToken);
+    log.debug('Token generado', { ruta: '/api/qr-codes', detalle: qrToken });
     
     const [newQr] = await db.insert(qrCodes).values({
       accountId: data.account_id,
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
       isActive: true,
     }).returning();
     
-    console.log('✓ QR Code creado exitosamente:', newQr.id);
+    log.debug('QR Code creado exitosamente', { ruta: '/api/qr-codes', detalle: newQr.id });
 
     // =============================================================================
     // 4. Construir URL de escaneo
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('âŒ Error en POST /api/qr-codes:', error);
+    log.error('Error en POST /api/qr-codes', error, { ruta: '/api/qr-codes' });
     
     return NextResponse.json(
       { 
@@ -175,13 +176,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // =============================================================================
 // GET Handler - Listar QR Codes de una cuenta
 // =============================================================================
 
-export async function GET(request: NextRequest) {
+export const GET = conTrazas('/api/qr-codes', async (request: NextRequest) => {
   try {
     
     // Obtener account_id de query params
@@ -237,14 +238,14 @@ export async function GET(request: NextRequest) {
     // =============================================================================
     // 2. Obtener todos los QRs de la cuenta
     // =============================================================================
-    console.log('ðŸ” Buscando QRs para account_id:', accountId);
+    log.debug('Buscando QRs para account_id', { ruta: '/api/qr-codes', detalle: accountId });
     
     const qrList = await db.select()
       .from(qrCodes)
       .where(eq(qrCodes.accountId, accountId))
       .orderBy(qrCodes.createdAt);
     
-    console.log(`✓ Encontrados ${qrList.length} QR codes`);
+    log.debug('QR codes encontrados', { ruta: '/api/qr-codes', total: qrList.length });
 
     // =============================================================================
     // 3. Construir URLs de escaneo
@@ -274,7 +275,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('âŒ Error en GET /api/qr-codes:', error);
+    log.error('Error en GET /api/qr-codes', error, { ruta: '/api/qr-codes' });
     
     return NextResponse.json(
       { 
@@ -285,13 +286,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // =============================================================================
 // PATCH Handler - Activar/Desactivar QR Code
 // =============================================================================
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = conTrazas('/api/qr-codes', async (request: NextRequest) => {
   try {
     const body = await request.json();
     
@@ -299,7 +300,7 @@ export async function PATCH(request: NextRequest) {
     const validationResult = updateQrSchema.safeParse(body);
     
     if (!validationResult.success) {
-      console.error('âŒ Validación fallida:', validationResult.error.issues);
+      log.warn('Validación fallida', { ruta: '/api/qr-codes', issues: validationResult.error.issues });
       
       return NextResponse.json(
         { 
@@ -319,7 +320,7 @@ export async function PATCH(request: NextRequest) {
     // =============================================================================
     // 1. Verificar que el QR exista
     // =============================================================================
-    console.log('ðŸ” Buscando QR con id:', data.qr_id);
+    log.debug('Buscando QR con id', { ruta: '/api/qr-codes', detalle: data.qr_id });
     
     const qrResult = await db.select()
       .from(qrCodes)
@@ -337,7 +338,7 @@ export async function PATCH(request: NextRequest) {
     }
     
     const currentQr = qrResult[0];
-    console.log('✓ QR encontrado - Mesa:', currentQr.tableNumber, 'Activo:', currentQr.isActive);
+    log.debug('QR encontrado - Mesa', { ruta: '/api/qr-codes', detalle: [currentQr.tableNumber, 'Activo:', currentQr.isActive] });
 
     // =============================================================================
     // 2. Actualizar estado
@@ -349,7 +350,7 @@ export async function PATCH(request: NextRequest) {
       .where(eq(qrCodes.id, data.qr_id))
       .returning();
     
-    console.log('✓ QR actualizado - Nuevo estado:', updatedQr.isActive);
+    log.debug('QR actualizado - Nuevo estado', { ruta: '/api/qr-codes', detalle: updatedQr.isActive });
 
     // =============================================================================
     // 3. Construir URL de escaneo
@@ -377,7 +378,7 @@ export async function PATCH(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('âŒ Error en PATCH /api/qr-codes:', error);
+    log.error('Error en PATCH /api/qr-codes', error, { ruta: '/api/qr-codes' });
     
     return NextResponse.json(
       { 
@@ -388,4 +389,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

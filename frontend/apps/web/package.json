@@ -16,6 +16,7 @@
     "@sighfood/crm-adapter": "workspace:*",
     "@sighfood/domain": "workspace:*",
     "@sighfood/ui": "workspace:*",
+    "groq-sdk": "^1.5.0",
     "next": "16.2.12",
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.4",

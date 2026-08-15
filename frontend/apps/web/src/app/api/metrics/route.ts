@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { log, conTrazas } from '@sighfood/domain/lib/observabilidad';
 import { z } from 'zod';
 import {
   accounts,
@@ -43,7 +44,7 @@ function errorResponse(message: string, statusCode: number = 500) {
 // GET Handler - Metricas generales (North Star Metric)
 // =============================================================================
 
-export async function GET(request: NextRequest) {
+export const GET = conTrazas('/api/metrics', async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const metricType = searchParams.get('type') || 'general';
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     // TIPO 2: Metricas por cuenta (restaurante)
     // =============================================================================
     if (metricType === 'accounts') {
-      console.log('Calculando metricas por cuenta...');
+      log.debug('Calculando metricas por cuenta...', { ruta: '/api/metrics' });
       
       const validationResult = accountIdSchema.safeParse({ account_id: accountId || undefined });
       
@@ -226,7 +227,7 @@ export async function GET(request: NextRequest) {
     // TIPO 3: Metricas por linea de producto
     // =============================================================================
     if (metricType === 'products') {
-      console.log('Calculando metricas por linea de producto...');
+      log.debug('Calculando metricas por linea de producto...', { ruta: '/api/metrics' });
       
       const productMetrics = await db.select({
         product_line: sensoryMoments.productLine,
@@ -263,7 +264,7 @@ export async function GET(request: NextRequest) {
     // TIPO 4: Comensales unicos por cuenta
     // =============================================================================
     if (metricType === 'consumers') {
-      console.log('Calculando comensales unicos por cuenta...');
+      log.debug('Calculando comensales unicos por cuenta...', { ruta: '/api/metrics' });
       
       const validationResult = accountIdSchema.safeParse({ account_id: accountId || undefined });
       
@@ -367,11 +368,11 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error en GET /api/metrics:', error);
+    log.error('Error en GET /api/metrics', error, { ruta: '/api/metrics' });
     
     return errorResponse(
       error instanceof Error ? error.message : 'Error desconocido en el servidor',
       500
     );
   }
-}
+});

@@ -14,29 +14,22 @@ import {
   jsonb,
   boolean,
   pgEnum,
-  index
+  index,
+  vector,
+  type AnyPgColumn
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // =============================================================================
-// NOTA SOBRE ÍNDICES
-// =============================================================================
-//
-// Los índices se declaran aquí, no solo en la base. Estaban creados a mano en
-// Neon pero ausentes del schema, así que cualquier entorno levantado desde este
-// archivo —staging, recuperación ante desastre, un `drizzle-kit push` limpio—
-// nacía sin uno solo y nadie lo notaba hasta que la aplicación iba lenta.
-//
-// Los nombres coinciden con los que ya existen en producción para que Drizzle
-// los reconozca en lugar de intentar duplicarlos.
-//
-// Medido con 500.000 momentos sensoriales (el volumen de 1000 clientes):
-//   · filtrar momentos por cuenta:      50 ms  ->  0,87 ms
-//   · momentos de los últimos 7 días:  110 ms  ->  10,9 ms
-
-// =============================================================================
 // ENUMS
+// -----------------------------------------------------------------------------
+// Todos los pgEnum viven aqui, antes de cualquier pgTable. Varias tablas los
+// referenciaban antes de su declaracion (TS2448) porque se habian ido anadiendo
+// al final del archivo.
 // =============================================================================
+
+export const episodeOutcomeEnum = pgEnum('episode_outcome', ['SUCCESS', 'PARTIAL', 'FAILED']);
+export const procedureStatusEnum = pgEnum('procedure_status', ['draft', 'validated', 'active', 'deprecated']);
 
 export const b2bPipelineStageEnum = pgEnum('b2b_pipeline_stage', [
   'lead_landing',
@@ -63,6 +56,285 @@ export const settlementStatusEnum = pgEnum('settlement_status', [
   'cancelled'
 ]);
 
+export const staffRoleEnum = pgEnum('staff_role', [
+  'admin',      // todo, incluida la gestión de usuarios
+  'comercial',  // opera cuentas, consignación y QR
+  'lectura',    // solo consulta de métricas
+]);
+
+export const churnRiskEnum = pgEnum('churn_risk', ['low', 'medium', 'high', 'critical']);
+
+export const leadScoreEnum = pgEnum('lead_score', ['cold', 'warm', 'hot', 'qualified']);
+
+export const automationTriggerEnum = pgEnum('automation_trigger', [
+  'signup',
+  'first_purchase',
+  'abandoned_cart',
+  'birthday',
+  'inactive_30_days',
+  'churn_risk',
+  'referral_conversion'
+]);
+
+export const automationChannelEnum = pgEnum('automation_channel', ['email', 'whatsapp', 'sms', 'push']);
+
+export const automationStatusEnum = pgEnum('automation_status', ['draft', 'active', 'paused', 'completed']);
+
+export const referralStatusEnum = pgEnum('referral_status', ['pending', 'converted', 'expired', 'cancelled']);
+
+export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['percentage', 'fixed', 'free_shipping']);
+
+export const forecastPeriodEnum = pgEnum('forecast_period', ['weekly', 'monthly', 'quarterly', 'yearly']);
+
+export const leadSourceEnum = pgEnum('lead_source', [
+  'landing_page',
+  'digital_ads',
+  'field_prospecting',
+  'referral',
+  'social_media',
+  'event'
+]);
+
+export const creditScoreEnum = pgEnum('credit_score', [
+  'excellent',
+  'good',
+  'fair',
+  'poor',
+  'high_risk'
+]);
+
+export const demonstrationStatusEnum = pgEnum('demonstration_status', [
+  'scheduled',
+  'completed',
+  'cancelled',
+  'rescheduled'
+]);
+
+export const assetTypeEnum = pgEnum('asset_type', [
+  'led_display',
+  'table_talker',
+  'menu_holder',
+  'qr_code_stand',
+  'promotional_material'
+]);
+
+export const assetStatusEnum = pgEnum('asset_status', [
+  'active',
+  'maintenance',
+  'retired',
+  'lost'
+]);
+
+export const trainingStatusEnum = pgEnum('training_status', [
+  'pending',
+  'in_progress',
+  'completed',
+  'certified'
+]);
+
+export const contractStatusEnum = pgEnum('contract_status', [
+  'draft',
+  'pending_signature',
+  'active',
+  'expired',
+  'terminated'
+]);
+
+export const popMaterialTypeEnum = pgEnum('pop_material_type', [
+  'table_talker',
+  'qr_code',
+  'menu_insert',
+  'banner',
+  'digital_display'
+]);
+
+export const popConditionEnum = pgEnum('pop_condition', [
+  'excellent',
+  'good',
+  'damaged',
+  'missing'
+]);
+
+export const comboTypeEnum = pgEnum('combo_type', [
+  'product_drink',
+  'product_food',
+  'seasonal',
+  'promotional'
+]);
+
+export const activationTypeEnum = pgEnum('activation_type', [
+  'brand_ambassador',
+  'dj_event',
+  'tasting',
+  'promotional_night',
+  'launch_event'
+]);
+
+export const warrantyTypeEnum = pgEnum('warranty_type', [
+  'product_defect',
+  'shipping_damage',
+  'expired_product',
+  'customer_complaint'
+]);
+
+export const paymentMethodEnum = pgEnum('payment_method', [
+  'cash',
+  'credit_card',
+  'debit_card',
+  'bank_transfer',
+  'digital_wallet'
+]);
+
+export const ticketStatusEnum = pgEnum('ticket_status', ['open', 'in_progress', 'resolved', 'closed']);
+
+export const membershipTierEnum = pgEnum('membership_tier', ['bronze', 'silver', 'gold']);
+
+export const embeddingModelEnum = pgEnum('embedding_model', [
+  'openai_text_3_small',
+  'openai_text_3_large',
+  'local_sentence_transformers',
+  'deepseek_embedding'
+]);
+
+export const memoryLayerEnum = pgEnum('memory_layer', [
+  'episodic',
+  'semantic',
+  'procedural'
+]);
+
+export const patternConsolidationEnum = pgEnum('pattern_consolidation', [
+  'emerging',
+  'active',
+  'consolidated',
+  'deprecated',
+  'archived'
+]);
+
+export const cotStepEnum = pgEnum('cot_step', [
+  'similar_cases_search',
+  'context_comparison',
+  'affected_elements',
+  'business_impact',
+  'side_effects',
+  'false_positive_check'
+]);
+
+export const predictionHorizonEnum = pgEnum('prediction_horizon', [
+  '7_days',
+  '30_days',
+  '90_days',
+  'quarterly',
+  'yearly'
+]);
+
+export const kgDomainEnum = pgEnum('kg_domain', [
+  'b2b_accounts',
+  'b2c_consumers',
+  'products',
+  'locations',
+  'staff',
+  'assets',
+  'transactions'
+]);
+
+export const sandboxPhaseEnum = pgEnum('sandbox_phase', [
+  'dry_run',
+  'staging',
+  'canary',
+  'production'
+]);
+
+// Tipos de arista del grafo de conocimiento del CRM (A9).
+export const kgRelationTypeEnum = pgEnum('kg_relation_type', [
+  'consumes',
+  'located_in',
+  'owns',
+  'refers',
+  'influences',
+  'belongs_to',
+  'supplies',
+  'competes_with',
+  'derived_from'
+]);
+
+// Entorno en el que aplica una fila de la matriz de autonomia (A12).
+export const environmentEnum = pgEnum('environment', [
+  'development',
+  'staging',
+  'production'
+]);
+
+// Cuanto puede hacer el agente por su cuenta antes de pedir aprobacion (A12).
+// 'prohibited' existe porque autonomy-guard lo comprueba para bloquear la
+// accion; sin el, esa comparacion nunca era cierta y la matriz no podia vetar
+// nada.
+export const autonomyLevelEnum = pgEnum('autonomy_level', [
+  'prohibited',
+  'manual',
+  'assisted',
+  'supervised',
+  'autonomous'
+]);
+
+export const autonomyActionEnum = pgEnum('autonomy_action', [
+  'detect_report',
+  'comment_pr',
+  'block_merge',
+  'create_fix_pr',
+  'modify_threshold',
+  'deprecate_pattern',
+  'escalate',
+  'rollback',
+  'modify_infrastructure'
+]);
+
+export const xaiEvidenceTypeEnum = pgEnum('xai_evidence_type', [
+  'ast_node',
+  'metric_value',
+  'embedding_similarity',
+  'historical_pattern',
+  'business_rule',
+  'human_feedback'
+]);
+
+export const observabilityMetricTypeEnum = pgEnum('observability_metric_type', [
+  'histogram',
+  'counter',
+  'gauge',
+  'summary'
+]);
+
+export const agentHealthStatusEnum = pgEnum('agent_health_status', [
+  'healthy',
+  'degraded',
+  'critical',
+  'offline'
+]);
+
+
+// =============================================================================
+// NOTA SOBRE ÍNDICES
+// =============================================================================
+//
+// Los índices se declaran aquí, no solo en la base. Estaban creados a mano en
+// Neon pero ausentes del schema, así que cualquier entorno levantado desde este
+// archivo —staging, recuperación ante desastre, un `drizzle-kit push` limpio—
+// nacía sin uno solo y nadie lo notaba hasta que la aplicación iba lenta.
+//
+// Los nombres coinciden con los que ya existen en producción para que Drizzle
+// los reconozca en lugar de intentar duplicarlos.
+//
+// Medido con 500.000 momentos sensoriales (el volumen de 1000 clientes):
+//   · filtrar momentos por cuenta:      50 ms  ->  0,87 ms
+//   · momentos de los últimos 7 días:  110 ms  ->  10,9 ms
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+
+
+
 // =============================================================================
 // 1. ACCOUNTS (Cuentas B2B - Restaurantes/Chefs)
 // =============================================================================
@@ -75,12 +347,24 @@ export const accounts = pgTable('accounts', {
   address: text('address').notNull(),
   decisionMakerName: varchar('decision_maker_name', { length: 150 }).notNull(),
   decisionMakerRole: varchar('decision_maker_role', { length: 100 }),
+  assignedTo: uuid('assigned_to').references(() => staffUsers.id),
+  salesRep: varchar('sales_rep', { length: 150 }),
   phone: varchar('phone', { length: 50 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   pipelineStage: b2bPipelineStageEnum('pipeline_stage').default('lead_landing'),
   currentConsignationStock: integer('current_consignation_stock').default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+  churnRisk: churnRiskEnum('churn_risk').default('low'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  churnScore: numeric('churn_score', { precision: 5, scale: 2 }).default('0.00'),
+  lastActivity: timestamp('last_activity', { withTimezone: true }),
+  churnedAt: timestamp('churned_at', { withTimezone: true }),
+  leadScore: leadScoreEnum('lead_score').default('cold'),
+  conversionProb: numeric('conversion_prob', { precision: 5, scale: 2 }).default('0.00'),
+  engagementScore: numeric('engagement_score', { precision: 5, scale: 2 }).default('0.00'),
+  avgConsumptionDays: integer('avg_consumption_days').default(30),
+  lastPurchaseDate: timestamp('last_purchase_date', { withTimezone: true }),
+  reorderAlertThreshold: integer('reorder_alert_threshold').default(5)
 }, (t) => [
   index('idx_accounts_email').on(t.email),
   index('idx_accounts_stage').on(t.pipelineStage),
@@ -101,6 +385,16 @@ export const b2cConsumers = pgTable('b2c_consumers', {
     .$type<Record<string, number>>()
     .default({}),
   isVipWhatsapp: boolean('is_vip_whatsapp').default(true),
+  points: integer('points').default(0),
+  cashbackBalance: numeric('cashback_balance', { precision: 10, scale: 2 }).default('0.00'),
+  membershipTier: membershipTierEnum('membership_tier').default('bronze'),
+  totalSpent: numeric('total_spent', { precision: 10, scale: 2 }).default('0.00'),
+  ltv: numeric('ltv', { precision: 10, scale: 2 }).default('0.00'),
+  cac: numeric('cac', { precision: 10, scale: 2 }).default('0.00'),
+  referralCode: varchar('referral_code', { length: 50 }).unique(),
+  // Autorreferencia: sin la anotacion `AnyPgColumn` TypeScript no puede inferir
+  // el tipo de la tabla dentro de su propia definicion (TS7022/TS7024).
+  referredBy: uuid('referred_by').references((): AnyPgColumn => b2cConsumers.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
 }, (t) => [
   index('idx_b2c_whatsapp').on(t.whatsappPhone),
@@ -133,6 +427,8 @@ export const consignationLogs = pgTable('consignation_logs', {
   unitsDelivered: integer('units_delivered').notNull(),
   unitsSold: integer('units_sold').default(0),
   unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).default('21000.00'),
+    batchNumber: varchar('batch_number', { length: 100 }),
+    expiryDate: timestamp('expiry_date', { withTimezone: true }),
   settlementStatus: settlementStatusEnum('settlement_status').default('pending'),
   dispatchedAt: timestamp('dispatched_at', { withTimezone: true }).defaultNow(),
   settledAt: timestamp('settled_at', { withTimezone: true })
@@ -180,11 +476,6 @@ export const dataConsents = pgTable('data_consents', {
 // de `accounts`, no usuarios que inicien sesión. Por eso aquí no hay tenencia
 // por cliente, solo roles internos.
 
-export const staffRoleEnum = pgEnum('staff_role', [
-  'admin',      // todo, incluida la gestión de usuarios
-  'comercial',  // opera cuentas, consignación y QR
-  'lectura',    // solo consulta de métricas
-]);
 
 export const staffUsers = pgTable('staff_users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -268,3 +559,1222 @@ export type NewQrCode = typeof qrCodes.$inferInsert;
 
 export type DataConsent = typeof dataConsents.$inferSelect;
 export type NewDataConsent = typeof dataConsents.$inferInsert;
+// =============================================================================
+// ENUMS FASE 3 - ANALITICA PREDICTIVA Y AUTOMATIZACION
+// =============================================================================
+
+
+
+
+
+
+
+// =============================================================================
+// ENUMS MODULOS CRM FALTANTES
+// =============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+// =============================================================================
+// 11. PRODUCT_RECOMMENDATIONS (Cross-Selling y Recomendaciones IA)
+// =============================================================================
+
+export const productRecommendations = pgTable('product_recommendations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  recommendedProductLine: varchar('recommended_product_line', { length: 50 }).notNull(),
+  confidenceScore: numeric('confidence_score', { precision: 5, scale: 2 }).notNull(),
+  reason: varchar('reason', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+}, (t) => [
+  index('idx_recommendations_consumer').on(t.consumerId),
+  index('idx_recommendations_product').on(t.recommendedProductLine),
+]);
+
+// =============================================================================
+// 12. AUTOMATION_SEQUENCES (Secuencias de Marketing Automatizado)
+// =============================================================================
+
+export const automationSequences = pgTable('automation_sequences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  trigger: automationTriggerEnum('trigger').notNull(),
+  channel: automationChannelEnum('channel').notNull(),
+  status: automationStatusEnum('status').default('draft'),
+  template: text('template').notNull(),
+  delayHours: integer('delay_hours').default(0),
+  targetSegment: varchar('target_segment', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  churnScore: numeric('churn_score', { precision: 5, scale: 2 }).default('0.00'),
+  lastActivity: timestamp('last_activity', { withTimezone: true }),
+  churnedAt: timestamp('churned_at', { withTimezone: true }),
+  leadScore: leadScoreEnum('lead_score').default('cold'),
+  conversionProb: numeric('conversion_prob', { precision: 5, scale: 2 }).default('0.00'),
+  engagementScore: numeric('engagement_score', { precision: 5, scale: 2 }).default('0.00'),
+  avgConsumptionDays: integer('avg_consumption_days').default(30),
+  lastPurchaseDate: timestamp('last_purchase_date', { withTimezone: true }),
+  reorderAlertThreshold: integer('reorder_alert_threshold').default(5),
+}, (t) => [
+  index('idx_automation_trigger').on(t.trigger),
+  index('idx_automation_status').on(t.status),
+]);
+
+// =============================================================================
+// 13. AUTOMATION_LOGS (Registro de Ejecuciones de Automatización)
+// =============================================================================
+
+export const automationLogs = pgTable('automation_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sequenceId: uuid('sequence_id').notNull().references(() => automationSequences.id, { onDelete: 'cascade' }),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 50 }).notNull(),
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow(),
+  openedAt: timestamp('opened_at', { withTimezone: true }),
+  clickedAt: timestamp('clicked_at', { withTimezone: true }),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+  errorMessage: text('error_message'),
+}, (t) => [
+  index('idx_automation_logs_sequence').on(t.sequenceId),
+  index('idx_automation_logs_consumer').on(t.consumerId),
+]);
+
+// =============================================================================
+// 14. REFERRALS (Programa de Referidos B2C)
+// =============================================================================
+
+export const referrals = pgTable('referrals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  referrerId: uuid('referrer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  referredId: uuid('referred_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  referralCode: varchar('referral_code', { length: 50 }).notNull().unique(),
+  status: referralStatusEnum('status').default('pending'),
+  rewardAmount: numeric('reward_amount', { precision: 10, scale: 2 }).default('0.00'),
+  rewardType: varchar('reward_type', { length: 50 }).default('points'),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_referrals_referrer').on(t.referrerId),
+  index('idx_referrals_code').on(t.referralCode),
+  index('idx_referrals_status').on(t.status),
+]);
+
+// =============================================================================
+// 15. REVENUE_FORECASTS (Proyección de Ingresos)
+// =============================================================================
+
+export const revenueForecasts = pgTable('revenue_forecasts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+  period: forecastPeriodEnum('period').notNull(),
+  periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+  periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+  projectedRevenue: numeric('projected_revenue', { precision: 12, scale: 2 }).notNull(),
+  actualRevenue: numeric('actual_revenue', { precision: 12, scale: 2 }),
+  pipelineValue: numeric('pipeline_value', { precision: 12, scale: 2 }).default('0.00'),
+  closeProbability: numeric('close_probability', { precision: 5, scale: 2 }).default('0.00'),
+  confidence: numeric('confidence', { precision: 5, scale: 2 }).default('0.00'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_forecasts_account').on(t.accountId),
+  index('idx_forecasts_period').on(t.period),
+]);
+
+// =============================================================================
+// 16. CHANNEL_METRICS (Métricas por Canal de Adquisición - ROAS/CAC)
+// =============================================================================
+
+export const channelMetrics = pgTable('channel_metrics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  channel: varchar('channel', { length: 100 }).notNull(),
+  campaign: varchar('campaign', { length: 255 }),
+  period: forecastPeriodEnum('period').notNull(),
+  periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+  periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+  spend: numeric('spend', { precision: 12, scale: 2 }).notNull(),
+  impressions: integer('impressions').default(0),
+  clicks: integer('clicks').default(0),
+  conversions: integer('conversions').default(0),
+  revenue: numeric('revenue', { precision: 12, scale: 2 }).default('0.00'),
+  cac: numeric('cac', { precision: 10, scale: 2 }),
+  roas: numeric('roas', { precision: 10, scale: 2 }),
+  ltv: numeric('ltv', { precision: 10, scale: 2 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_channel_metrics_channel').on(t.channel),
+  index('idx_channel_metrics_period').on(t.period),
+]);
+
+// =============================================================================
+
+// =============================================================================
+// 17. TICKETS (Gestión de Reclamos y Control de Calidad)
+// =============================================================================
+
+export const tickets = pgTable('tickets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  description: text('description').notNull(),
+  status: ticketStatusEnum('status').default('open'),
+  batchNumber: varchar('batch_number', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+}, (t) => [
+  index('idx_tickets_account').on(t.accountId),
+  index('idx_tickets_status').on(t.status),
+]);
+
+// =============================================================================
+// MODULO 1: B2B - LEADS Y DEMOSTRACIONES
+// =============================================================================
+
+export const leads = pgTable('leads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  businessName: varchar('business_name', { length: 255 }).notNull(),
+  contactName: varchar('contact_name', { length: 150 }).notNull(),
+  contactEmail: varchar('contact_email', { length: 255 }).notNull(),
+  contactPhone: varchar('contact_phone', { length: 50 }).notNull(),
+  source: leadSourceEnum('source').notNull(),
+  zone: varchar('zone', { length: 100 }),
+  estimatedCapacity: integer('estimated_capacity'),
+  estimatedMonthlyConsumption: numeric('estimated_monthly_consumption', { precision: 10, scale: 2 }),
+  creditScore: creditScoreEnum('credit_score'),
+  status: varchar('status', { length: 50 }).default('new'),
+  assignedTo: uuid('assigned_to').references(() => staffUsers.id),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+}, (t) => [
+  index('idx_leads_source').on(t.source),
+  index('idx_leads_status').on(t.status),
+  index('idx_leads_assigned').on(t.assignedTo),
+]);
+
+export const demonstrations = pgTable('demonstrations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }).notNull(),
+  completedDate: timestamp('completed_date', { withTimezone: true }),
+  status: demonstrationStatusEnum('status').default('scheduled'),
+  productsTested: jsonb('products_tested').$type<string[]>(),
+  acceptanceRate: numeric('acceptance_rate', { precision: 5, scale: 2 }),
+  feedback: text('feedback'),
+  conductedBy: uuid('conducted_by').references(() => staffUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_demonstrations_lead').on(t.leadId),
+  index('idx_demonstrations_account').on(t.accountId),
+  index('idx_demonstrations_status').on(t.status),
+]);
+
+// =============================================================================
+// MODULO 2: ONBOARDING Y LOGISTICA
+// =============================================================================
+
+export const assets = pgTable('assets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  type: assetTypeEnum('type').notNull(),
+  serialNumber: varchar('serial_number', { length: 100 }).unique(),
+  status: assetStatusEnum('status').default('active'),
+  installedDate: timestamp('installed_date', { withTimezone: true }),
+  lastMaintenanceDate: timestamp('last_maintenance_date', { withTimezone: true }),
+  nextMaintenanceDate: timestamp('next_maintenance_date', { withTimezone: true }),
+  location: varchar('location', { length: 255 }),
+  photos: jsonb('photos').$type<string[]>(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_assets_account').on(t.accountId),
+  index('idx_assets_type').on(t.type),
+  index('idx_assets_status').on(t.status),
+]);
+
+export const trainingSessions = pgTable('training_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  staffName: varchar('staff_name', { length: 150 }).notNull(),
+  staffRole: varchar('staff_role', { length: 50 }),
+  trainingType: varchar('training_type', { length: 100 }).notNull(),
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }).notNull(),
+  completedDate: timestamp('completed_date', { withTimezone: true }),
+  status: trainingStatusEnum('status').default('pending'),
+  score: integer('score'),
+  certifiedBy: uuid('certified_by').references(() => staffUsers.id),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_training_account').on(t.accountId),
+  index('idx_training_status').on(t.status),
+]);
+
+export const contracts = pgTable('contracts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  contractType: varchar('contract_type', { length: 100 }).notNull(),
+  status: contractStatusEnum('status').default('draft'),
+  startDate: timestamp('start_date', { withTimezone: true }),
+  endDate: timestamp('end_date', { withTimezone: true }),
+  terms: text('terms').notNull(),
+  signedByClient: boolean('signed_by_client').default(false),
+  signedByCompany: boolean('signed_by_company').default(false),
+  clientSignatureDate: timestamp('client_signature_date', { withTimezone: true }),
+  companySignatureDate: timestamp('company_signature_date', { withTimezone: true }),
+  documentUrl: varchar('document_url', { length: 500 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_contracts_account').on(t.accountId),
+  index('idx_contracts_status').on(t.status),
+]);
+
+// =============================================================================
+// MODULO 3: CUSTOMER SUCCESS - SELL THROUGH
+// =============================================================================
+
+export const sellThroughRecords = pgTable('sell_through_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  weekStart: timestamp('week_start', { withTimezone: true }).notNull(),
+  weekEnd: timestamp('week_end', { withTimezone: true }).notNull(),
+  unitsDelivered: integer('units_delivered').notNull(),
+  unitsSold: integer('units_sold').notNull(),
+  sellThroughRate: numeric('sell_through_rate', { precision: 5, scale: 2 }),
+  alertTriggered: boolean('alert_triggered').default(false),
+  alertReason: varchar('alert_reason', { length: 255 }),
+  actionTaken: text('action_taken'),
+  recordedBy: uuid('recorded_by').references(() => staffUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_sell_through_account').on(t.accountId),
+  index('idx_sell_through_week').on(t.weekStart),
+]);
+
+// =============================================================================
+// MODULO 5: TRADE MARKETING Y GAMIFICACION
+// =============================================================================
+
+export const popMaterials = pgTable('pop_materials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  type: popMaterialTypeEnum('type').notNull(),
+  condition: popConditionEnum('condition').default('excellent'),
+  location: varchar('location', { length: 255 }),
+  installedDate: timestamp('installed_date', { withTimezone: true }),
+  lastAuditDate: timestamp('last_audit_date', { withTimezone: true }),
+  nextAuditDate: timestamp('next_audit_date', { withTimezone: true }),
+  photos: jsonb('photos').$type<string[]>(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_pop_account').on(t.accountId),
+  index('idx_pop_type').on(t.type),
+]);
+
+export const waiterIncentives = pgTable('waiter_incentives', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  waiterName: varchar('waiter_name', { length: 150 }).notNull(),
+  period: varchar('period', { length: 50 }).notNull(),
+  recommendationsCount: integer('recommendations_count').default(0),
+  salesVolume: numeric('sales_volume', { precision: 10, scale: 2 }).default('0.00'),
+  bonusAmount: numeric('bonus_amount', { precision: 10, scale: 2 }).default('0.00'),
+  status: varchar('status', { length: 50 }).default('pending'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_incentives_account').on(t.accountId),
+  index('idx_incentives_period').on(t.period),
+]);
+
+export const combos = pgTable('combos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: comboTypeEnum('type').notNull(),
+  description: text('description'),
+  discountPercentage: numeric('discount_percentage', { precision: 5, scale: 2 }),
+  startDate: timestamp('start_date', { withTimezone: true }),
+  endDate: timestamp('end_date', { withTimezone: true }),
+  isActive: boolean('is_active').default(true),
+  totalSales: integer('total_sales').default(0),
+  revenue: numeric('revenue', { precision: 10, scale: 2 }).default('0.00'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_combos_account').on(t.accountId),
+  index('idx_combos_type').on(t.type),
+]);
+
+export const activations = pgTable('activations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  type: activationTypeEnum('type').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }).notNull(),
+  completedDate: timestamp('completed_date', { withTimezone: true }),
+  status: varchar('status', { length: 50 }).default('scheduled'),
+  attendeesCount: integer('attendees_count'),
+  salesGenerated: numeric('sales_generated', { precision: 10, scale: 2 }),
+  feedback: text('feedback'),
+  photos: jsonb('photos').$type<string[]>(),
+  createdBy: uuid('created_by').references(() => staffUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_activations_account').on(t.accountId),
+  index('idx_activations_type').on(t.type),
+  index('idx_activations_date').on(t.scheduledDate),
+]);
+
+// =============================================================================
+// MODULO 6: FINANCIERO
+// =============================================================================
+
+export const warranties = pgTable('warranties', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  type: warrantyTypeEnum('type').notNull(),
+  description: text('description').notNull(),
+  reportedDate: timestamp('reported_date', { withTimezone: true }).notNull(),
+  resolvedDate: timestamp('resolved_date', { withTimezone: true }),
+  status: varchar('status', { length: 50 }).default('open'),
+  unitsAffected: integer('units_affected'),
+  financialImpact: numeric('financial_impact', { precision: 10, scale: 2 }),
+  resolution: text('resolution'),
+  reportedBy: uuid('reported_by').references(() => staffUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_warranties_account').on(t.accountId),
+  index('idx_warranties_type').on(t.type),
+  index('idx_warranties_status').on(t.status),
+]);
+
+export const b2cTransactions = pgTable('b2c_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'set null' }),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum('payment_method'),
+  status: varchar('status', { length: 50 }).default('pending'),
+  transactionDate: timestamp('transaction_date', { withTimezone: true }).defaultNow(),
+  gatewayReference: varchar('gateway_reference', { length: 255 }),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_b2c_transactions_consumer').on(t.consumerId),
+  index('idx_b2c_transactions_account').on(t.accountId),
+  index('idx_b2c_transactions_status').on(t.status),
+]);
+// RELATIONS FASE 3
+// =============================================================================
+
+export const productRecommendationsRelations = relations(productRecommendations, ({ one }) => ({
+  consumer: one(b2cConsumers, {
+    fields: [productRecommendations.consumerId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+export const automationSequencesRelations = relations(automationSequences, ({ many }) => ({
+  logs: many(automationLogs)
+}));
+
+export const automationLogsRelations = relations(automationLogs, ({ one }) => ({
+  sequence: one(automationSequences, {
+    fields: [automationLogs.sequenceId],
+    references: [automationSequences.id]
+  }),
+  consumer: one(b2cConsumers, {
+    fields: [automationLogs.consumerId],
+    references: [b2cConsumers.id]
+  }),
+  account: one(accounts, {
+    fields: [automationLogs.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const referralsRelations = relations(referrals, ({ one }) => ({
+  referrer: one(b2cConsumers, {
+    fields: [referrals.referrerId],
+    references: [b2cConsumers.id]
+  }),
+  referred: one(b2cConsumers, {
+    fields: [referrals.referredId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+export const revenueForecastsRelations = relations(revenueForecasts, ({ one }) => ({
+  account: one(accounts, {
+    fields: [revenueForecasts.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const ticketsRelations = relations(tickets, ({ one }) => ({
+  account: one(accounts, {
+    fields: [tickets.accountId],
+    references: [accounts.id]
+  }),
+  consumer: one(b2cConsumers, {
+    fields: [tickets.consumerId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+// =============================================================================
+
+// =============================================================================
+// RELATIONS MODULOS CRM FALTANTES
+// =============================================================================
+
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+  assignedStaff: one(staffUsers, {
+    fields: [leads.assignedTo],
+    references: [staffUsers.id]
+  }),
+  demonstrations: many(demonstrations)
+}));
+
+export const demonstrationsRelations = relations(demonstrations, ({ one }) => ({
+  lead: one(leads, {
+    fields: [demonstrations.leadId],
+    references: [leads.id]
+  }),
+  account: one(accounts, {
+    fields: [demonstrations.accountId],
+    references: [accounts.id]
+  }),
+  conductedByStaff: one(staffUsers, {
+    fields: [demonstrations.conductedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const assetsRelations = relations(assets, ({ one }) => ({
+  account: one(accounts, {
+    fields: [assets.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const trainingSessionsRelations = relations(trainingSessions, ({ one }) => ({
+  account: one(accounts, {
+    fields: [trainingSessions.accountId],
+    references: [accounts.id]
+  }),
+  certifiedByStaff: one(staffUsers, {
+    fields: [trainingSessions.certifiedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const contractsRelations = relations(contracts, ({ one }) => ({
+  account: one(accounts, {
+    fields: [contracts.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const sellThroughRecordsRelations = relations(sellThroughRecords, ({ one }) => ({
+  account: one(accounts, {
+    fields: [sellThroughRecords.accountId],
+    references: [accounts.id]
+  }),
+  recordedByStaff: one(staffUsers, {
+    fields: [sellThroughRecords.recordedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const popMaterialsRelations = relations(popMaterials, ({ one }) => ({
+  account: one(accounts, {
+    fields: [popMaterials.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const waiterIncentivesRelations = relations(waiterIncentives, ({ one }) => ({
+  account: one(accounts, {
+    fields: [waiterIncentives.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const combosRelations = relations(combos, ({ one }) => ({
+  account: one(accounts, {
+    fields: [combos.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const activationsRelations = relations(activations, ({ one }) => ({
+  account: one(accounts, {
+    fields: [activations.accountId],
+    references: [accounts.id]
+  }),
+  createdByStaff: one(staffUsers, {
+    fields: [activations.createdBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const warrantiesRelations = relations(warranties, ({ one }) => ({
+  account: one(accounts, {
+    fields: [warranties.accountId],
+    references: [accounts.id]
+  }),
+  reportedByStaff: one(staffUsers, {
+    fields: [warranties.reportedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const b2cTransactionsRelations = relations(b2cTransactions, ({ one }) => ({
+  consumer: one(b2cConsumers, {
+    fields: [b2cTransactions.consumerId],
+    references: [b2cConsumers.id]
+  }),
+  account: one(accounts, {
+    fields: [b2cTransactions.accountId],
+    references: [accounts.id]
+  })
+}));
+// TYPE EXPORTS FASE 3
+// =============================================================================
+
+export type ProductRecommendation = typeof productRecommendations.$inferSelect;
+export type NewProductRecommendation = typeof productRecommendations.$inferInsert;
+
+export type AutomationSequence = typeof automationSequences.$inferSelect;
+export type NewAutomationSequence = typeof automationSequences.$inferInsert;
+
+export type AutomationLog = typeof automationLogs.$inferSelect;
+export type NewAutomationLog = typeof automationLogs.$inferInsert;
+
+export type Referral = typeof referrals.$inferSelect;
+export type NewReferral = typeof referrals.$inferInsert;
+
+export type RevenueForecast = typeof revenueForecasts.$inferSelect;
+export type NewRevenueForecast = typeof revenueForecasts.$inferInsert;
+
+export type ChannelMetric = typeof channelMetrics.$inferSelect;
+export type NewChannelMetric = typeof channelMetrics.$inferInsert;
+export type Ticket = typeof tickets.$inferSelect;
+export type NewTicket = typeof tickets.$inferInsert;
+// =============================================================================
+
+// =============================================================================
+// A1: ANALISIS AST - Analisis Estructural de Datos del CRM
+// (En CRM: analisis de estructura de datos, no de codigo)
+// =============================================================================
+
+export const astAnalysisResults = pgTable('ast_analysis_results', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  analysisType: varchar('analysis_type', { length: 100 }).notNull(),
+  targetModule: varchar('target_module', { length: 100 }).notNull(),
+  targetEntityId: uuid('target_entity_id'),
+  structuralFindings: jsonb('structural_findings'),
+  complexityScore: numeric('complexity_score', { precision: 5, scale: 2 }),
+  executedAt: timestamp('executed_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_ast_type').on(t.analysisType),
+  index('idx_ast_module').on(t.targetModule),
+]);
+
+// =============================================================================
+// A2: MOTOR DE EMBEDDINGS - Busqueda Semantica CRM
+// =============================================================================
+
+export const embeddingIndex = pgTable('embedding_index', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityType: kgDomainEnum('entity_type').notNull(),
+  entityId: uuid('entity_id').notNull(),
+  embedding: vector('embedding', { dimensions: 1536 }),
+  model: embeddingModelEnum('model').default('openai_text_3_small'),
+  textSource: text('text_source'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_embedding_entity').on(t.entityType, t.entityId),
+  index('idx_embedding_model').on(t.model),
+]);
+
+// =============================================================================
+// A3: LEARNINGENGINE - Motor Central de Aprendizaje CRM
+// =============================================================================
+
+export const crmLearningEpisodes = pgTable('crm_learning_episodes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  module: varchar('module', { length: 100 }).notNull(),
+  issueType: varchar('issue_type', { length: 100 }).notNull(),
+  problemDescription: text('problem_description').notNull(),
+  problemEmbedding: vector('problem_embedding', { dimensions: 1536 }),
+  solutionDescription: text('solution_description'),
+  solutionEmbedding: vector('solution_embedding', { dimensions: 1536 }),
+  resolutionTimeHours: numeric('resolution_time_hours', { precision: 10, scale: 2 }),
+  outcome: episodeOutcomeEnum('outcome').default('SUCCESS'),
+  humanNotes: text('human_notes'),
+  accountId: uuid('account_id').references(() => accounts.id),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_episodes_module').on(t.module),
+  index('idx_crm_episodes_account').on(t.accountId),
+  index('idx_crm_episodes_consumer').on(t.consumerId),
+]);
+
+export const crmLearningFeedback = pgTable('crm_learning_feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  episodeId: uuid('episode_id').references(() => crmLearningEpisodes.id, { onDelete: 'cascade' }),
+  feedbackType: varchar('feedback_type', { length: 50 }).notNull(),
+  rating: integer('rating'),
+  comments: text('comments'),
+  providedBy: uuid('provided_by').references(() => staffUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_feedback_episode').on(t.episodeId),
+]);
+
+// =============================================================================
+// A4: WORKINGMEMORY - Contexto Activo entre Modulos CRM
+// =============================================================================
+
+export const workingMemoryCycles = pgTable('working_memory_cycles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cycleType: varchar('cycle_type', { length: 50 }).notNull(),
+  agentName: varchar('agent_name', { length: 100 }).notNull(),
+  status: varchar('status', { length: 50 }).default('active'),
+  contextData: jsonb('context_data'),
+  moduleFindings: jsonb('module_findings'),
+  crossModuleLinks: jsonb('cross_module_links'),
+  riskByModule: jsonb('risk_by_module'),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ttlMinutes: integer('ttl_minutes').default(120),
+}, (t) => [
+  index('idx_wm_cycles_agent').on(t.agentName),
+  index('idx_wm_cycles_status').on(t.status),
+]);
+
+// =============================================================================
+// A5: MEMORIA DE TRES CAPAS (ya existe en learningEpisodes, agentPatterns, agentProcedures)
+// Se agregan tablas complementarias especificas del CRM
+// =============================================================================
+
+export const crmPatterns = pgTable('crm_patterns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  patternName: varchar('pattern_name', { length: 255 }).notNull(),
+  domain: kgDomainEnum('domain').notNull(),
+  patternDescription: text('pattern_description').notNull(),
+  issueType: varchar('issue_type', { length: 100 }),
+  episodeCount: integer('episode_count').default(0),
+  confidenceScore: numeric('confidence_score', { precision: 5, scale: 2 }).default('1.00'),
+  consolidation: patternConsolidationEnum('consolidation').default('emerging'),
+  decayRate: numeric('decay_rate', { precision: 5, scale: 4 }).default('0.05'),
+  lastValidatedAt: timestamp('last_validated_at', { withTimezone: true }),
+  applicableModules: jsonb('applicable_modules').$type<string[]>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_patterns_domain').on(t.domain),
+  index('idx_crm_patterns_consolidation').on(t.consolidation),
+]);
+
+export const crmProcedures = pgTable('crm_procedures', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  procedureName: varchar('procedure_name', { length: 255 }).notNull(),
+  domain: kgDomainEnum('domain').notNull(),
+  issueType: varchar('issue_type', { length: 100 }).notNull(),
+  steps: jsonb('steps').$type<Array<{ order: number; action: string; module: string }>>().notNull(),
+  validationCount: integer('validation_count').default(0),
+  successRate: numeric('success_rate', { precision: 5, scale: 2 }).default('0.00'),
+  status: procedureStatusEnum('status').default('draft'),
+  createdBy: uuid('created_by').references(() => staffUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_procedures_domain').on(t.domain),
+  index('idx_crm_procedures_status').on(t.status),
+]);
+
+// =============================================================================
+// A6: FORGETTING CURVE - Depreciacion de Conocimiento
+// =============================================================================
+
+export const forgettingCurveLog = pgTable('forgetting_curve_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  patternId: uuid('pattern_id').references(() => crmPatterns.id, { onDelete: 'cascade' }),
+  previousConfidence: numeric('previous_confidence', { precision: 5, scale: 2 }),
+  newConfidence: numeric('new_confidence', { precision: 5, scale: 2 }),
+  previousState: patternConsolidationEnum('previous_state'),
+  newState: patternConsolidationEnum('new_state'),
+  daysSinceLastUse: integer('days_since_last_use'),
+  appliedAt: timestamp('applied_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_forgetting_pattern').on(t.patternId),
+  index('idx_forgetting_applied').on(t.appliedAt),
+]);
+
+// =============================================================================
+// A7: CHAIN OF THOUGHT - Razonamiento CRM antes de acciones
+// =============================================================================
+
+export const cotExecutions = pgTable('cot_executions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  triggerType: varchar('trigger_type', { length: 100 }).notNull(),
+  triggerEntityId: uuid('trigger_entity_id'),
+  triggerDomain: kgDomainEnum('trigger_domain'),
+  step1SimilarCases: jsonb('step1_similar_cases'),
+  step2ContextComparison: jsonb('step2_context_comparison'),
+  step3AffectedElements: jsonb('step3_affected_elements'),
+  step4BusinessImpact: jsonb('step4_business_impact'),
+  step5SideEffects: jsonb('step5_side_effects'),
+  step6FalsePositiveCheck: jsonb('step6_fp_check'),
+  finalDecision: varchar('final_decision', { length: 100 }),
+  confidenceScore: numeric('confidence_score', { precision: 5, scale: 2 }),
+  executedAt: timestamp('executed_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_cot_trigger').on(t.triggerType, t.triggerDomain),
+  index('idx_cot_decision').on(t.finalDecision),
+]);
+
+// =============================================================================
+// A8: PREDICCION MULTIVARIADA - CRM Predictivo
+// =============================================================================
+
+export const multivariatePredictions = pgTable('multivariate_predictions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  predictionType: varchar('prediction_type', { length: 100 }).notNull(),
+  targetEntityId: uuid('target_entity_id').notNull(),
+  targetDomain: kgDomainEnum('target_domain').notNull(),
+  horizon: predictionHorizonEnum('horizon').notNull(),
+  predictedValue: numeric('predicted_value', { precision: 10, scale: 2 }),
+  confidence: numeric('confidence', { precision: 5, scale: 2 }),
+  factors: jsonb('factors'),
+  riskScore: numeric('risk_score', { precision: 5, scale: 2 }),
+  actualValue: numeric('actual_value', { precision: 10, scale: 2 }),
+  accuracy: numeric('accuracy', { precision: 5, scale: 2 }),
+  predictedAt: timestamp('predicted_at', { withTimezone: true }).defaultNow(),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+}, (t) => [
+  index('idx_mv_pred_type').on(t.predictionType),
+  index('idx_mv_pred_target').on(t.targetEntityId, t.targetDomain),
+  index('idx_mv_pred_horizon').on(t.horizon),
+]);
+
+// =============================================================================
+// A9: KNOWLEDGE GRAPH - Grafo del Dominio CRM
+// =============================================================================
+
+export const kgCrmNodes = pgTable('kg_crm_nodes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nodeType: kgDomainEnum('node_type').notNull(),
+  nodeId: uuid('node_id').notNull(),
+  nodeName: varchar('node_name', { length: 255 }).notNull(),
+  centralityScore: numeric('centrality_score', { precision: 5, scale: 2 }).default('0.00'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_kg_crm_type').on(t.nodeType),
+  index('idx_kg_crm_node').on(t.nodeId),
+]);
+
+export const kgCrmEdges = pgTable('kg_crm_edges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sourceNodeId: uuid('source_node_id').notNull().references(() => kgCrmNodes.id, { onDelete: 'cascade' }),
+  targetNodeId: uuid('target_node_id').notNull().references(() => kgCrmNodes.id, { onDelete: 'cascade' }),
+  edgeType: kgRelationTypeEnum('edge_type').notNull(),
+  couplingStrength: numeric('coupling_strength', { precision: 5, scale: 2 }).default('0.50'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_kg_crm_source').on(t.sourceNodeId),
+  index('idx_kg_crm_target').on(t.targetNodeId),
+  index('idx_kg_crm_edge_type').on(t.edgeType),
+]);
+
+// =============================================================================
+// A10: XAI - Explicabilidad de Decisiones CRM
+// =============================================================================
+
+export const xaiExplanations = pgTable('xai_explanations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  decisionType: varchar('decision_type', { length: 100 }).notNull(),
+  decisionId: uuid('decision_id'),
+  evidenceType: xaiEvidenceTypeEnum('evidence_type').notNull(),
+  evidenceData: jsonb('evidence_data'),
+  confidenceScore: numeric('confidence_score', { precision: 5, scale: 2 }),
+  businessImpactTranslation: text('business_impact_translation'),
+  similarCasesUsed: jsonb('similar_cases_used'),
+  knownSideEffects: jsonb('known_side_effects'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_xai_decision').on(t.decisionType, t.decisionId),
+  index('idx_xai_evidence').on(t.evidenceType),
+]);
+
+// =============================================================================
+// A11: VALIDATION SANDBOX - Validacion 4 Fases CRM
+// =============================================================================
+
+export const sandboxExecutions = pgTable('sandbox_executions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actionType: autonomyActionEnum('action_type').notNull(),
+  targetDomain: kgDomainEnum('target_domain'),
+  targetEntityId: uuid('target_entity_id'),
+  phase1DryRun: jsonb('phase1_dry_run'),
+  phase2Staging: jsonb('phase2_staging'),
+  phase3Canary: jsonb('phase3_canary'),
+  phase4Production: jsonb('phase4_production'),
+  currentPhase: sandboxPhaseEnum('current_phase').default('dry_run'),
+  authorized: boolean('authorized').default(false),
+  finalDecision: varchar('final_decision', { length: 50 }),
+  executedBy: uuid('executed_by').references(() => staffUsers.id),
+  executedAt: timestamp('executed_at', { withTimezone: true }),
+}, (t) => [
+  index('idx_sandbox_action').on(t.actionType),
+  index('idx_sandbox_phase').on(t.currentPhase),
+]);
+
+// =============================================================================
+// A12: GOBIERNO Y AUTONOMIA - Matriz CRM
+// =============================================================================
+
+export const crmAutonomyMatrix = pgTable('crm_autonomy_matrix', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actionType: autonomyActionEnum('action_type').notNull(),
+  domain: kgDomainEnum('domain').notNull(),
+  environment: environmentEnum('environment').notNull(),
+  autonomyLevel: autonomyLevelEnum('autonomy_level').notNull(),
+  approvalRequired: boolean('approval_required').default(false),
+  approvalTimeoutMinutes: integer('approval_timeout_minutes').default(30),
+  requiredApprovalsCount: integer('required_approvals_count').default(1),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_autonomy_action').on(t.actionType),
+  index('idx_crm_autonomy_domain').on(t.domain),
+  index('idx_crm_autonomy_env').on(t.environment),
+]);
+
+export const approvalRequests = pgTable('approval_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actionType: autonomyActionEnum('action_type').notNull(),
+  requestedBy: uuid('requested_by').references(() => staffUsers.id),
+  approvalData: jsonb('approval_data'),
+  status: varchar('status', { length: 50 }).default('pending'),
+  approvedBy: uuid('approved_by').references(() => staffUsers.id),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  rejectedReason: text('rejected_reason'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_approval_status').on(t.status),
+  index('idx_approval_expires').on(t.expiresAt),
+]);
+
+// =============================================================================
+// A13: SEGURIDAD DEL AGENTE CRM
+// =============================================================================
+
+export const agentSecurityLog = pgTable('agent_security_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  severity: varchar('severity', { length: 20 }).notNull(),
+  description: text('description').notNull(),
+  sourceAgent: varchar('source_agent', { length: 100 }),
+  targetSystem: varchar('target_system', { length: 100 }),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_security_event').on(t.eventType),
+  index('idx_security_severity').on(t.severity),
+]);
+
+// =============================================================================
+// A14: OBSERVABILIDAD PROPIA CRM
+// =============================================================================
+
+export const crmAgentMetrics = pgTable('crm_agent_metrics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  metricName: varchar('metric_name', { length: 150 }).notNull(),
+  metricType: observabilityMetricTypeEnum('metric_type').notNull(),
+  metricValue: numeric('metric_value', { precision: 10, scale: 4 }).notNull(),
+  labels: jsonb('labels'),
+  agentName: varchar('agent_name', { length: 100 }),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_metrics_name').on(t.metricName),
+  index('idx_crm_metrics_recorded').on(t.recordedAt),
+  index('idx_crm_metrics_agent').on(t.agentName),
+]);
+
+export const crmAgentHealth = pgTable('crm_agent_health', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agentName: varchar('agent_name', { length: 100 }).notNull(),
+  healthStatus: agentHealthStatusEnum('health_status').default('healthy'),
+  intelligenceScore: numeric('intelligence_score', { precision: 5, scale: 2 }),
+  driftScore: numeric('drift_score', { precision: 5, scale: 4 }),
+  lastSuccessfulRun: timestamp('last_successful_run', { withTimezone: true }),
+  consecutiveFailures: integer('consecutive_failures').default(0),
+  fpRate: numeric('fp_rate', { precision: 5, scale: 4 }),
+  acceptanceRate: numeric('acceptance_rate', { precision: 5, scale: 4 }),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_health_agent').on(t.agentName),
+  index('idx_crm_health_status').on(t.healthStatus),
+]);
+
+export const crmWeeklyReports = pgTable('crm_weekly_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reportWeek: varchar('report_week', { length: 20 }).notNull(),
+  agentName: varchar('agent_name', { length: 100 }).notNull(),
+  detectionKpis: jsonb('detection_kpis'),
+  learningKpis: jsonb('learning_kpis'),
+  predictionKpis: jsonb('prediction_kpis'),
+  agentHealth: jsonb('agent_health'),
+  topRiskyModules: jsonb('top_risky_modules'),
+  weekAlerts: jsonb('week_alerts'),
+  generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_crm_reports_week').on(t.reportWeek),
+  index('idx_crm_reports_agent').on(t.agentName),
+]);
+
+// =============================================================================
+// RELATIONS - 14 ARQUITECTURAS TRANSVERSALES
+// =============================================================================
+
+export const astAnalysisResultsRelations = relations(astAnalysisResults, ({}) => ({}));
+
+export const embeddingIndexRelations = relations(embeddingIndex, ({}) => ({}));
+
+export const crmLearningEpisodesRelations = relations(crmLearningEpisodes, ({ one, many }) => ({
+  account: one(accounts, {
+    fields: [crmLearningEpisodes.accountId],
+    references: [accounts.id]
+  }),
+  consumer: one(b2cConsumers, {
+    fields: [crmLearningEpisodes.consumerId],
+    references: [b2cConsumers.id]
+  }),
+  feedback: many(crmLearningFeedback)
+}));
+
+export const crmLearningFeedbackRelations = relations(crmLearningFeedback, ({ one }) => ({
+  episode: one(crmLearningEpisodes, {
+    fields: [crmLearningFeedback.episodeId],
+    references: [crmLearningEpisodes.id]
+  }),
+  providedByStaff: one(staffUsers, {
+    fields: [crmLearningFeedback.providedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const workingMemoryCyclesRelations = relations(workingMemoryCycles, ({}) => ({}));
+
+export const crmPatternsRelations = relations(crmPatterns, ({ many }) => ({
+  forgettingLogs: many(forgettingCurveLog)
+}));
+
+export const crmProceduresRelations = relations(crmProcedures, ({ one }) => ({
+  createdByStaff: one(staffUsers, {
+    fields: [crmProcedures.createdBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const forgettingCurveLogRelations = relations(forgettingCurveLog, ({ one }) => ({
+  pattern: one(crmPatterns, {
+    fields: [forgettingCurveLog.patternId],
+    references: [crmPatterns.id]
+  })
+}));
+
+export const cotExecutionsRelations = relations(cotExecutions, ({}) => ({}));
+
+export const multivariatePredictionsRelations = relations(multivariatePredictions, ({}) => ({}));
+
+export const kgCrmEdgesRelations = relations(kgCrmEdges, ({ one }) => ({
+  sourceNode: one(kgCrmNodes, {
+    fields: [kgCrmEdges.sourceNodeId],
+    references: [kgCrmNodes.id]
+  }),
+  targetNode: one(kgCrmNodes, {
+    fields: [kgCrmEdges.targetNodeId],
+    references: [kgCrmNodes.id]
+  })
+}));
+
+export const xaiExplanationsRelations = relations(xaiExplanations, ({}) => ({}));
+
+export const sandboxExecutionsRelations = relations(sandboxExecutions, ({ one }) => ({
+  executedByStaff: one(staffUsers, {
+    fields: [sandboxExecutions.executedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const crmAutonomyMatrixRelations = relations(crmAutonomyMatrix, ({}) => ({}));
+
+export const approvalRequestsRelations = relations(approvalRequests, ({ one }) => ({
+  requestedByStaff: one(staffUsers, {
+    fields: [approvalRequests.requestedBy],
+    references: [staffUsers.id]
+  }),
+  approvedByStaff: one(staffUsers, {
+    fields: [approvalRequests.approvedBy],
+    references: [staffUsers.id]
+  })
+}));
+
+export const agentSecurityLogRelations = relations(agentSecurityLog, ({}) => ({}));
+
+export const crmAgentMetricsRelations = relations(crmAgentMetrics, ({}) => ({}));
+
+export const crmAgentHealthRelations = relations(crmAgentHealth, ({}) => ({}));
+
+export const crmWeeklyReportsRelations = relations(crmWeeklyReports, ({}) => ({}));
+// TYPE EXPORTS MODULOS CRM FALTANTES
+// =============================================================================
+
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
+
+export type Demonstration = typeof demonstrations.$inferSelect;
+export type NewDemonstration = typeof demonstrations.$inferInsert;
+
+export type Asset = typeof assets.$inferSelect;
+export type NewAsset = typeof assets.$inferInsert;
+
+export type TrainingSession = typeof trainingSessions.$inferSelect;
+export type NewTrainingSession = typeof trainingSessions.$inferInsert;
+
+export type Contract = typeof contracts.$inferSelect;
+export type NewContract = typeof contracts.$inferInsert;
+
+export type SellThroughRecord = typeof sellThroughRecords.$inferSelect;
+export type NewSellThroughRecord = typeof sellThroughRecords.$inferInsert;
+
+export type PopMaterial = typeof popMaterials.$inferSelect;
+export type NewPopMaterial = typeof popMaterials.$inferInsert;
+
+export type WaiterIncentive = typeof waiterIncentives.$inferSelect;
+export type NewWaiterIncentive = typeof waiterIncentives.$inferInsert;
+
+export type Combo = typeof combos.$inferSelect;
+export type NewCombo = typeof combos.$inferInsert;
+
+export type Activation = typeof activations.$inferSelect;
+export type NewActivation = typeof activations.$inferInsert;
+
+export type Warranty = typeof warranties.$inferSelect;
+export type NewWarranty = typeof warranties.$inferInsert;
+
+export type B2cTransaction = typeof b2cTransactions.$inferSelect;
+export type NewB2cTransaction = typeof b2cTransactions.$inferInsert;
+// TYPE EXPORTS MODULOS CRM FALTANTES
+// =============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+// =============================================================================
+// ENUMS - 14 ARQUITECTURAS TRANSVERSALES (CRM SIGH_FOOD)
+// =============================================================================
+
+
+
+
+
+
+
+
+
+
+
+// =============================================================================
+// TYPE EXPORTS - 14 ARQUITECTURAS TRANSVERSALES
+// =============================================================================
+
+export type AstAnalysisResult = typeof astAnalysisResults.$inferSelect;
+export type NewAstAnalysisResult = typeof astAnalysisResults.$inferInsert;
+
+export type EmbeddingIndex = typeof embeddingIndex.$inferSelect;
+export type NewEmbeddingIndex = typeof embeddingIndex.$inferInsert;
+
+export type CrmLearningEpisode = typeof crmLearningEpisodes.$inferSelect;
+export type NewCrmLearningEpisode = typeof crmLearningEpisodes.$inferInsert;
+
+export type CrmLearningFeedback = typeof crmLearningFeedback.$inferSelect;
+export type NewCrmLearningFeedback = typeof crmLearningFeedback.$inferInsert;
+
+export type WorkingMemoryCycle = typeof workingMemoryCycles.$inferSelect;
+export type NewWorkingMemoryCycle = typeof workingMemoryCycles.$inferInsert;
+
+export type CrmPattern = typeof crmPatterns.$inferSelect;
+export type NewCrmPattern = typeof crmPatterns.$inferInsert;
+
+export type CrmProcedure = typeof crmProcedures.$inferSelect;
+export type NewCrmProcedure = typeof crmProcedures.$inferInsert;
+
+export type ForgettingCurveLog = typeof forgettingCurveLog.$inferSelect;
+export type NewForgettingCurveLog = typeof forgettingCurveLog.$inferInsert;
+
+export type CotExecution = typeof cotExecutions.$inferSelect;
+export type NewCotExecution = typeof cotExecutions.$inferInsert;
+
+export type MultivariatePrediction = typeof multivariatePredictions.$inferSelect;
+export type NewMultivariatePrediction = typeof multivariatePredictions.$inferInsert;
+
+export type KgCrmNode = typeof kgCrmNodes.$inferSelect;
+export type NewKgCrmNode = typeof kgCrmNodes.$inferInsert;
+
+export type KgCrmEdge = typeof kgCrmEdges.$inferSelect;
+export type NewKgCrmEdge = typeof kgCrmEdges.$inferInsert;
+
+export type XaiExplanation = typeof xaiExplanations.$inferSelect;
+export type NewXaiExplanation = typeof xaiExplanations.$inferInsert;
+
+export type SandboxExecution = typeof sandboxExecutions.$inferSelect;
+export type NewSandboxExecution = typeof sandboxExecutions.$inferInsert;
+
+export type CrmAutonomyMatrix = typeof crmAutonomyMatrix.$inferSelect;
+export type NewCrmAutonomyMatrix = typeof crmAutonomyMatrix.$inferInsert;
+
+export type ApprovalRequest = typeof approvalRequests.$inferSelect;
+export type NewApprovalRequest = typeof approvalRequests.$inferInsert;
+
+export type AgentSecurityLog = typeof agentSecurityLog.$inferSelect;
+export type NewAgentSecurityLog = typeof agentSecurityLog.$inferInsert;
+
+export type CrmAgentMetric = typeof crmAgentMetrics.$inferSelect;
+export type NewCrmAgentMetric = typeof crmAgentMetrics.$inferInsert;
+
+export type CrmAgentHealth = typeof crmAgentHealth.$inferSelect;
+export type NewCrmAgentHealth = typeof crmAgentHealth.$inferInsert;
+
+export type CrmWeeklyReport = typeof crmWeeklyReports.$inferSelect;
+export type NewCrmWeeklyReport = typeof crmWeeklyReports.$inferInsert;

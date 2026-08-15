@@ -133,7 +133,7 @@ const logId = entrega.cuerpo?.data?.id;
 
 await llamar('       GET  /api/consignation', `/api/consignation?account_id=${accountId}&limit=2`);
 
-const patch = await llamar('       PATCH /api/consignation (vende 25)', '/api/consignation', {
+await llamar('       PATCH /api/consignation (vende 25)', '/api/consignation', {
   method: 'PATCH',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ log_id: logId, units_sold: 25 }),

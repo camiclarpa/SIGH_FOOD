@@ -5,7 +5,6 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import {
   conDb,
-  getDb,
   type CloudflareEnv,
   type ContextoWorker,
   type Database,
@@ -45,6 +44,25 @@ async function contextoCloudflare(): Promise<{
 export async function conBaseDeDatos<T>(trabajo: (db: Database) => Promise<T>): Promise<T> {
   const { env, ctx } = await contextoCloudflare();
   return conDb(trabajo, env, ctx);
+}
+
+/**
+ * Lee una variable de entorno funcione donde funcione.
+ *
+ * En Workers las variables y secretos llegan en el `env` del binding, no en
+ * `process.env`, que allí está prácticamente vacío. Es el mismo tropiezo que ya
+ * dejó AUTH_SECRET sin valor en producción y tumbó `/api/auth/*` con "There was
+ * a problem with the server configuration": el código leía process.env y en
+ * local funcionaba, así que el fallo solo aparecía desplegado.
+ *
+ * Se consulta primero el binding y process.env después, para que local y
+ * `next dev` sigan funcionando sin cambios.
+ */
+export async function variableDeEntorno(nombre: string): Promise<string | undefined> {
+  const { env } = await contextoCloudflare();
+  const desdeBinding = (env as unknown as Record<string, unknown> | undefined)?.[nombre];
+  if (typeof desdeBinding === 'string' && desdeBinding !== '') return desdeBinding;
+  return process.env[nombre];
 }
 
 // Aquí vivía obtenerDb(), la forma antigua que devolvía una conexión sin

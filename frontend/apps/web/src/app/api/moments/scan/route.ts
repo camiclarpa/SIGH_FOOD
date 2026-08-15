@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { log, conTrazas } from '@sighfood/domain/lib/observabilidad';
 import { z } from 'zod';
 import { qrCodes, sensoryMoments, dataConsents, b2cConsumers } from '@sighfood/domain/db/schema';
 import { eq } from 'drizzle-orm';
@@ -39,7 +40,7 @@ const momentScanSchema = z.object({
 // POST Handler - Registrar momento sensorial
 // =============================================================================
 
-export async function POST(request: NextRequest) {
+export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) => {
   const startTime = Date.now();
   
   try {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     const validationResult = momentScanSchema.safeParse(body);
     
     if (!validationResult.success) {
-      console.error('âŒ Validación fallida:', validationResult.error.issues);
+      log.warn('Validación fallida', { ruta: '/api/moments/scan', issues: validationResult.error.issues });
       
       return NextResponse.json(
         { 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     // =============================================================================
     // 1. Validar QR Token
     // =============================================================================
-    console.log('🔍 Validando QR token...');
+    log.debug('Validando QR token...', { ruta: '/api/moments/scan' });
     
     const qrResult = await db.select()
       .from(qrCodes)
@@ -90,12 +91,12 @@ export async function POST(request: NextRequest) {
     }
     
     const qrCode = qrResult[0];
-    console.log('✓ QR válido - Restaurante:', qrCode.accountId, 'Mesa:', qrCode.tableNumber);
+    log.debug('QR válido - Restaurante', { ruta: '/api/moments/scan', detalle: [qrCode.accountId, 'Mesa:', qrCode.tableNumber] });
 
     // =============================================================================
     // 2. Buscar o crear comensal
     // =============================================================================
-    console.log('👤 Buscando comensal...');
+    log.debug('Buscando comensal...', { ruta: '/api/moments/scan' });
     
     const existingConsumer = await db.select()
       .from(b2cConsumers)
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     
     if (existingConsumer[0]) {
       consumerId = existingConsumer[0].id;
-      console.log('✓ Comensal existente:', consumerId);
+      log.debug('Comensal existente', { ruta: '/api/moments/scan', detalle: consumerId });
       
       // Actualizar preferencias si hay nuevo perfil sensorial
       if (data.sensory_profile && data.sensory_profile.length > 0) {
@@ -120,11 +121,11 @@ export async function POST(request: NextRequest) {
           .set({ flavorPreference: updatedPreferences })
           .where(eq(b2cConsumers.id, consumerId));
         
-        console.log('✓ Preferencias actualizadas');
+        log.debug('Preferencias actualizadas', { ruta: '/api/moments/scan' });
       }
     } else {
       // Crear nuevo comensal
-      console.log('➕ Creando nuevo comensal...');
+      log.debug('Creando nuevo comensal...', { ruta: '/api/moments/scan' });
       
       const [newConsumer] = await db.insert(b2cConsumers).values({
         whatsappPhone: data.whatsapp,
@@ -135,13 +136,13 @@ export async function POST(request: NextRequest) {
       }).returning();
       
       consumerId = newConsumer.id;
-      console.log('✓ Nuevo comensal creado:', consumerId);
+      log.debug('Nuevo comensal creado', { ruta: '/api/moments/scan', detalle: consumerId });
     }
 
     // =============================================================================
     // 3. Registrar momento sensorial y consentimiento (transacción)
     // =============================================================================
-    console.log('📝 Registrando momento sensorial y consentimiento...');
+    log.debug('Registrando momento sensorial y consentimiento...', { ruta: '/api/moments/scan' });
     
     await db.transaction(async (tx) => {
       // Insertar momento sensorial
@@ -167,14 +168,14 @@ export async function POST(request: NextRequest) {
       });
     });
     
-    console.log('✓ Momento sensorial y consentimiento registrados');
+    log.debug('Momento sensorial y consentimiento registrados', { ruta: '/api/moments/scan' });
 
     // =============================================================================
     // 4. Calcular tiempo de ejecución y retornar respuesta
     // =============================================================================
     const executionTime = Date.now() - startTime;
     
-    console.log('✅ Escaneo completado en', executionTime, 'ms');
+    log.debug('Escaneo completado en', { ruta: '/api/moments/scan', detalle: [executionTime, 'ms'] });
     
     return NextResponse.json(
       { 
@@ -195,7 +196,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error('âŒ Error en POST /api/moments/scan:', error);
+    log.error('Error en POST /api/moments/scan', error, { ruta: '/api/moments/scan' });
     
     return NextResponse.json(
       { 
@@ -207,13 +208,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // =============================================================================
 // GET Handler - Health check
 // =============================================================================
 
-export async function GET() {
+export const GET = conTrazas('/api/moments/scan', async () => {
   return NextResponse.json(
     { 
       status: 'ok',
@@ -224,4 +225,4 @@ export async function GET() {
     },
     { status: 200 }
   );
-}
+});

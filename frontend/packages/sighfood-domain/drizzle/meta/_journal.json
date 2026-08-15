@@ -8,6 +8,13 @@
       "when": 1786516754116,
       "tag": "0000_verificacion_indices",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786774542129,
+      "tag": "0001_equal_wraith",
+      "breakpoints": true
     }
   ]
 }

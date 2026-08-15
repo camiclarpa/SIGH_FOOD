@@ -8,6 +8,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { log, conTrazas } from '@sighfood/domain/lib/observabilidad';
 import { z } from 'zod';
 import { consignationLogs, accounts } from '@sighfood/domain/db/schema';
 import { eq, and, desc, lt, sum, count, sql } from 'drizzle-orm';
@@ -56,7 +57,7 @@ const listConsignationSchema = z.object({
 // POST Handler - Registrar entrega de unidades en consignacion
 // =============================================================================
 
-export async function POST(request: NextRequest) {
+export const POST = conTrazas('/api/consignation', async (request: NextRequest) => {
   try {
     const body = await request.json();
     
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     const validationResult = createConsignationSchema.safeParse(body);
     
     if (!validationResult.success) {
-      console.error('Error: Validacion fallida:', validationResult.error.issues);
+      log.warn('Error: Validacion fallida', { ruta: '/api/consignation', issues: validationResult.error.issues });
       
       return NextResponse.json(
         { 
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     // =============================================================================
     // 1. Validar que la cuenta exista
     // =============================================================================
-    console.log('Validando account_id:', data.account_id);
+    log.debug('Validando account_id', { ruta: '/api/consignation', detalle: data.account_id });
     
     const accountResult = await db.select()
       .from(accounts)
@@ -101,13 +102,13 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('Cuenta valida:', accountResult[0].name);
+    log.debug('Cuenta valida', { ruta: '/api/consignation', detalle: accountResult[0].name });
 
     // =============================================================================
     // 2. Calcular monto total de la entrega
     // =============================================================================
     const totalAmount = data.units_delivered * data.unit_price;
-    console.log('Entrega:', data.units_delivered, 'unidades x', data.unit_price, '=', totalAmount);
+    log.debug('Entrega', { ruta: '/api/consignation', detalle: [data.units_delivered, 'unidades x', data.unit_price, '=', totalAmount] });
 
     // =============================================================================
     // 3. Registrar la entrega en consignationLogs
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
       dispatchedAt: new Date(),
     }).returning();
     
-    console.log('Entrega registrada exitosamente:', newLog.id);
+    log.debug('Entrega registrada exitosamente', { ruta: '/api/consignation', detalle: newLog.id });
 
     // =============================================================================
     // 4. Actualizar el stock actual de la cuenta
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
       .set({ currentConsignationStock: newStock })
       .where(eq(accounts.id, data.account_id));
     
-    console.log('Stock actualizado:', currentStock, '->', newStock);
+    log.debug('Stock actualizado', { ruta: '/api/consignation', detalle: [currentStock, '->', newStock] });
 
     // =============================================================================
     // 5. Retornar respuesta
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error en POST /api/consignation:', error);
+    log.error('Error en POST /api/consignation', error, { ruta: '/api/consignation' });
     
     return NextResponse.json(
       { 
@@ -171,13 +172,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // =============================================================================
 // GET Handler - Consultar historial de consignacion por cuenta
 // =============================================================================
 
-export async function GET(request: NextRequest) {
+export const GET = conTrazas('/api/consignation', async (request: NextRequest) => {
   try {
     
     // Obtener parametros de query
@@ -241,7 +242,7 @@ export async function GET(request: NextRequest) {
     // =============================================================================
     // 2. Construir la consulta con filtros opcionales
     // =============================================================================
-    console.log('Buscando historial para account_id:', data.account_id);
+    log.debug('Buscando historial para account_id', { ruta: '/api/consignation', detalle: data.account_id });
     
     const filtros = [eq(consignationLogs.accountId, data.account_id)];
     if (data.status) {
@@ -332,7 +333,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error en GET /api/consignation:', error);
+    log.error('Error en GET /api/consignation', error, { ruta: '/api/consignation' });
     
     return NextResponse.json(
       { 
@@ -343,13 +344,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // =============================================================================
 // PATCH Handler - Actualizar unidades vendidas y estado de liquidacion
 // =============================================================================
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = conTrazas('/api/consignation', async (request: NextRequest) => {
   try {
     const body = await request.json();
     
@@ -357,7 +358,7 @@ export async function PATCH(request: NextRequest) {
     const validationResult = updateConsignationSchema.safeParse(body);
     
     if (!validationResult.success) {
-      console.error('Error: Validacion fallida:', validationResult.error.issues);
+      log.warn('Error: Validacion fallida', { ruta: '/api/consignation', issues: validationResult.error.issues });
       
       return NextResponse.json(
         { 
@@ -377,7 +378,7 @@ export async function PATCH(request: NextRequest) {
     // =============================================================================
     // 1. Verificar que el registro de consignacion exista
     // =============================================================================
-    console.log('Buscando registro de consignacion con id:', data.log_id);
+    log.debug('Buscando registro de consignacion con id', { ruta: '/api/consignation', detalle: data.log_id });
     
     const logResult = await db.select()
       .from(consignationLogs)
@@ -395,7 +396,7 @@ export async function PATCH(request: NextRequest) {
     }
     
     const currentLog = logResult[0];
-    console.log('Registro encontrado - Entregadas:', currentLog.unitsDelivered, 'Vendidas:', currentLog.unitsSold);
+    log.debug('Registro encontrado - Entregadas', { ruta: '/api/consignation', detalle: [currentLog.unitsDelivered, 'Vendidas:', currentLog.unitsSold] });
 
     // =============================================================================
     // 2. Validar que units_sold no exceda units_delivered
@@ -422,7 +423,7 @@ export async function PATCH(request: NextRequest) {
     // Si se vendieron todas las unidades, marcar como reconciliado automaticamente
     if (data.units_sold === currentLog.unitsDelivered && !data.settlement_status) {
       newSettlementStatus = 'reconciled';
-      console.log('Todas las unidades vendidas - Estado cambiado a reconciled');
+      log.debug('Todas las unidades vendidas - Estado cambiado a reconciled', { ruta: '/api/consignation' });
     }
 
     // =============================================================================
@@ -443,7 +444,7 @@ export async function PATCH(request: NextRequest) {
       .where(eq(consignationLogs.id, data.log_id))
       .returning();
     
-    console.log('Registro actualizado exitosamente');
+    log.debug('Registro actualizado exitosamente', { ruta: '/api/consignation' });
 
     // =============================================================================
     // 5. Actualizar el stock actual de la cuenta
@@ -464,7 +465,7 @@ export async function PATCH(request: NextRequest) {
         .set({ currentConsignationStock: newStock })
         .where(eq(accounts.id, currentLog.accountId));
       
-      console.log('Stock actualizado:', accountResult[0].currentConsignationStock, '->', newStock);
+      log.debug('Stock actualizado', { ruta: '/api/consignation', detalle: [accountResult[0].currentConsignationStock, '->', newStock] });
     }
 
     // =============================================================================
@@ -500,7 +501,7 @@ export async function PATCH(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error en PATCH /api/consignation:', error);
+    log.error('Error en PATCH /api/consignation', error, { ruta: '/api/consignation' });
     
     return NextResponse.json(
       { 
@@ -511,4 +512,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

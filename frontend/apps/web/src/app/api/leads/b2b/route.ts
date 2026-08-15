@@ -5,6 +5,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { log, conTrazas } from '@sighfood/domain/lib/observabilidad';
 import { z } from 'zod';
 import { accounts } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
@@ -34,7 +35,7 @@ const b2bLeadSchema = z.object({
 // POST Handler - Crear nuevo lead B2B
 // =============================================================================
 
-export async function POST(request: NextRequest) {
+export const POST = conTrazas('/api/leads/b2b', async (request: NextRequest) => {
   try {
     // Obtener y validar el body
     const body = await request.json();
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     const validationResult = b2bLeadSchema.safeParse(body);
 
     if (!validationResult.success) {
-      console.error('❌ Validación fallida:', validationResult.error.issues);
+      log.warn('Validación fallida', { ruta: '/api/leads/b2b', issues: validationResult.error.issues });
 
       return NextResponse.json(
         {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     const data = validationResult.data;
 
     // Insertar el lead en la tabla accounts
-    console.log('Insertando lead en la base de datos...');
+    log.debug('Insertando lead en la base de datos...', { ruta: '/api/leads/b2b' });
 
     const newAccount = await conBaseDeDatos(async (db) => {
       const [fila] = await db.insert(accounts).values({
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       return fila;
     });
 
-    console.log('✅ Lead insertado exitosamente:', newAccount.id);
+    log.debug('Lead insertado exitosamente', { ruta: '/api/leads/b2b', detalle: newAccount.id });
 
     // Retornar respuesta de éxito
     return NextResponse.json(
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('❌ Error en POST /api/leads/b2b:', error);
+    log.error('Error en POST /api/leads/b2b', error, { ruta: '/api/leads/b2b' });
 
     return NextResponse.json(
       {
@@ -104,13 +105,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // =============================================================================
 // GET Handler - Health check (opcional)
 // =============================================================================
 
-export async function GET() {
+export const GET = conTrazas('/api/leads/b2b', async () => {
   return NextResponse.json(
     {
       status: 'ok',
@@ -120,4 +121,4 @@ export async function GET() {
     },
     { status: 200 }
   );
-}
+});

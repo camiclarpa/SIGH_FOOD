@@ -1,11 +1,18 @@
 import Link from 'next/link';
 import { resumenPipeline } from '@/lib/consultas';
 import { AvisoDegradado, ETAPAS, EtiquetaRiesgo, Titulo, numero } from '@/components/ui';
+import { redirect } from 'next/navigation';
+import { B2B_ACTIVO } from '@/lib/modulos';
 
 export const metadata = { title: 'Pipeline · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
 export default async function PaginaPipeline() {
+  // El canal B2B está pausado (ver lib/modulos.ts). Se redirige en vez de
+  // ocultar solo el menú: un enlace guardado llevaría a una pantalla activa de
+  // un módulo que se decidió no operar, y eso confunde más que un redirect.
+  if (!B2B_ACTIVO) redirect('/panel');
+
   const { datos: d, degradado, edadSegundos } = await resumenPipeline();
 
   return (

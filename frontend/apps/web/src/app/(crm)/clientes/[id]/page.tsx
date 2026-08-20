@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import {
   accounts,
@@ -9,6 +9,7 @@ import {
   multivariatePredictions,
 } from '@sighfood/domain/db/schema';
 import { count, desc, eq, sql } from 'drizzle-orm';
+import { B2B_ACTIVO } from '@/lib/modulos';
 import {
   Barra,
   Etiqueta,
@@ -113,6 +114,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function FichaCliente({ params }: { params: Promise<{ id: string }> }) {
+  // Canal B2B pausado: ver lib/modulos.ts
+  if (!B2B_ACTIVO) redirect('/panel');
+
   const { id } = await params;
   const d = await cargar(id);
   if (!d) notFound();

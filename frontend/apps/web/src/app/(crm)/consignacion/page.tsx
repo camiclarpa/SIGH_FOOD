@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { entregasRecientes } from '@/lib/consultas';
+import { redirect } from 'next/navigation';
+import { B2B_ACTIVO } from '@/lib/modulos';
 import {
   Etiqueta,
   Metrica,
@@ -23,6 +25,11 @@ const ESTADOS: Record<string, { texto: string; tono: 'exito' | 'aviso' | 'riesgo
 };
 
 export default async function PaginaConsignacion() {
+  // El canal B2B está pausado (ver lib/modulos.ts). Se redirige en vez de
+  // ocultar solo el menú: un enlace guardado llevaría a una pantalla activa de
+  // un módulo que se decidió no operar, y eso confunde más que un redirect.
+  if (!B2B_ACTIVO) redirect('/panel');
+
   const { datos: entregas, degradado, edadSegundos } = await entregasRecientes(100);
 
   const totales = entregas.reduce(

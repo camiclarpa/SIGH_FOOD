@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { qrCodes, sensoryMoments, dataConsents, b2cConsumers } from '@sighfood/domain/db/schema';
 import { eq } from 'drizzle-orm';
 import { conBaseDeDatos } from '@/lib/cloudflare';
+import { procesarEscaneo } from '@/lib/fidelizacion';
 
 // =============================================================================
 // Schema de validación con Zod
@@ -144,9 +145,9 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
     // =============================================================================
     log.debug('Registrando momento sensorial y consentimiento...', { ruta: '/api/moments/scan' });
     
-    await db.transaction(async (tx) => {
+    const [momento] = await db.transaction(async (tx) => {
       // Insertar momento sensorial
-      await tx.insert(sensoryMoments).values({
+      const insertado = await tx.insert(sensoryMoments).values({
         accountId: qrCode.accountId,
         consumerId: consumerId,
         productLine: data.product_line,
@@ -156,8 +157,8 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
           userAgent: request.headers.get('user-agent') ?? undefined,
           platform: 'web',
         },
-      });
-      
+      }).returning({ id: sensoryMoments.id });
+
       // Insertar consentimiento
       await tx.insert(dataConsents).values({
         consumerId: consumerId,
@@ -166,19 +167,43 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
         userAgent: request.headers.get('user-agent'),
         grantedAt: new Date(),
       });
+
+      return insertado;
     });
-    
+
     log.debug('Momento sensorial y consentimiento registrados', { ruta: '/api/moments/scan' });
 
     // =============================================================================
-    // 4. Calcular tiempo de ejecución y retornar respuesta
+    // 4. Fidelización: puntos, insignias y nivel
+    // =============================================================================
+    //
+    // Va FUERA de la transacción anterior y dentro de su propio try: el momento
+    // sensorial ya está guardado y es el dato que no se puede perder. Si fallara
+    // el cálculo de puntos, el comensal debe seguir viendo su escaneo aceptado
+    // —los puntos se recuperan reevaluando; un momento perdido, no—.
+    let recompensa = null;
+    try {
+      recompensa = await procesarEscaneo(db, { consumerId, momentId: momento.id });
+      log.debug('Fidelización procesada', {
+        ruta: '/api/moments/scan',
+        detalle: [recompensa.puntosGanados, 'puntos', recompensa.insigniasNuevas.length, 'insignias'],
+      });
+    } catch (e) {
+      log.error('No se pudo procesar la fidelización del escaneo', e, {
+        ruta: '/api/moments/scan',
+        detalle: consumerId,
+      });
+    }
+
+    // =============================================================================
+    // 5. Calcular tiempo de ejecución y retornar respuesta
     // =============================================================================
     const executionTime = Date.now() - startTime;
-    
+
     log.debug('Escaneo completado en', { ruta: '/api/moments/scan', detalle: [executionTime, 'ms'] });
-    
+
     return NextResponse.json(
-      { 
+      {
         success: true,
         message: 'Momento sensorial registrado exitosamente',
         execution_time_ms: executionTime,
@@ -187,6 +212,11 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
           account_id: qrCode.accountId,
           table_number: qrCode.tableNumber,
           product_line: data.product_line,
+          // Lo que la pantalla de la mesa necesita para celebrarlo al instante.
+          puntos_ganados: recompensa?.puntosGanados ?? 0,
+          insignias_nuevas: recompensa?.insigniasNuevas ?? [],
+          nivel_nuevo: recompensa?.nivelNuevo ?? null,
+          momentos_totales: recompensa?.escaneosTotales ?? null,
         }
       },
       { status: 200 }

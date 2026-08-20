@@ -73,15 +73,34 @@ export function EtiquetaRiesgo({ riesgo }: { riesgo: string | null }) {
 // Contenedores
 // -----------------------------------------------------------------------------
 
+/**
+ * Contenedor de sección.
+ *
+ * `titulo` y `accion` van aquí y no repetidos en cada pantalla: con doce
+ * tarjetas repartidas por el CRM, mantener la cabecera a mano en cada una es
+ * como acaban con tamaños y separaciones distintas sin que nadie lo decida.
+ */
 export function Tarjeta({
   children,
+  titulo,
+  accion,
   className = '',
 }: {
   children: ReactNode;
+  titulo?: ReactNode;
+  accion?: ReactNode;
   className?: string;
 }) {
   return (
-    <div className={`superficie rounded-xl border p-5 shadow-sm ${className}`}>{children}</div>
+    <div className={`superficie rounded-xl border p-5 shadow-sm ${className}`}>
+      {(titulo || accion) && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          {titulo && <h2 className="text-sm font-semibold">{titulo}</h2>}
+          {accion}
+        </div>
+      )}
+      {children}
+    </div>
   );
 }
 

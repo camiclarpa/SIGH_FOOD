@@ -15,6 +15,7 @@ import {
   boolean,
   pgEnum,
   index,
+  uniqueIndex,
   vector,
   type AnyPgColumn
 } from 'drizzle-orm/pg-core';
@@ -187,7 +188,55 @@ export const paymentMethodEnum = pgEnum('payment_method', [
 
 export const ticketStatusEnum = pgEnum('ticket_status', ['open', 'in_progress', 'resolved', 'closed']);
 
-export const membershipTierEnum = pgEnum('membership_tier', ['bronze', 'silver', 'gold']);
+/**
+ * Nivel del comensal segun su actividad.
+ *
+ * Se conservan bronze/silver/gold porque ya hay filas con esos valores y un
+ * enum de Postgres no permite renombrar etiquetas en uso sin reescribirlas.
+ * Los tres nuevos son los del programa sensorial; `nivelDeComensal()` los
+ * calcula a partir del numero de escaneos.
+ */
+export const membershipTierEnum = pgEnum('membership_tier', [
+  'bronze',
+  'silver',
+  'gold',
+  'explorador',
+  'aficionado',
+  'catador_leyenda'
+]);
+
+// =============================================================================
+// B2C: gamificacion, segmentacion y voz del comensal
+// =============================================================================
+
+/** Como se gana una insignia. Determina contra que se evalua el umbral. */
+export const badgeCriterioEnum = pgEnum('badge_criterio', [
+  'escaneos_totales',      // n escaneos acumulados
+  'lineas_distintas',      // n lineas de producto distintas probadas
+  'bares_distintos',       // n bares distintos visitados
+  'escaneos_en_franja',    // n escaneos dentro de una franja horaria
+  'racha_semanas',         // n semanas consecutivas con actividad
+  'referidos_convertidos'  // n referidos que llegaron a escanear
+]);
+
+/** Por que se movieron los puntos. Sin esto el saldo no es auditable. */
+export const motivoPuntosEnum = pgEnum('motivo_puntos', [
+  'escaneo',
+  'insignia',
+  'desafio',
+  'referido',
+  'canje',
+  'ajuste_manual',
+  'caducidad'
+]);
+
+export const desafioEstadoEnum = pgEnum('desafio_estado', ['borrador', 'activo', 'pausado', 'finalizado']);
+
+/** Sentimiento detectado en una resena. */
+export const sentimientoEnum = pgEnum('sentimiento', ['positivo', 'neutro', 'negativo']);
+
+/** Como se mantiene un segmento: a mano o por regla evaluada. */
+export const segmentoTipoEnum = pgEnum('segmento_tipo', ['dinamico', 'manual']);
 
 // El modelo que produjo cada vector se guarda en la fila: vectores de modelos
 // distintos viven en espacios distintos y sus distancias no son comparables, asi
@@ -1782,3 +1831,209 @@ export type NewCrmAgentHealth = typeof crmAgentHealth.$inferInsert;
 
 export type CrmWeeklyReport = typeof crmWeeklyReports.$inferSelect;
 export type NewCrmWeeklyReport = typeof crmWeeklyReports.$inferInsert;
+
+// =============================================================================
+// B2C: PASAPORTE DEL COMENSAL, GAMIFICACION Y VOZ DEL CONSUMIDOR
+// -----------------------------------------------------------------------------
+// El CRM ya guardaba puntos, cashback y nivel en b2c_consumers, pero como
+// columnas sueltas: un saldo sin historial que nadie podia auditar ni explicar.
+// Estas tablas convierten eso en un programa de fidelizacion operable.
+// =============================================================================
+
+/** Catalogo de insignias. Se define una vez y se otorga muchas. */
+export const badges = pgTable('badges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  codigo: varchar('codigo', { length: 60 }).notNull().unique(),
+  nombre: varchar('nombre', { length: 120 }).notNull(),
+  descripcion: text('descripcion').notNull(),
+  /** Emoji o icono corto; se pinta tal cual en la ficha del comensal. */
+  icono: varchar('icono', { length: 16 }).notNull().default('*'),
+  criterio: badgeCriterioEnum('criterio').notNull(),
+  /** Cuanto hace falta del criterio para desbloquearla. */
+  umbral: integer('umbral').notNull(),
+  /** Acota el criterio: linea de producto, franja horaria, zona. */
+  parametro: varchar('parametro', { length: 100 }),
+  puntosOtorgados: integer('puntos_otorgados').notNull().default(0),
+  activa: boolean('activa').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_badges_criterio').on(t.criterio),
+  index('idx_badges_activa').on(t.activa),
+]);
+
+/** Insignias desbloqueadas por cada comensal. */
+export const consumerBadges = pgTable('consumer_badges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  badgeId: uuid('badge_id').notNull().references(() => badges.id, { onDelete: 'cascade' }),
+  /** Valor del criterio al desbloquearla; sirve para explicar el porque. */
+  valorAlDesbloquear: integer('valor_al_desbloquear'),
+  desbloqueadaEn: timestamp('desbloqueada_en', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_consumer_badges_consumer').on(t.consumerId),
+  index('idx_consumer_badges_badge').on(t.badgeId),
+  // Una insignia se desbloquea una sola vez por comensal. Sin esto, reevaluar
+  // los criterios duplicaria insignias y regalaria puntos en cada pasada.
+  uniqueIndex('uq_consumer_badge').on(t.consumerId, t.badgeId),
+]);
+
+/**
+ * Movimientos de la billetera de puntos.
+ *
+ * b2c_consumers.points guarda el saldo, pero un saldo sin historial no se puede
+ * auditar: ante una reclamacion no habia forma de saber de donde salieron los
+ * puntos ni quien los movio.
+ */
+export const pointTransactions = pgTable('point_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  /** Positivo suma, negativo resta. */
+  puntos: integer('puntos').notNull(),
+  motivo: motivoPuntosEnum('motivo').notNull(),
+  /** Fila que origino el movimiento (momento, insignia, desafio, referido). */
+  referenciaId: uuid('referencia_id'),
+  descripcion: varchar('descripcion', { length: 255 }),
+  /** Saldo tras aplicar el movimiento, para reconstruir sin sumar todo. */
+  saldoResultante: integer('saldo_resultante'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_puntos_consumer').on(t.consumerId),
+  index('idx_puntos_motivo').on(t.motivo),
+  index('idx_puntos_fecha').on(t.createdAt),
+]);
+
+/** Desafios y rifas que se juegan en la mesa. */
+export const challenges = pgTable('challenges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  titulo: varchar('titulo', { length: 150 }).notNull(),
+  descripcion: text('descripcion'),
+  /** Preguntas del desafio: [{ pregunta, opciones[], correcta? }]. */
+  preguntas: jsonb('preguntas').$type<Array<{
+    pregunta: string;
+    opciones: string[];
+    correcta?: number;
+  }>>().notNull(),
+  estado: desafioEstadoEnum('estado').notNull().default('borrador'),
+  puntosPremio: integer('puntos_premio').notNull().default(0),
+  premioDescripcion: varchar('premio_descripcion', { length: 255 }),
+  /** Si se limita a una linea de producto o a una zona. */
+  lineaProducto: momentProductLineEnum('linea_producto'),
+  zona: varchar('zona', { length: 100 }),
+  empiezaEn: timestamp('empieza_en', { withTimezone: true }),
+  terminaEn: timestamp('termina_en', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_challenges_estado').on(t.estado),
+  index('idx_challenges_ventana').on(t.empiezaEn, t.terminaEn),
+]);
+
+/** Respuestas de los comensales a un desafio. */
+export const challengeResponses = pgTable('challenge_responses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  challengeId: uuid('challenge_id').notNull().references(() => challenges.id, { onDelete: 'cascade' }),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  respuestas: jsonb('respuestas').$type<Array<{ pregunta: number; elegida: number }>>().notNull(),
+  acertadas: integer('acertadas'),
+  puntosGanados: integer('puntos_ganados').notNull().default(0),
+  /** Cuanto tardo en responder; alimenta las dinamicas "express". */
+  segundosRespuesta: integer('segundos_respuesta'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_respuestas_challenge').on(t.challengeId),
+  index('idx_respuestas_consumer').on(t.consumerId),
+  // Un comensal responde una vez a cada desafio.
+  uniqueIndex('uq_respuesta_challenge_consumer').on(t.challengeId, t.consumerId),
+]);
+
+/**
+ * Segmentos de comensales.
+ *
+ * Un segmento dinamico guarda su REGLA, no la lista: si guardara la lista, un
+ * comensal que deja de cumplirla seguiria recibiendo campanas para siempre.
+ */
+export const segments = pgTable('segments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nombre: varchar('nombre', { length: 120 }).notNull().unique(),
+  descripcion: text('descripcion'),
+  tipo: segmentoTipoEnum('tipo').notNull().default('dinamico'),
+  /** Regla evaluada: { lineaProducto?, zona?, franja?, minEscaneos?, diasInactivo?, nivel? }. */
+  regla: jsonb('regla').$type<{
+    lineaProducto?: string;
+    zona?: string;
+    franjaDesde?: number;
+    franjaHasta?: number;
+    minEscaneos?: number;
+    diasInactivo?: number;
+    nivel?: string;
+  }>(),
+  color: varchar('color', { length: 20 }).default('slate'),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_segments_activo').on(t.activo),
+]);
+
+/** Pertenencia a segmentos manuales. Los dinamicos se resuelven por regla. */
+export const consumerSegments = pgTable('consumer_segments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  segmentId: uuid('segment_id').notNull().references(() => segments.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  uniqueIndex('uq_consumer_segment').on(t.consumerId, t.segmentId),
+  index('idx_consumer_segments_segment').on(t.segmentId),
+]);
+
+/**
+ * Resenas del comensal sobre el producto.
+ *
+ * Es el canal por el que un fallo de produccion —una tanda demasiado picante,
+ * una textura rara— llega desde la mesa hasta quien puede corregirlo.
+ */
+export const consumerReviews = pgTable('consumer_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  momentId: uuid('moment_id').references(() => sensoryMoments.id, { onDelete: 'set null' }),
+  productLine: momentProductLineEnum('product_line'),
+  /** 1 a 5. */
+  puntuacion: integer('puntuacion'),
+  comentario: text('comentario'),
+  /** Lo rellena el analisis de la IA, no el comensal. */
+  sentimiento: sentimientoEnum('sentimiento'),
+  puntuacionSentimiento: numeric('puntuacion_sentimiento', { precision: 5, scale: 2 }),
+  /** Atributos detectados: textura, temperatura, picante, sabor. */
+  atributos: jsonb('atributos').$type<Record<string, string>>(),
+  /** true si el analisis sugiere un problema de calidad que revisar. */
+  alertaCalidad: boolean('alerta_calidad').notNull().default(false),
+  analizadaEn: timestamp('analizada_en', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_reviews_consumer').on(t.consumerId),
+  index('idx_reviews_account').on(t.accountId),
+  index('idx_reviews_sentimiento').on(t.sentimiento),
+  index('idx_reviews_alerta').on(t.alertaCalidad),
+  index('idx_reviews_fecha').on(t.createdAt),
+]);
+
+// -----------------------------------------------------------------------------
+// Tipos
+// -----------------------------------------------------------------------------
+
+export type Badge = typeof badges.$inferSelect;
+export type NewBadge = typeof badges.$inferInsert;
+export type ConsumerBadge = typeof consumerBadges.$inferSelect;
+export type NewConsumerBadge = typeof consumerBadges.$inferInsert;
+export type PointTransaction = typeof pointTransactions.$inferSelect;
+export type NewPointTransaction = typeof pointTransactions.$inferInsert;
+export type Challenge = typeof challenges.$inferSelect;
+export type NewChallenge = typeof challenges.$inferInsert;
+export type ChallengeResponse = typeof challengeResponses.$inferSelect;
+export type NewChallengeResponse = typeof challengeResponses.$inferInsert;
+export type Segment = typeof segments.$inferSelect;
+export type NewSegment = typeof segments.$inferInsert;
+export type ConsumerSegment = typeof consumerSegments.$inferSelect;
+export type NewConsumerSegment = typeof consumerSegments.$inferInsert;
+export type ConsumerReview = typeof consumerReviews.$inferSelect;
+export type NewConsumerReview = typeof consumerReviews.$inferInsert;

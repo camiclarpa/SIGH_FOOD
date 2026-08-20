@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { listarCuentas, listarZonas, ETAPAS_PIPELINE, type CampoOrden } from '@/lib/consultas';
+import { redirect } from 'next/navigation';
+import { B2B_ACTIVO } from '@/lib/modulos';
 import {
   ETAPAS,
   EtiquetaEtapa,
@@ -32,6 +34,11 @@ export default async function PaginaClientes({
 }: {
   searchParams: Promise<Busqueda>;
 }) {
+  // El canal B2B está pausado (ver lib/modulos.ts). Se redirige en vez de
+  // ocultar solo el menú: un enlace guardado llevaría a una pantalla activa de
+  // un módulo que se decidió no operar, y eso confunde más que un redirect.
+  if (!B2B_ACTIVO) redirect('/panel');
+
   const p = await searchParams;
 
   // Los parámetros llegan de la URL, así que se validan antes de usarlos:

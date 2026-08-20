@@ -112,7 +112,20 @@ export const GET = conTrazas('/api/health', async () => {
       return 'enlazado';
     }),
 
-    // 5. Rate limiting. Tampoco es crítico, pero su ausencia deja los endpoints
+    // 5. Respaldo de lectura. Sin él el CRM sigue funcionando con normalidad,
+    //    pero pierde el modo degradado: una caída de Neon volvería a tumbarlo
+    //    entero. Es una red de seguridad, y una red que desaparece sin avisar
+    //    no es una red.
+    medir('respaldo_lectura', false, async () => {
+      if (!enWorkers) return 'no aplica (fuera de Cloudflare)';
+      const tiene = Boolean((env as unknown as { RESPALDO_LECTURA?: unknown }).RESPALDO_LECTURA);
+      if (!tiene) {
+        throw new Error('binding RESPALDO_LECTURA ausente: sin modo degradado si la base cae');
+      }
+      return 'enlazado';
+    }),
+
+    // 6. Rate limiting. Tampoco es crítico, pero su ausencia deja los endpoints
     //    públicos sin más freno que el contador en memoria, que no se comparte
     //    entre isolates.
     medir('rate_limiting', false, async () => {

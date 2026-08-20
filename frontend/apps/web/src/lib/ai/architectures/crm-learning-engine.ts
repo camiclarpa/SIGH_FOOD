@@ -4,7 +4,8 @@
 
 import { crmLearningEpisodes, crmPatterns } from '@sighfood/domain/db/schema';
 import { eq, and, isNotNull } from 'drizzle-orm';
-import { conBaseDeDatos, dec, num } from './_soporte';
+import { conBaseDeDatos, dec } from './_soporte';
+import { forgettingCurveService } from './forgetting-curve';
 
 /** Lo minimo que proposeSolution necesita de un episodio. */
 export interface EpisodioSimilar {
@@ -94,24 +95,20 @@ export class CrmLearningEngine {
     });
   }
 
+  /**
+   * Depreciación del conocimiento acumulado.
+   *
+   * Aquí había una segunda implementación de la curva de olvido: recorría los
+   * patrones y lanzaba un UPDATE por cada uno (N+1), y además no dejaba rastro
+   * en forgetting_curve_log, así que las depreciaciones aplicadas por esta vía
+   * eran invisibles en el histórico.
+   *
+   * La fórmula era la misma que la de A6 —`confianza * (1 - tasa)`, que es su
+   * caso de 7 días— así que se delega en ella en lugar de mantener dos copias
+   * destinadas a divergir.
+   */
   async applyForgettingCurve() {
-    return conBaseDeDatos(async (db) => {
-      const patterns = await db.select().from(crmPatterns);
-      for (const pattern of patterns) {
-        const newConfidence = num(pattern.confidenceScore) * (1 - num(pattern.decayRate));
-        let newConsolidation = pattern.consolidation;
-        if (newConfidence < 0.30) newConsolidation = 'deprecated';
-        else if (newConfidence < 0.50) newConsolidation = 'active';
-
-        await db.update(crmPatterns)
-          .set({
-            confidenceScore: dec(newConfidence),
-            consolidation: newConsolidation,
-            updatedAt: new Date(),
-          })
-          .where(eq(crmPatterns.id, pattern.id));
-      }
-    });
+    return forgettingCurveService.applyWeeklyDecay();
   }
 }
 

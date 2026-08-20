@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { kgCrmNodes, kgCrmEdges } from '@sighfood/domain/db/schema';
-import { eq } from 'drizzle-orm';
+import { count, eq, sql } from 'drizzle-orm';
 import { conBaseDeDatos, dec, num, type DominioCrm, type TipoRelacionKg } from './_soporte';
 
 export class KnowledgeGraphService {
@@ -60,23 +60,36 @@ export class KnowledgeGraphService {
     });
   }
 
+  /**
+   * Recalcula la centralidad de todos los nodos.
+   *
+   * Antes recorría los nodos en JavaScript y por cada uno lanzaba un SELECT de
+   * sus aristas y un UPDATE: con N nodos eran 2N+1 viajes a la base dentro de
+   * una sola petición. Con un grafo de 1000 cuentas eso son más de 2000 idas y
+   * vueltas, y el Worker agota su tiempo antes de terminar.
+   *
+   * Ahora es una única sentencia: el grado de cada nodo se cuenta en un
+   * agregado y el UPDATE toma el valor de ahí. El coste deja de depender del
+   * número de nodos en número de consultas.
+   */
   async calculateCentrality() {
     return conBaseDeDatos(async (db) => {
-      const nodes = await db.select().from(kgCrmNodes);
-      if (nodes.length === 0) return { nodes: 0 };
+      const [{ total }] = await db.select({ total: count(kgCrmNodes.id) }).from(kgCrmNodes);
+      if (total === 0) return { nodes: 0 };
 
-      for (const node of nodes) {
-        const edgeCount = await db.select()
-          .from(kgCrmEdges)
-          .where(eq(kgCrmEdges.sourceNodeId, node.id));
+      await db.execute(sql`
+        UPDATE kg_crm_nodes AS n
+        SET centrality_score = ROUND(COALESCE(g.grado, 0)::numeric / ${total}, 2)
+        FROM (
+          SELECT n2.id, COUNT(e.id) AS grado
+          FROM kg_crm_nodes n2
+          LEFT JOIN kg_crm_edges e ON e.source_node_id = n2.id
+          GROUP BY n2.id
+        ) AS g
+        WHERE g.id = n.id
+      `);
 
-        const centrality = edgeCount.length / nodes.length;
-        await db.update(kgCrmNodes)
-          .set({ centralityScore: dec(centrality) })
-          .where(eq(kgCrmNodes.id, node.id));
-      }
-
-      return { nodes: nodes.length };
+      return { nodes: total };
     });
   }
 }

@@ -35,6 +35,24 @@
     }
   ],
 
+  // Rate limiting global de Cloudflare.
+  //
+  // El contador que había en el middleware vivía en memoria, y cada isolate
+  // tiene la suya: con el tráfico repartido entre isolates el límite real era
+  // varias veces el configurado. Este binding lo cuenta en el borde, compartido
+  // por todos los isolates, sin añadir Redis ni un Durable Object.
+  //
+  // `period` solo admite 10 o 60 (segundos). El namespace_id es un entero
+  // arbitrario que identifica el contador dentro de la cuenta; cambiarlo
+  // reinicia las cuentas de todos los visitantes.
+  "ratelimits": [
+    {
+      "name": "LIMITADOR_PUBLICO",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
+    }
+  ],
+
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

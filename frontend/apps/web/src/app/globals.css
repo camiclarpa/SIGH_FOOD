@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind 4 descubre las clases recorriendo el árbol desde este archivo, y en
+ * un monorepo eso deja fuera lo que vive en packages/. Se declaran las fuentes
+ * a mano para que las clases usadas en @sighfood/ui también generen CSS.
+ */
+@source "../../src";
+@source "../../../../packages/sighfood-ui";
+
+@theme {
+  /* Marca */
+  --color-marca-50: #fff7ed;
+  --color-marca-100: #ffedd5;
+  --color-marca-200: #fed7aa;
+  --color-marca-300: #fdba74;
+  --color-marca-400: #fb923c;
+  --color-marca-500: #f97316;
+  --color-marca-600: #ea580c;
+  --color-marca-700: #c2410c;
+  --color-marca-800: #9a3412;
+  --color-marca-900: #7c2d12;
+
+  /* Estados del pipeline y de riesgo. Se definen como tokens y no como clases
+     sueltas para que el mismo estado tenga el mismo color en toda la app. */
+  --color-exito: #16a34a;
+  --color-exito-suave: #dcfce7;
+  --color-aviso: #d97706;
+  --color-aviso-suave: #fef3c7;
+  --color-riesgo: #dc2626;
+  --color-riesgo-suave: #fee2e2;
+  --color-info: #2563eb;
+  --color-info-suave: #dbeafe;
+  --color-neutro: #64748b;
+  --color-neutro-suave: #f1f5f9;
+}
+
+:root {
+  --fondo: #f8fafc;
+  --superficie: #ffffff;
+  --borde: #e2e8f0;
+  --texto: #0f172a;
+  --texto-suave: #64748b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0b1120;
+    --superficie: #111827;
+    --borde: #1f2937;
+    --texto: #e5e7eb;
+    --texto-suave: #9ca3af;
+  }
+}
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utilidades sobre los tokens de arriba, para no repetir el var() en cada uso. */
+@layer utilities {
+  .superficie {
+    background: var(--superficie);
+    border-color: var(--borde);
+  }
+  .texto-suave {
+    color: var(--texto-suave);
+  }
+  .borde-tema {
+    border-color: var(--borde);
+  }
+}
+
+/* Tabular numbers: sin esto, las columnas de cifras bailan al cambiar de fila. */
+.cifras {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,22 +1,17 @@
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 
 /**
  * Raíz de @sighfood/web.
  *
  * Sin este archivo `/` devolvía 404: la app solo tenía /b2b y las rutas de API.
+ * Ahora que existe el CRM, la raíz solo decide a dónde va cada quien: al panel
+ * si hay sesión, al login si no. Dejarla como página de bienvenida obligaba a
+ * un clic extra en cada visita.
  */
-export default function HomePage() {
-  return (
-    <main style={{ padding: '3rem 1.5rem', maxWidth: '48rem', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1rem' }}>
-        SIGH_FOOD
-      </h1>
-      <p style={{ marginBottom: '2rem', lineHeight: 1.6 }}>
-        Portafolio de conos RTA para gastrobares.
-      </p>
-      <Link href="/b2b" style={{ textDecoration: 'underline' }}>
-        Ir a la landing B2B
-      </Link>
-    </main>
-  );
+export const dynamic = 'force-dynamic';
+
+export default async function PaginaRaiz() {
+  const sesion = await auth();
+  redirect(sesion?.user ? '/panel' : '/login');
 }

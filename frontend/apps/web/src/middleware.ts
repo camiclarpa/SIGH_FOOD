@@ -41,15 +41,22 @@ const PAGINAS_PUBLICAS = ['/', '/b2b', '/login'];
 // Rate limiting
 // -----------------------------------------------------------------------------
 //
-// Contador en memoria por IP. Es suficiente para frenar un script que martillee
-// el formulario, pero no sobrevive entre isolates de Cloudflare: cada uno tiene
-// su propio mapa. Para un límite global hace falta Durable Objects o Redis;
-// queda anotado como el siguiente paso.
-const CONTADORES = new Map<string, { total: number; reinicioEn: number }>();
+// El límite lo cuenta Cloudflare en el borde, mediante el binding declarado en
+// wrangler.jsonc (`ratelimits`). Antes era un Map en memoria, y como cada
+// isolate tiene el suyo, el límite efectivo era el configurado MULTIPLICADO por
+// el número de isolates activos: con tráfico repartido, un atacante obtenía
+// varias veces las 20 peticiones por minuto que decía permitir.
+//
+// El contador en memoria se conserva SOLO como respaldo para `next dev` y los
+// tests, donde el binding no existe. En Workers nunca se usa.
+
 const VENTANA_MS = 60_000;
 const MAX_POR_VENTANA = 20;
 
-function limitarPeticiones(ip: string): boolean {
+const CONTADORES = new Map<string, { total: number; reinicioEn: number }>();
+
+/** Contador local. No sirve en producción: no se comparte entre isolates. */
+function limitarEnMemoria(ip: string): boolean {
   const ahora = Date.now();
   const actual = CONTADORES.get(ip);
 
@@ -70,6 +77,35 @@ function limitarPeticiones(ip: string): boolean {
   return true;
 }
 
+/** Forma del binding de rate limiting de Workers. */
+interface Limitador {
+  limit(opciones: { key: string }): Promise<{ success: boolean }>;
+}
+
+/**
+ * Comprueba el límite para una IP.
+ *
+ * Usa el binding si está disponible y cae al contador local si no. El acceso al
+ * entorno va dentro de un try: en `next dev` no hay contexto de Cloudflare y
+ * `getCloudflareContext` lanza, que es justo el caso del respaldo.
+ */
+async function dentroDelLimite(ip: string): Promise<boolean> {
+  try {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const { env } = await getCloudflareContext({ async: true });
+    const limitador = (env as unknown as { LIMITADOR_PUBLICO?: Limitador }).LIMITADOR_PUBLICO;
+
+    if (limitador) {
+      const { success } = await limitador.limit({ key: ip });
+      return success;
+    }
+  } catch {
+    // Sin contexto de Cloudflare: se sigue con el contador local.
+  }
+
+  return limitarEnMemoria(ip);
+}
+
 function esPublica(pathname: string): boolean {
   return RUTAS_PUBLICAS.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 }
@@ -88,7 +124,7 @@ export async function middleware(request: NextRequest) {
       request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
       'desconocida';
 
-    if (!limitarPeticiones(ip)) {
+    if (!(await dentroDelLimite(ip))) {
       return NextResponse.json(
         { success: false, error: 'Demasiadas peticiones. Inténtalo en un minuto.' },
         { status: 429, headers: { 'Retry-After': '60' } }

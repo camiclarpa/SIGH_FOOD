@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { resumenMensajeria } from '@/lib/consultas-b2c';
+import { puede, rolActual } from '@/lib/permisos';
+import { EditorSecuencia } from './EditorSecuencia';
+import { InterruptorSecuencia } from './InterruptorSecuencia';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -39,7 +42,13 @@ const ESTADOS: Record<string, 'exito' | 'aviso' | 'neutro'> = {
 };
 
 export default async function PaginaMensajeria() {
-  const { datos: d, degradado, edadSegundos } = await resumenMensajeria();
+  const [{ datos: d, degradado, edadSegundos }, rol] = await Promise.all([
+    resumenMensajeria(),
+    rolActual(),
+  ]);
+
+  const puedeEditar = puede(rol, 'campanas.editar');
+  const puedeActivar = puede(rol, 'campanas.activar');
 
   const activas = d.secuencias.filter((s) => s.status === 'active').length;
   const tasa = (parte: number, total: number) => (total === 0 ? 0 : Math.round((parte / total) * 100));
@@ -86,7 +95,7 @@ export default async function PaginaMensajeria() {
       )}
 
       <div className="mt-6">
-        <Tarjeta titulo="Secuencias">
+        <Tarjeta titulo="Secuencias" accion={puedeEditar ? <EditorSecuencia /> : null}>
           {d.secuencias.length === 0 ? (
             <Vacio>
               Sin secuencias definidas. Ejecuta{' '}
@@ -104,6 +113,19 @@ export default async function PaginaMensajeria() {
                           {s.status === 'active' ? 'activa' : s.status === 'paused' ? 'pausada' : 'borrador'}
                         </Etiqueta>
                         <Etiqueta tono="info">{CANALES[s.channel ?? ''] ?? s.channel}</Etiqueta>
+                        {puedeEditar && (
+                          <EditorSecuencia
+                            secuencia={{
+                              id: s.id,
+                              name: s.name ?? '',
+                              trigger: s.trigger ?? 'signup',
+                              channel: s.channel ?? 'whatsapp',
+                              template: s.template ?? '',
+                              delayHours: s.delayHours ?? 0,
+                              targetSegment: s.targetSegment,
+                            }}
+                          />
+                        )}
                       </div>
 
                       <p className="texto-suave mt-1 text-xs">
@@ -122,6 +144,16 @@ export default async function PaginaMensajeria() {
                           {s.template}
                         </p>
                       )}
+                    </div>
+
+                    <div className="shrink-0">
+                      <InterruptorSecuencia
+                        id={s.id}
+                        nombre={s.name ?? 'la secuencia'}
+                        activa={s.status === 'active'}
+                        puedeActivar={puedeActivar}
+                        puedeEditar={puedeEditar}
+                      />
                     </div>
 
                     <dl className="grid shrink-0 grid-cols-4 gap-x-4 text-center text-xs">

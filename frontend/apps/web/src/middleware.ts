@@ -39,7 +39,7 @@ const RUTAS_PUBLICAS = [
 ];
 
 /** Rutas de página que no requieren sesión. */
-const PAGINAS_PUBLICAS = ['/', '/b2b', '/login'];
+const PAGINAS_PUBLICAS = ['/', '/b2b', '/login', '/escanear'];
 
 // -----------------------------------------------------------------------------
 // Rate limiting
@@ -110,12 +110,29 @@ async function dentroDelLimite(ip: string): Promise<boolean> {
   return limitarEnMemoria(ip);
 }
 
+/**
+ * Destino de los QR de mesa.
+ *
+ * Va aparte de PAGINAS_PUBLICAS porque el token es variable: /m/<token>. Lo
+ * escanea un comensal cualquiera con su móvil, así que exigir sesión dejaría
+ * inútil cada adhesivo pegado en una mesa.
+ */
+function esDestinoQr(pathname: string): boolean {
+  return pathname.startsWith('/m/');
+}
+
 function esPublica(pathname: string): boolean {
   return RUTAS_PUBLICAS.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // El destino de los QR: público y sin límite, porque una mesa llena escanea
+  // en ráfaga y un 429 dejaría al comensal mirando un error.
+  if (esDestinoQr(pathname)) {
+    return NextResponse.next();
+  }
 
   // --- Rutas públicas de API: sin sesión, pero con límite de peticiones ---
   if (esPublica(pathname)) {

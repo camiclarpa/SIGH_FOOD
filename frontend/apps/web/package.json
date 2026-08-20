@@ -21,13 +21,15 @@
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "qrcode-svg": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5.3.0",
-    "wrangler": "^4.119.0"
+    "wrangler": "^4.119.0",
+    "@types/qrcode-svg": "^1.1.5"
   }
 }

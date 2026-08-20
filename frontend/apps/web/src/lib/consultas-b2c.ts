@@ -25,6 +25,8 @@ import {
   automationLogs,
   rewards,
   redemptions,
+  staffUsers,
+  mensajesEntrantes,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { conRespaldo } from '@/lib/respaldo';
@@ -835,5 +837,123 @@ export async function resumenPremios() {
       totales: totales[0] ?? { emitidos: 0, entregados: 0, pendientes: 0, caducados: 0, puntosGastados: 0 },
       ultimos,
     };
+  }));
+}
+
+// -----------------------------------------------------------------------------
+// Reseñas y moderación
+// -----------------------------------------------------------------------------
+
+export async function resumenResenas(filtro?: { soloAlertas?: boolean }) {
+  const clave = `b2c:resenas:${filtro?.soloAlertas ? 'alertas' : 'todas'}`;
+
+  return conRespaldo(clave, () => conBaseDeDatos(async (db) => {
+    const [filas, [totales], porLinea] = await Promise.all([
+      db
+        .select({
+          id: consumerReviews.id,
+          puntuacion: consumerReviews.puntuacion,
+          comentario: consumerReviews.comentario,
+          sentimiento: consumerReviews.sentimiento,
+          puntuacionSentimiento: consumerReviews.puntuacionSentimiento,
+          atributos: consumerReviews.atributos,
+          alertaCalidad: consumerReviews.alertaCalidad,
+          analizadaEn: consumerReviews.analizadaEn,
+          linea: consumerReviews.productLine,
+          fecha: consumerReviews.createdAt,
+          comensal: b2cConsumers.fullName,
+          comensalId: b2cConsumers.id,
+          bar: accounts.name,
+          zona: accounts.zone,
+        })
+        .from(consumerReviews)
+        .leftJoin(b2cConsumers, eq(b2cConsumers.id, consumerReviews.consumerId))
+        .leftJoin(accounts, eq(accounts.id, consumerReviews.accountId))
+        .where(filtro?.soloAlertas ? eq(consumerReviews.alertaCalidad, true) : undefined)
+        // Las alertas primero: una tanda defectuosa no espera a que alguien
+        // baje por la lista.
+        .orderBy(desc(consumerReviews.alertaCalidad), desc(consumerReviews.createdAt))
+        .limit(100),
+
+      db
+        .select({
+          total: count(consumerReviews.id),
+          alertas: sql<number>`COUNT(*) FILTER (WHERE ${consumerReviews.alertaCalidad})::int`,
+          positivas: sql<number>`COUNT(*) FILTER (WHERE ${consumerReviews.sentimiento} = 'positivo')::int`,
+          negativas: sql<number>`COUNT(*) FILTER (WHERE ${consumerReviews.sentimiento} = 'negativo')::int`,
+          sinAnalizar: sql<number>`COUNT(*) FILTER (WHERE ${consumerReviews.analizadaEn} IS NULL)::int`,
+          media: sql<number>`COALESCE(ROUND(AVG(${consumerReviews.puntuacion})::numeric, 2), 0)`,
+        })
+        .from(consumerReviews),
+
+      db
+        .select({
+          linea: consumerReviews.productLine,
+          total: count(consumerReviews.id),
+          media: sql<number>`COALESCE(ROUND(AVG(${consumerReviews.puntuacion})::numeric, 2), 0)`,
+          alertas: sql<number>`COUNT(*) FILTER (WHERE ${consumerReviews.alertaCalidad})::int`,
+        })
+        .from(consumerReviews)
+        .groupBy(consumerReviews.productLine)
+        .orderBy(desc(count(consumerReviews.id))),
+    ]);
+
+    return {
+      filas,
+      totales: totales ?? { total: 0, alertas: 0, positivas: 0, negativas: 0, sinAnalizar: 0, media: 0 },
+      porLinea,
+    };
+  }));
+}
+
+/** Usuarios del equipo, con su actividad. */
+export async function listarUsuarios() {
+  return conRespaldo('crm:usuarios', () => conBaseDeDatos(async (db) =>
+    db
+      .select({
+        id: staffUsers.id,
+        email: staffUsers.email,
+        nombre: staffUsers.fullName,
+        rol: staffUsers.role,
+        activo: staffUsers.isActive,
+        ultimoAcceso: staffUsers.lastLoginAt,
+        alta: staffUsers.createdAt,
+      })
+      .from(staffUsers)
+      .orderBy(asc(staffUsers.email))
+  ));
+}
+
+/** Respuestas entrantes de los comensales. */
+export async function bandejaEntrada() {
+  return conRespaldo('b2c:bandeja', () => conBaseDeDatos(async (db) => {
+    const [filas, [totales]] = await Promise.all([
+      db
+        .select({
+          id: mensajesEntrantes.id,
+          texto: mensajesEntrantes.texto,
+          canal: mensajesEntrantes.canal,
+          remitente: mensajesEntrantes.remitente,
+          atendido: mensajesEntrantes.atendido,
+          notaInterna: mensajesEntrantes.notaInterna,
+          recibido: mensajesEntrantes.recibidoEn,
+          comensal: b2cConsumers.fullName,
+          comensalId: b2cConsumers.id,
+        })
+        .from(mensajesEntrantes)
+        .leftJoin(b2cConsumers, eq(b2cConsumers.id, mensajesEntrantes.consumerId))
+        // Sin atender primero: son los que esperan a alguien.
+        .orderBy(asc(mensajesEntrantes.atendido), desc(mensajesEntrantes.recibidoEn))
+        .limit(50),
+
+      db
+        .select({
+          total: count(mensajesEntrantes.id),
+          pendientes: sql<number>`COUNT(*) FILTER (WHERE NOT ${mensajesEntrantes.atendido})::int`,
+        })
+        .from(mensajesEntrantes),
+    ]);
+
+    return { filas, totales: totales ?? { total: 0, pendientes: 0 } };
   }));
 }

@@ -22,10 +22,12 @@ const GRUPOS = [
       { href: '/momentos', texto: 'Momentos', icono: '◉' },
       { href: '/fidelizacion', texto: 'Fidelización', icono: '★' },
       { href: '/premios', texto: 'Premios', icono: '◆' },
+      { href: '/resenas', texto: 'Reseñas', icono: '✎' },
       { href: '/segmentos', texto: 'Segmentos', icono: '◒' },
       { href: '/qr', texto: 'Códigos QR', icono: '⊞' },
       { href: '/mensajeria', texto: 'Mensajería', icono: '✈' },
       { href: '/agente', texto: 'Agente IA', icono: '◈' },
+      { href: '/usuarios', texto: 'Usuarios', icono: '⚿' },
     ],
   },
   // Solo aparece si B2B_ACTIVO. Está pausado mientras el foco es B2C; se

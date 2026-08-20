@@ -1,88 +1,29 @@
 // =============================================================================
-// Control de acceso por rol (RBAC)
+// Control de acceso: la parte que necesita la sesión
 // =============================================================================
 //
-// Hasta ahora el rol se guardaba en la sesión y se pintaba bajo el nombre del
-// usuario, pero no impedía nada: cualquiera con sesión podía hacer cualquier
-// cosa. Daba igual mientras el CRM solo leía. Deja de dar igual en cuanto puede
-// mover puntos, canjear premios o enviar mensajes a personas reales.
+// La tabla de roles y permisos vive en lib/roles.ts, que no importa nada del
+// servidor. Aquí solo está lo que necesita leer la sesión —y por tanto arrastra
+// `@/auth` y con él postgres.js—.
 //
-// El modelo es de lista blanca: un permiso que no aparezca aquí no lo tiene
-// nadie. Añadir una capacidad exige nombrarla, y eso obliga a pensar quién
-// debería poder usarla.
+// La separación no es estética: un componente cliente que importara este archivo
+// para pintar la etiqueta de un rol metía el driver de Postgres entero en el
+// bundle del navegador, y el build de Workers lo rechaza.
 
 import { auth } from '@/auth';
+import { rolValido, type Rol } from '@/lib/roles';
 
-export type Rol = 'admin' | 'comercial' | 'lectura';
+export {
+  ETIQUETAS_ROL,
+  SinPermiso,
+  puede,
+  permisosDe,
+  rolValido,
+  type Permiso,
+  type Rol,
+} from '@/lib/roles';
 
-export type Permiso =
-  // Fidelización
-  | 'premios.gestionar'      // crear y editar el catálogo
-  | 'canjes.emitir'          // gastar puntos de un comensal
-  | 'canjes.entregar'        // marcar un canje como entregado en la mesa
-  | 'canjes.anular'          // revertir un canje y devolver los puntos
-  | 'puntos.ajustar'         // sumar o restar puntos a mano
-  | 'desafios.gestionar'
-  // Comensales
-  | 'comensales.editar'
-  | 'consentimientos.revocar'
-  | 'resenas.moderar'
-  // Mensajería
-  | 'campanas.editar'
-  | 'campanas.activar'       // empieza a enviar a personas reales
-  | 'campanas.probar'
-  // QR
-  | 'qr.gestionar'
-  | 'qr.redirigir'
-  // Agente IA
-  | 'agente.aprobar'
-  | 'agente.calibrar'
-  | 'agente.sandbox'
-  // Sistema
-  | 'datos.exportar'
-  | 'usuarios.gestionar';
-
-/**
- * Qué puede hacer cada rol.
- *
- * `comercial` opera el día a día pero no toca la configuración del agente ni
- * los usuarios: calibrar un umbral o activar una campaña cambia el
- * comportamiento del sistema para todos, no solo para un comensal.
- *
- * `lectura` no escribe nada. Ni siquiera exporta: un CSV con los WhatsApp de
- * todos los comensales es exactamente el dato que no debe salir sin control.
- */
-const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
-  admin: [
-    'premios.gestionar', 'canjes.emitir', 'canjes.entregar', 'canjes.anular',
-    'puntos.ajustar', 'desafios.gestionar',
-    'comensales.editar', 'consentimientos.revocar', 'resenas.moderar',
-    'campanas.editar', 'campanas.activar', 'campanas.probar',
-    'qr.gestionar', 'qr.redirigir',
-    'agente.aprobar', 'agente.calibrar', 'agente.sandbox',
-    'datos.exportar', 'usuarios.gestionar',
-  ],
-  comercial: [
-    'canjes.emitir', 'canjes.entregar',
-    'comensales.editar', 'consentimientos.revocar', 'resenas.moderar',
-    'campanas.editar', 'campanas.probar',
-    'qr.gestionar',
-    'datos.exportar',
-  ],
-  lectura: [],
-};
-
-export function rolValido(valor: unknown): Rol {
-  return valor === 'admin' || valor === 'comercial' ? valor : 'lectura';
-}
-
-export function puede(rol: Rol, permiso: Permiso): boolean {
-  return PERMISOS_POR_ROL[rol].includes(permiso);
-}
-
-export function permisosDe(rol: Rol): readonly Permiso[] {
-  return PERMISOS_POR_ROL[rol];
-}
+import { puede, SinPermiso, type Permiso } from '@/lib/roles';
 
 /** Rol de la sesión actual. `lectura` si no hay sesión: cerrado por defecto. */
 export async function rolActual(): Promise<Rol> {
@@ -108,14 +49,6 @@ export async function actorActual(): Promise<Actor | null> {
   };
 }
 
-/** Se lanza cuando falta un permiso. La capturan las Server Actions. */
-export class SinPermiso extends Error {
-  constructor(public readonly permiso: Permiso, public readonly rol: Rol) {
-    super(`El rol "${rol}" no puede "${permiso}"`);
-    this.name = 'SinPermiso';
-  }
-}
-
 /**
  * Exige un permiso y devuelve quién actúa.
  *
@@ -129,9 +62,3 @@ export async function exigir(permiso: Permiso): Promise<Actor> {
   if (!puede(actor.rol, permiso)) throw new SinPermiso(permiso, actor.rol);
   return actor;
 }
-
-export const ETIQUETAS_ROL: Record<Rol, string> = {
-  admin: 'Administrador',
-  comercial: 'Comercial',
-  lectura: 'Solo lectura',
-};

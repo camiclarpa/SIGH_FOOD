@@ -23,6 +23,8 @@ import {
   sensoryMoments,
   automationSequences,
   automationLogs,
+  rewards,
+  redemptions,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { conRespaldo } from '@/lib/respaldo';
@@ -751,6 +753,69 @@ export async function resumenMensajeria() {
         metricas: porId.get(s.id) ?? { enviados: 0, abiertos: 0, clicados: 0, convertidos: 0, errores: 0 },
       })),
       totales: totales[0] ?? { enviados: 0, abiertos: 0, convertidos: 0, errores: 0 },
+      ultimos,
+    };
+  }));
+}
+
+// -----------------------------------------------------------------------------
+// Economía de canje
+// -----------------------------------------------------------------------------
+
+export async function resumenPremios() {
+  return conRespaldo('b2c:premios', () => conBaseDeDatos(async (db) => {
+    const [catalogo, porPremio, totales, ultimos] = await Promise.all([
+      db.select().from(rewards).orderBy(asc(rewards.costePuntos)),
+
+      db
+        .select({
+          rewardId: redemptions.rewardId,
+          emitidos: count(redemptions.id),
+          entregados: sql<number>`COUNT(*) FILTER (WHERE ${redemptions.estado} = 'canjeado')::int`,
+          pendientes: sql<number>`COUNT(*) FILTER (WHERE ${redemptions.estado} = 'pendiente')::int`,
+        })
+        .from(redemptions)
+        .groupBy(redemptions.rewardId),
+
+      db
+        .select({
+          emitidos: count(redemptions.id),
+          entregados: sql<number>`COUNT(*) FILTER (WHERE ${redemptions.estado} = 'canjeado')::int`,
+          pendientes: sql<number>`COUNT(*) FILTER (WHERE ${redemptions.estado} = 'pendiente')::int`,
+          caducados: sql<number>`COUNT(*) FILTER (WHERE ${redemptions.estado} = 'pendiente' AND ${redemptions.expiraEn} < now())::int`,
+          puntosGastados: sql<number>`COALESCE(SUM(${redemptions.puntosGastados}), 0)::int`,
+        })
+        .from(redemptions),
+
+      db
+        .select({
+          id: redemptions.id,
+          codigo: redemptions.codigo,
+          estado: redemptions.estado,
+          puntos: redemptions.puntosGastados,
+          expiraEn: redemptions.expiraEn,
+          canjeadoEn: redemptions.canjeadoEn,
+          creado: redemptions.createdAt,
+          premio: rewards.nombre,
+          comensal: b2cConsumers.fullName,
+          comensalId: b2cConsumers.id,
+          whatsapp: b2cConsumers.whatsappPhone,
+        })
+        .from(redemptions)
+        .innerJoin(rewards, eq(rewards.id, redemptions.rewardId))
+        .leftJoin(b2cConsumers, eq(b2cConsumers.id, redemptions.consumerId))
+        .orderBy(desc(redemptions.createdAt))
+        .limit(30),
+    ]);
+
+    const porId = new Map(porPremio.map((p) => [p.rewardId, p]));
+
+    return {
+      catalogo: catalogo.map((r) => ({
+        ...r,
+        metricas: porId.get(r.id) ?? { emitidos: 0, entregados: 0, pendientes: 0 },
+      })),
+      totales: totales[0] ?? { emitidos: 0, entregados: 0, pendientes: 0, caducados: 0, puntosGastados: 0 },
       ultimos,
     };
   }));

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { listarComensales, zonasConMomentos, DIAS_RIESGO, type CampoOrdenComensal } from '@/lib/consultas-b2c';
 import { LINEAS_PRODUCTO, NIVELES, etiquetaNivel, lineaDominante } from '@/lib/fidelizacion';
+import { Exportar } from '@/components/Exportar';
+import { puede, rolActual } from '@/lib/permisos';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -32,7 +34,7 @@ export default async function PaginaComensales({
   const orden = ORDENES.includes(p.orden as CampoOrdenComensal) ? (p.orden as CampoOrdenComensal) : 'reciente';
   const pagina = Math.max(1, Number(p.pagina) || 1);
 
-  const [comensales, listaZonas] = await Promise.all([
+  const [comensales, listaZonas, rol] = await Promise.all([
     listarComensales({
       pagina,
       limite: 25,
@@ -44,6 +46,7 @@ export default async function PaginaComensales({
       orden,
     }),
     zonasConMomentos(),
+    rolActual(),
   ]);
 
   const { filas, paginacion } = comensales.datos;
@@ -63,7 +66,9 @@ export default async function PaginaComensales({
     <>
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
-      <Titulo>Comensales</Titulo>
+      <Titulo accion={<Exportar tabla="comensales" puedeExportar={puede(rol, 'datos.exportar')} />}>
+        Comensales
+      </Titulo>
       <p className="texto-suave -mt-2 mb-4 text-sm">
         {numero(paginacion.total)} personas registradas desde el QR de mesa.
       </p>

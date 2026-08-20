@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { resumenFidelizacion } from '@/lib/consultas-b2c';
 import { etiquetaNivel } from '@/lib/fidelizacion';
+import { Exportar } from '@/components/Exportar';
+import { puede, rolActual } from '@/lib/permisos';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -32,7 +34,10 @@ const ESTADOS_DESAFIO: Record<string, 'exito' | 'aviso' | 'neutro'> = {
 };
 
 export default async function PaginaFidelizacion() {
-  const { datos: d, degradado, edadSegundos } = await resumenFidelizacion();
+  const [{ datos: d, degradado, edadSegundos }, rol] = await Promise.all([
+    resumenFidelizacion(),
+    rolActual(),
+  ]);
 
   const enCirculacion = d.puntos.emitidos - d.puntos.canjeados;
 
@@ -40,7 +45,16 @@ export default async function PaginaFidelizacion() {
     <>
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
-      <Titulo>Fidelización</Titulo>
+      <Titulo
+        accion={
+          <div className="flex gap-2">
+            <Exportar tabla="puntos" puedeExportar={puede(rol, 'datos.exportar')} texto="Puntos CSV" />
+            <Exportar tabla="insignias" puedeExportar={puede(rol, 'datos.exportar')} texto="Insignias CSV" />
+          </div>
+        }
+      >
+        Fidelización
+      </Titulo>
       <p className="texto-suave -mt-2 mb-4 text-sm">
         Insignias, billetera de puntos y desafíos en mesa.
       </p>

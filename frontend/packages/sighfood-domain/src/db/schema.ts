@@ -235,6 +235,21 @@ export const desafioEstadoEnum = pgEnum('desafio_estado', ['borrador', 'activo',
 /** Sentimiento detectado en una resena. */
 export const sentimientoEnum = pgEnum('sentimiento', ['positivo', 'neutro', 'negativo']);
 
+/** Que entrega el premio. Cambia como se valida al canjearlo. */
+export const tipoPremioEnum = pgEnum('tipo_premio', [
+  'producto',      // un bocazo, una entrada
+  'descuento',     // % o importe sobre la cuenta
+  'experiencia',   // maridaje, cata, acceso VIP
+  'acceso_vip',    // lanzamientos, eventos
+]);
+
+export const estadoCanjeEnum = pgEnum('estado_canje', [
+  'pendiente',   // emitido, aun no entregado en el local
+  'canjeado',    // el personal lo marco como entregado
+  'caducado',    // vencio sin usarse
+  'anulado',     // revertido; los puntos vuelven al comensal
+]);
+
 /** Como se mantiene un segmento: a mano o por regla evaluada. */
 export const segmentoTipoEnum = pgEnum('segmento_tipo', ['dinamico', 'manual']);
 
@@ -500,6 +515,16 @@ export const qrCodes = pgTable('qr_codes', {
   tableNumber: varchar('table_number', { length: 50 }).notNull(),
   qrToken: varchar('qr_token', { length: 255 }).notNull().unique(),
   isActive: boolean('is_active').default(true),
+  /**
+   * A donde lleva el QR. NULL = flujo normal de escaneo.
+   *
+   * Existe para poder cambiar la campana de un adhesivo YA IMPRESO Y PEGADO en
+   * una mesa. Sin esto, cambiar el destino obligaria a reimprimir y sustituir
+   * fisicamente cada QR del local.
+   */
+  destinoUrl: varchar('destino_url', { length: 500 }),
+  /** Campana asociada, para medir que trajo cada lote de adhesivos. */
+  campana: varchar('campana', { length: 100 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
 }, (t) => [
   index('idx_qr_codes_account').on(t.accountId),
@@ -2037,3 +2062,67 @@ export type ConsumerSegment = typeof consumerSegments.$inferSelect;
 export type NewConsumerSegment = typeof consumerSegments.$inferInsert;
 export type ConsumerReview = typeof consumerReviews.$inferSelect;
 export type NewConsumerReview = typeof consumerReviews.$inferInsert;
+
+// =============================================================================
+// B2C: ECONOMIA DE CANJE
+// -----------------------------------------------------------------------------
+// Los puntos ya se ganaban, pero no se podian gastar en nada: un saldo que solo
+// sube no es un programa de fidelizacion, es un contador.
+// =============================================================================
+
+/** Catalogo de premios canjeables. */
+export const rewards = pgTable('rewards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nombre: varchar('nombre', { length: 150 }).notNull(),
+  descripcion: text('descripcion'),
+  tipo: tipoPremioEnum('tipo').notNull(),
+  costePuntos: integer('coste_puntos').notNull(),
+  /** Cuantos quedan. NULL = sin limite. */
+  stock: integer('stock'),
+  /** Nivel minimo del comensal para poder canjearlo. */
+  nivelMinimo: membershipTierEnum('nivel_minimo'),
+  /** Dias que vale el codigo desde que se emite. */
+  diasValidez: integer('dias_validez').notNull().default(30),
+  imagenUrl: varchar('imagen_url', { length: 500 }),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_rewards_activo').on(t.activo),
+  index('idx_rewards_coste').on(t.costePuntos),
+]);
+
+/**
+ * Canjes emitidos.
+ *
+ * El codigo es lo que impide el fraude: el comensal ensena un codigo corto, el
+ * personal lo introduce y solo entonces se marca como entregado. Sin ese paso,
+ * una captura de pantalla del movil valdria por infinitos premios.
+ */
+export const redemptions = pgTable('redemptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  rewardId: uuid('reward_id').notNull().references(() => rewards.id, { onDelete: 'restrict' }),
+  /** Codigo corto que el comensal ensena en la mesa. */
+  codigo: varchar('codigo', { length: 12 }).notNull().unique(),
+  /** Coste en el momento de emitir: el precio del catalogo puede cambiar despues. */
+  puntosGastados: integer('puntos_gastados').notNull(),
+  estado: estadoCanjeEnum('estado').notNull().default('pendiente'),
+  /** Donde y quien lo entrego. */
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  canjeadoPor: uuid('canjeado_por').references(() => staffUsers.id),
+  canjeadoEn: timestamp('canjeado_en', { withTimezone: true }),
+  expiraEn: timestamp('expira_en', { withTimezone: true }).notNull(),
+  motivoAnulacion: text('motivo_anulacion'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_redemptions_consumer').on(t.consumerId),
+  index('idx_redemptions_estado').on(t.estado),
+  index('idx_redemptions_codigo').on(t.codigo),
+  index('idx_redemptions_expira').on(t.expiraEn),
+]);
+
+export type Reward = typeof rewards.$inferSelect;
+export type NewReward = typeof rewards.$inferInsert;
+export type Redemption = typeof redemptions.$inferSelect;
+export type NewRedemption = typeof redemptions.$inferInsert;

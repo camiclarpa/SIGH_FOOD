@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { analiticaMomentos } from '@/lib/consultas-b2c';
 import { etiquetaLinea } from '@/lib/fidelizacion';
+import { Exportar } from '@/components/Exportar';
+import { puede, rolActual } from '@/lib/permisos';
 import {
   AvisoDegradado,
   Barra,
@@ -22,7 +24,10 @@ const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const TRAMOS = ['1', '2-4', '5-9', '10+'];
 
 export default async function PaginaMomentos() {
-  const { datos: d, degradado, edadSegundos } = await analiticaMomentos();
+  const [{ datos: d, degradado, edadSegundos }, rol] = await Promise.all([
+    analiticaMomentos(),
+    rolActual(),
+  ]);
 
   const maxHora = Math.max(1, ...Object.values(d.porHora));
   const maxDia = Math.max(1, ...Object.values(d.porDia));
@@ -33,7 +38,9 @@ export default async function PaginaMomentos() {
     <>
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
-      <Titulo>Momentos sensoriales</Titulo>
+      <Titulo accion={<Exportar tabla="momentos" puedeExportar={puede(rol, 'datos.exportar')} />}>
+        Momentos sensoriales
+      </Titulo>
       <p className="texto-suave -mt-2 mb-4 text-sm">
         Cada escaneo de QR en la mesa. De dónde vienen, cuándo ocurren y quién repite.
       </p>

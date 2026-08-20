@@ -35,6 +35,19 @@
     }
   ],
 
+  // Workers AI: proveedor de embeddings para la búsqueda semántica.
+  //
+  // Se usa @cf/baai/bge-m3 (1024 dimensiones). Multilingüe a propósito: lo que
+  // se indexa —nombres de bares, perfiles sensoriales, descripciones de
+  // incidencias— está en español, y los modelos bge-*-en-* son solo inglés.
+  //
+  // El binding solo existe dentro del Worker. En `next dev` no está, y el
+  // servicio cae a la API REST si hay credenciales; si no las hay, lanza en vez
+  // de inventarse un vector.
+  "ai": {
+    "binding": "AI"
+  },
+
   // Rate limiting global de Cloudflare.
   //
   // El contador que había en el middleware vivía en memoria, y cada isolate

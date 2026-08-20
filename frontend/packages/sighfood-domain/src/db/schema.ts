@@ -189,7 +189,11 @@ export const ticketStatusEnum = pgEnum('ticket_status', ['open', 'in_progress', 
 
 export const membershipTierEnum = pgEnum('membership_tier', ['bronze', 'silver', 'gold']);
 
+// El modelo que produjo cada vector se guarda en la fila: vectores de modelos
+// distintos viven en espacios distintos y sus distancias no son comparables, asi
+// que al cambiar de proveedor hay que saber que filas reindexar.
 export const embeddingModelEnum = pgEnum('embedding_model', [
+  'workers_ai_bge_m3',
   'openai_text_3_small',
   'openai_text_3_large',
   'local_sentence_transformers',
@@ -1205,8 +1209,8 @@ export const embeddingIndex = pgTable('embedding_index', {
   id: uuid('id').primaryKey().defaultRandom(),
   entityType: kgDomainEnum('entity_type').notNull(),
   entityId: uuid('entity_id').notNull(),
-  embedding: vector('embedding', { dimensions: 1536 }),
-  model: embeddingModelEnum('model').default('openai_text_3_small'),
+  embedding: vector('embedding', { dimensions: 1024 }),
+  model: embeddingModelEnum('model').default('workers_ai_bge_m3'),
   textSource: text('text_source'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -1224,9 +1228,9 @@ export const crmLearningEpisodes = pgTable('crm_learning_episodes', {
   module: varchar('module', { length: 100 }).notNull(),
   issueType: varchar('issue_type', { length: 100 }).notNull(),
   problemDescription: text('problem_description').notNull(),
-  problemEmbedding: vector('problem_embedding', { dimensions: 1536 }),
+  problemEmbedding: vector('problem_embedding', { dimensions: 1024 }),
   solutionDescription: text('solution_description'),
-  solutionEmbedding: vector('solution_embedding', { dimensions: 1536 }),
+  solutionEmbedding: vector('solution_embedding', { dimensions: 1024 }),
   resolutionTimeHours: numeric('resolution_time_hours', { precision: 10, scale: 2 }),
   outcome: episodeOutcomeEnum('outcome').default('SUCCESS'),
   humanNotes: text('human_notes'),

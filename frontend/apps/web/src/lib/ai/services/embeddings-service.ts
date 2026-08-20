@@ -13,13 +13,24 @@
 //   · Cada vector se guarda junto al modelo que lo produjo, para poder
 //     reindexar solo lo que haga falta cuando se cambie de proveedor.
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { variableDeEntorno } from '@/lib/cloudflare';
 
-/** Dimensión de las columnas `vector(1536)` del esquema. */
-export const DIMENSIONES = 1536;
+/**
+ * Dimensión de las columnas `vector(1024)` del esquema.
+ *
+ * La fija el proveedor principal: @cf/baai/bge-m3 devuelve 1024 y la dimensión
+ * forma parte del tipo de la columna en pgvector, así que no es negociable sin
+ * migrar la base. Los proveedores alternativos recortan al mismo tamaño.
+ */
+export const DIMENSIONES = 1024;
+
+/** Modelo de Workers AI. Multilingüe: los textos indexados están en español. */
+const MODELO_WORKERS_AI = '@cf/baai/bge-m3';
 
 /** Modelos admitidos por `embedding_model` en la base. */
 export type ModeloEmbedding =
+  | 'workers_ai_bge_m3'
   | 'openai_text_3_small'
   | 'openai_text_3_large'
   | 'local_sentence_transformers'
@@ -34,6 +45,54 @@ export interface Embedding {
 // -----------------------------------------------------------------------------
 // Proveedores
 // -----------------------------------------------------------------------------
+
+/** Forma del binding de Workers AI, con lo mínimo que se usa aquí. */
+interface BindingAI {
+  run(modelo: string, entrada: { text: string[] }): Promise<{ data: number[][] }>;
+}
+
+/** Binding AI del Worker, o undefined fuera de Cloudflare (`next dev`, tests). */
+async function bindingAI(): Promise<BindingAI | undefined> {
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    return (env as unknown as { AI?: BindingAI }).AI;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Workers AI a través del binding. Es el camino de producción: no sale a la red
+ * pública ni consume una API key, porque corre dentro del propio Worker.
+ */
+async function conWorkersAI(textos: string[], ai: BindingAI): Promise<number[][]> {
+  const { data } = await ai.run(MODELO_WORKERS_AI, { text: textos });
+  return data;
+}
+
+/**
+ * Workers AI por REST, para `next dev` y scripts.
+ *
+ * Fuera del Worker no hay binding, así que se usa la misma cuenta y el mismo
+ * modelo por HTTP. Necesita CLOUDFLARE_ACCOUNT_ID y CLOUDFLARE_API_TOKEN; sin
+ * ellos este candidato simplemente no se ofrece.
+ */
+async function conWorkersAiRest(textos: string[], cuenta: string, token: string): Promise<number[][]> {
+  const respuesta = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${cuenta}/ai/run/${MODELO_WORKERS_AI}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text: textos }),
+    }
+  );
+
+  const datos = await respuesta.json();
+  if (!respuesta.ok || !datos.success) {
+    throw new Error(`Workers AI REST: ${respuesta.status} ${JSON.stringify(datos.errors ?? datos).slice(0, 200)}`);
+  }
+  return datos.result.data as number[][];
+}
 
 /**
  * OpenAI y compatibles (DeepSeek, vLLM, LocalAI, Ollama con /v1).
@@ -97,13 +156,32 @@ interface Candidato {
 }
 
 async function candidatos(): Promise<Candidato[]> {
-  const [openai, deepseek, google] = await Promise.all([
+  const [ai, cuentaCf, tokenCf, openai, deepseek, google] = await Promise.all([
+    bindingAI(),
+    variableDeEntorno('CLOUDFLARE_ACCOUNT_ID'),
+    variableDeEntorno('CLOUDFLARE_API_TOKEN'),
     variableDeEntorno('OPENAI_API_KEY'),
     variableDeEntorno('DEEPSEEK_API_KEY'),
     variableDeEntorno('GOOGLE_AI_API_KEY'),
   ]);
 
   const lista: Candidato[] = [];
+
+  // Workers AI primero: es el proveedor configurado, corre dentro del Worker y
+  // no depende de una cuenta externa con saldo.
+  if (ai) {
+    lista.push({
+      proveedor: 'workers-ai',
+      modelo: 'workers_ai_bge_m3',
+      ejecutar: (t) => conWorkersAI(t, ai),
+    });
+  } else if (cuentaCf && tokenCf) {
+    lista.push({
+      proveedor: 'workers-ai-rest',
+      modelo: 'workers_ai_bge_m3',
+      ejecutar: (t) => conWorkersAiRest(t, cuentaCf, tokenCf),
+    });
+  }
 
   if (openai) {
     lista.push({
@@ -146,9 +224,11 @@ export async function generarEmbeddings(textos: string[]): Promise<Embedding[]> 
 
   if (disponibles.length === 0) {
     throw new Error(
-      'No hay proveedor de embeddings configurado. Define OPENAI_API_KEY, ' +
-      'GOOGLE_AI_API_KEY o DEEPSEEK_API_KEY. No se generan vectores aleatorios: ' +
-      'un índice lleno de ruido devuelve resultados sin sentido sin avisar de nada.'
+      'No hay proveedor de embeddings disponible. En Cloudflare debería estar el ' +
+      'binding AI (wrangler.jsonc); en local, define CLOUDFLARE_ACCOUNT_ID y ' +
+      'CLOUDFLARE_API_TOKEN, o bien OPENAI_API_KEY / GOOGLE_AI_API_KEY / ' +
+      'DEEPSEEK_API_KEY. No se generan vectores aleatorios: un índice lleno de ' +
+      'ruido devuelve resultados sin sentido sin avisar de nada.'
     );
   }
 

@@ -18,7 +18,6 @@ import {
   consumerBadges,
   pointTransactions,
   sensoryMoments,
-  accounts,
   referrals,
 } from '@sighfood/domain/db/schema';
 import type { Database } from '@sighfood/domain/db';

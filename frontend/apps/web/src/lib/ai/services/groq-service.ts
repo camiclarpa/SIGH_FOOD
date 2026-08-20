@@ -19,10 +19,30 @@ export async function getGroqClient(): Promise<Groq> {
   return groqClient;
 }
 
+/**
+ * Modelo por defecto.
+ *
+ * Era `llama-3.3-70b-versatile`, que Groq ya no sirve: devolvía 404
+ * "model_not_found" y con él fallaban todas las llamadas a la IA. Los modelos
+ * se retiran con regularidad, así que conviene comprobarlo contra
+ * https://api.groq.com/openai/v1/models antes de dar por buena una avería.
+ */
+const MODELO_POR_DEFECTO = 'openai/gpt-oss-120b';
+
+/**
+ * Tope de tokens de la respuesta.
+ *
+ * Estaba en 1024 y con los modelos actuales no basta: emiten su razonamiento
+ * antes del JSON, y al truncarse la respuesta Groq la rechaza con
+ * "Failed to validate JSON". El síntoma apunta al prompt y la causa es el
+ * límite, así que el error despista.
+ */
+const MAX_TOKENS = 4096;
+
 export async function chatWithGroq(
   systemPrompt: string,
   userPrompt: string,
-  model: string = 'llama-3.3-70b-versatile'
+  model: string = MODELO_POR_DEFECTO
 ): Promise<string> {
   const client = await getGroqClient();
   const completion = await client.chat.completions.create({
@@ -32,7 +52,7 @@ export async function chatWithGroq(
     ],
     model,
     temperature: 0.3,
-    max_tokens: 1024,
+    max_tokens: MAX_TOKENS,
     response_format: { type: 'json_object' },
   });
   return completion.choices[0]?.message?.content || '';

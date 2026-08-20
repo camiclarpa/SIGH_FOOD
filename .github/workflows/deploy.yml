@@ -70,6 +70,61 @@ jobs:
         run: pnpm -r --filter "!frontend" build
 
   # ---------------------------------------------------------------------------
+  # Comprobación del CRM ya desplegado.
+  #
+  # Existe por una caída real: el Worker se publicó sin AUTH_SECRET y todo
+  # /api/auth/* respondió 500. La verificación de arriba pasó —el código estaba
+  # bien— y Workers Builds dio el despliegue por bueno, porque publicar y
+  # funcionar no son lo mismo. Nadie se enteró hasta que alguien intentó entrar.
+  #
+  # Esto cierra ese hueco: espera a que el despliegue esté activo y pregunta a
+  # /api/health. Si falta un secreto o un binding, el commit queda en rojo.
+  # ---------------------------------------------------------------------------
+  salud:
+    name: Comprobar el CRM desplegado
+    needs: verificar
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Esperar a que Workers Builds publique y comprobar la salud
+        env:
+          # Se puede sobrescribir con la variable CRM_URL del repositorio si el
+          # Worker cambia de nombre o pasa a un dominio propio.
+          URL: ${{ vars.CRM_URL || 'https://sighbocazo-crm.camiloriverac0.workers.dev' }}
+        run: |
+          echo "Comprobando $URL/api/health"
+
+          # Workers Builds tarda unos minutos: se sondea en lugar de dormir una
+          # cantidad fija, para no fallar por llegar antes de tiempo ni esperar
+          # de más cuando ya está listo.
+          for intento in $(seq 1 30); do
+            codigo=$(curl -s -o /tmp/salud.json -w '%{http_code}' --max-time 20 "$URL/api/health" || echo "000")
+
+            if [ "$codigo" = "200" ]; then
+              echo "CRM sano:"
+              cat /tmp/salud.json
+              exit 0
+            fi
+
+            if [ "$codigo" = "503" ]; then
+              echo "::error::El CRM está desplegado pero NO operativo. Detalle:"
+              cat /tmp/salud.json
+              # 503 significa que respondió y se declaró caído: reintentar no lo
+              # va a arreglar, así que se falla ya en vez de agotar el tiempo.
+              exit 1
+            fi
+
+            echo "  intento $intento/30: HTTP $codigo, reintentando en 20s"
+            sleep 20
+          done
+
+          echo "::error::/api/health no respondió 200 tras 10 minutos"
+          cat /tmp/salud.json 2>/dev/null || true
+          exit 1
+
+  # ---------------------------------------------------------------------------
   # Despliegue alternativo a Workers Builds.
   #
   # Actívalo SOLO si desactivas el despliegue automático en Cloudflare; con los

@@ -32,6 +32,10 @@ const RUTAS_PUBLICAS = [
   '/api/auth',
   '/api/leads/b2b',
   '/api/moments/scan',
+  // Público a propósito: comprobar la salud a través de la sesión no sirve
+  // cuando lo roto ES la sesión. Fue el caso real —el Worker sin AUTH_SECRET— y
+  // por eso este endpoint no puede depender de poder autenticarse.
+  '/api/health',
 ];
 
 /** Rutas de página que no requieren sesión. */
@@ -115,7 +119,10 @@ export async function middleware(request: NextRequest) {
 
   // --- Rutas públicas de API: sin sesión, pero con límite de peticiones ---
   if (esPublica(pathname)) {
-    if (pathname.startsWith('/api/auth')) {
+    // Sin límite: /api/auth es el propio login, y /api/health debe responder
+    // durante un incidente. Un endpoint de salud al que se puede acallar con
+    // un 429 no sirve justo cuando hace falta, y su coste es un `SELECT 1`.
+    if (pathname.startsWith('/api/auth') || pathname === '/api/health') {
       return NextResponse.next();
     }
 

@@ -35,6 +35,23 @@
     }
   ],
 
+  // Respaldo de lectura: la última copia buena de cada consulta del CRM.
+  //
+  // No es una caché de rendimiento — las consultas van SIEMPRE a Postgres
+  // primero, y esto solo se lee cuando la base no responde. Convierte una caída
+  // de Neon, que hoy tumba el CRM entero, en un modo degradado donde las
+  // pantallas siguen mostrando datos (avisando de que son de hace un rato) y
+  // solo fallan las escrituras.
+  //
+  // KV y no la Cache API: KV se replica entre centros de datos, así que el
+  // respaldo escrito por un isolate sirve a todos los demás.
+  "kv_namespaces": [
+    {
+      "binding": "RESPALDO_LECTURA",
+      "id": "1172cd68bd264e4e8af1a6aa1dbc5090"
+    }
+  ],
+
   // Workers AI: proveedor de embeddings para la búsqueda semántica.
   //
   // Se usa @cf/baai/bge-m3 (1024 dimensiones). Multilingüe a propósito: lo que

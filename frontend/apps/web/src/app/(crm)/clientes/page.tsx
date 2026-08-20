@@ -9,6 +9,7 @@ import {
   Vacio,
   desde,
   numero,
+  AvisoDegradado,
 } from '@/components/ui';
 
 export const metadata = { title: 'Clientes · SIGH_FOOD' };
@@ -39,7 +40,7 @@ export default async function PaginaClientes({
   const dir = p.dir === 'asc' ? 'asc' : 'desc';
   const pagina = Math.max(1, Number(p.pagina) || 1);
 
-  const [{ filas, paginacion }, zonas] = await Promise.all([
+  const [cuentas, listaZonas] = await Promise.all([
     listarCuentas({
       pagina,
       limite: 25,
@@ -52,6 +53,13 @@ export default async function PaginaClientes({
     }),
     listarZonas(),
   ]);
+
+  const { filas, paginacion } = cuentas.datos;
+  const zonas = listaZonas.datos;
+  // Basta con que una de las dos venga del respaldo para avisar: la pantalla
+  // mezcla ambas y sería engañoso presentarla como si estuviera al día.
+  const degradado = cuentas.degradado || listaZonas.degradado;
+  const edadSegundos = cuentas.edadSegundos ?? listaZonas.edadSegundos;
 
   /** Conserva los filtros al cambiar de página. */
   const enlacePagina = (n: number) => {
@@ -68,6 +76,8 @@ export default async function PaginaClientes({
 
   return (
     <>
+      {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
+
       <Titulo
         accion={
           <span className="texto-suave cifras text-sm">

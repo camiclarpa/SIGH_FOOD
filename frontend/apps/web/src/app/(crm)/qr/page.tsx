@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { codigosQr } from '@/lib/consultas';
-import { Etiqueta, Metrica, Tarjeta, Titulo, Vacio, fecha, numero } from '@/components/ui';
+import { AvisoDegradado, Etiqueta, Metrica, Tarjeta, Titulo, Vacio, fecha, numero } from '@/components/ui';
 
 export const metadata = { title: 'Códigos QR · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
 export default async function PaginaQr() {
-  const codigos = await codigosQr(500);
+  const { datos: codigos, degradado, edadSegundos } = await codigosQr(500);
 
   const activos = codigos.filter((c) => c.activo).length;
   const locales = new Set(codigos.map((c) => c.cuentaId)).size;
@@ -22,6 +22,8 @@ export default async function PaginaQr() {
 
   return (
     <>
+      {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
+
       <Titulo>Códigos QR</Titulo>
 
       <div className="grid gap-4 sm:grid-cols-3">

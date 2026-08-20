@@ -8,6 +8,7 @@ import {
   Tarjeta,
   Titulo,
   Vacio,
+  AvisoDegradado,
   desde,
   numero,
 } from '@/components/ui';
@@ -19,10 +20,12 @@ export const metadata = { title: 'Panel · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
 export default async function PaginaPanel() {
-  const d = await resumenPanel();
+  const { datos: d, degradado, edadSegundos } = await resumenPanel();
 
   return (
     <>
+      {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
+
       <Titulo>Panel</Titulo>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

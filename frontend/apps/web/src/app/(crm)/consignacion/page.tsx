@@ -9,6 +9,7 @@ import {
   fecha,
   moneda,
   numero,
+  AvisoDegradado,
 } from '@/components/ui';
 
 export const metadata = { title: 'Consignación · SIGH_FOOD' };
@@ -22,7 +23,7 @@ const ESTADOS: Record<string, { texto: string; tono: 'exito' | 'aviso' | 'riesgo
 };
 
 export default async function PaginaConsignacion() {
-  const entregas = await entregasRecientes(100);
+  const { datos: entregas, degradado, edadSegundos } = await entregasRecientes(100);
 
   const totales = entregas.reduce(
     (acc, e) => {
@@ -43,6 +44,8 @@ export default async function PaginaConsignacion() {
 
   return (
     <>
+      {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
+
       <Titulo
         accion={<span className="texto-suave text-sm">Últimas {entregas.length} entregas</span>}
       >

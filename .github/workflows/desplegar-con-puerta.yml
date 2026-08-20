@@ -1,0 +1,231 @@
+name: Desplegar el CRM con puerta de control
+
+# Despliegue en tres tiempos: se publica una versión SIN tráfico, se comprueba,
+# y solo si está sana se le da el 100%.
+#
+# Por qué existe: Workers Builds publica y punto. La comprobación de salud corría
+# DESPUÉS, así que había una ventana de minutos con producción rota antes de que
+# nadie se enterara. Eso fue exactamente lo que pasó con AUTH_SECRET: el Worker
+# se publicó sin el secreto, todo /api/auth/* devolvió 500 y el despliegue se dio
+# por bueno.
+#
+# Aquí una versión rota nunca llega a recibir tráfico.
+#
+# ---------------------------------------------------------------------------
+# ANTES DE ACTIVARLO
+#
+# 1. Desactiva el despliegue automático en Cloudflare:
+#    Workers & Pages -> sighbocazo-crm -> Settings -> Builds -> desconectar.
+#    Con los dos activos, cada push lanzaría dos despliegues compitiendo.
+#
+# 2. Añade en GitHub -> Settings -> Secrets and variables -> Actions:
+#
+#    Secrets:
+#      CLOUDFLARE_API_TOKEN   token con permisos "Edit Cloudflare Workers"
+#                             y "Workers AI: Read"
+#      CLOUDFLARE_ACCOUNT_ID  5e153923b7c5fdd9468c9b184cee5866
+#      DATABASE_URL           cadena de Neon
+#      AUTH_SECRET            32+ caracteres. Genera uno con:
+#                               node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+#
+#    Variables (opcional):
+#      CRM_URL                si el Worker cambia de nombre o pasa a dominio propio
+#
+# Mientras no hagas el paso 1, este workflow queda inactivo: solo corre a mano
+# (workflow_dispatch) para poder probarlo sin competir con Workers Builds.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: 'Escribe "si" para confirmar que Workers Builds está desconectado'
+        required: true
+        default: 'no'
+
+  # Cuando desconectes Workers Builds, descomenta esto para desplegar en cada push:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  # Nunca dos despliegues a la vez sobre el mismo Worker.
+  group: desplegar-crm
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    name: Verificar, publicar sin tráfico, comprobar y promocionar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Comprobar la confirmación
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirmar != 'si'
+        run: |
+          echo "::error::Desconecta Workers Builds en Cloudflare antes de usar este workflow."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+
+      # --- Verificación previa -------------------------------------------------
+      - name: Comprobar tipos
+        run: npx tsc --noEmit -p tsconfig.json
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Tests
+        run: npx vitest run
+        working-directory: frontend
+
+      # --- El secreto deja de ser manual --------------------------------------
+      #
+      # La caída ocurrió porque AUTH_SECRET nunca se llegó a poner: el comentario
+      # de wrangler.jsonc decía cómo hacerlo y se quedó en nota. Aquí se
+      # comprueba en cada despliegue, y si falta se pone. Un secreto que depende
+      # de que alguien recuerde un comando acaba faltando.
+      - name: Asegurar que AUTH_SECRET existe en el Worker
+        working-directory: frontend/apps/web
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+        run: |
+          if [ -z "$AUTH_SECRET" ]; then
+            echo "::error::Falta el secreto AUTH_SECRET en GitHub. Sin él, todo /api/auth/* devolverá 500."
+            exit 1
+          fi
+
+          if [ ${#AUTH_SECRET} -lt 32 ]; then
+            echo "::error::AUTH_SECRET tiene ${#AUTH_SECRET} caracteres; hacen falta 32 o más."
+            exit 1
+          fi
+
+          # `secret list` devuelve JSON; se busca el nombre, nunca el valor.
+          if npx wrangler secret list --name sighbocazo-crm 2>/dev/null | grep -q '"AUTH_SECRET"'; then
+            echo "AUTH_SECRET ya está en el Worker."
+          else
+            echo "AUTH_SECRET ausente: se sube ahora."
+            printf '%s' "$AUTH_SECRET" | npx wrangler secret put AUTH_SECRET --name sighbocazo-crm
+          fi
+
+      # --- Publicar SIN tráfico ------------------------------------------------
+      - name: Construir para Cloudflare
+        run: npx opennextjs-cloudflare build
+        working-directory: frontend/apps/web
+
+      - name: Publicar la versión sin darle tráfico
+        id: version
+        working-directory: frontend/apps/web
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # opennextjs-cloudflare lee los bindings con getPlatformProxy(); con
+          # Hyperdrive declarado exige una cadena Postgres o aborta con
+          # "no local hyperdrive connection string".
+          export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL"
+
+          npx wrangler versions upload \
+            --name sighbocazo-crm \
+            --tag "${GITHUB_SHA::7}" \
+            --message "CI $GITHUB_SHA" 2>&1 | tee /tmp/subida.log
+
+          # De la salida se sacan el id de la versión y su URL de vista previa.
+          id=$(grep -oE 'Worker Version ID: [0-9a-f-]{36}' /tmp/subida.log | tail -1 | awk '{print $4}')
+          preview=$(grep -oE 'https://[a-z0-9-]+-sighbocazo-crm\.[a-z0-9-]+\.workers\.dev' /tmp/subida.log | tail -1)
+
+          if [ -z "$id" ]; then
+            echo "::error::No se pudo determinar el id de la versión publicada."
+            exit 1
+          fi
+
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "preview=$preview" >> "$GITHUB_OUTPUT"
+          echo "Versión $id publicada sin tráfico. Vista previa: ${preview:-no disponible}"
+
+      # --- La puerta -----------------------------------------------------------
+      - name: Comprobar la versión antes de darle tráfico
+        id: puerta
+        env:
+          PREVIEW: ${{ steps.version.outputs.preview }}
+        run: |
+          if [ -z "$PREVIEW" ]; then
+            echo "::warning::Sin URL de vista previa; no se puede comprobar antes de promocionar."
+            echo "::warning::Habilita las vistas previas del Worker en Cloudflare para cerrar esta ventana."
+            exit 0
+          fi
+
+          echo "Comprobando $PREVIEW/api/health"
+
+          # La versión recién subida tarda unos segundos en estar servible.
+          for intento in $(seq 1 12); do
+            codigo=$(curl -s -o /tmp/salud.json -w '%{http_code}' --max-time 25 "$PREVIEW/api/health" || echo "000")
+
+            if [ "$codigo" = "200" ]; then
+              echo "La versión está sana:"
+              cat /tmp/salud.json
+              exit 0
+            fi
+
+            if [ "$codigo" = "503" ]; then
+              echo "::error::La versión se declara caída. NO se promociona; producción sigue con la anterior."
+              cat /tmp/salud.json
+              exit 1
+            fi
+
+            echo "  intento $intento/12: HTTP $codigo"
+            sleep 10
+          done
+
+          echo "::error::La vista previa no respondió 200 en 2 minutos. No se promociona."
+          exit 1
+
+      # --- Promocionar ---------------------------------------------------------
+      - name: Dar el 100% del tráfico a la versión comprobada
+        env:
+          ID: ${{ steps.version.outputs.id }}
+        working-directory: frontend/apps/web
+        run: |
+          npx wrangler versions deploy "$ID" \
+            --name sighbocazo-crm \
+            --percentage 100 \
+            --message "CI $GITHUB_SHA (comprobada antes de promocionar)" \
+            --yes
+
+      - name: Comprobar producción tras promocionar
+        env:
+          URL: ${{ vars.CRM_URL || 'https://sighbocazo-crm.camiloriverac0.workers.dev' }}
+        run: |
+          for intento in $(seq 1 10); do
+            codigo=$(curl -s -o /tmp/prod.json -w '%{http_code}' --max-time 25 "$URL/api/health" || echo "000")
+            if [ "$codigo" = "200" ]; then
+              echo "Producción sana:"
+              cat /tmp/prod.json
+              exit 0
+            fi
+            echo "  intento $intento/10: HTTP $codigo"
+            sleep 10
+          done
+
+          echo "::error::Producción no responde 200 tras promocionar. Revierte con:"
+          echo "::error::  npx wrangler versions deploy <version-anterior> --name sighbocazo-crm --percentage 100"
+          cat /tmp/prod.json 2>/dev/null || true
+          exit 1

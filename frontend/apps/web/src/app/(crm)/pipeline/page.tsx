@@ -1,15 +1,17 @@
 import Link from 'next/link';
 import { resumenPipeline } from '@/lib/consultas';
-import { ETAPAS, EtiquetaRiesgo, Titulo, numero } from '@/components/ui';
+import { AvisoDegradado, ETAPAS, EtiquetaRiesgo, Titulo, numero } from '@/components/ui';
 
 export const metadata = { title: 'Pipeline · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
 export default async function PaginaPipeline() {
-  const d = await resumenPipeline();
+  const { datos: d, degradado, edadSegundos } = await resumenPipeline();
 
   return (
     <>
+      {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
+
       <Titulo
         accion={<span className="texto-suave cifras text-sm">{numero(d.total)} clientes en total</span>}
       >

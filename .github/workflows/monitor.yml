@@ -1,0 +1,158 @@
+name: Monitor del CRM
+
+# Vigila que el CRM siga en pie y avisa si no.
+#
+# Hasta ahora /api/health existía pero nadie lo consultaba, así que era una URL
+# que respondía bien y nada más: si el CRM se caía de madrugada, se descubría a
+# la mañana siguiente igual que antes de tenerlo.
+#
+# Se usa GitHub Actions y no un servicio externo porque es gratis, vive en el
+# repositorio y avisa por un canal que ya existe: al abrir una incidencia,
+# GitHub manda correo y notificación al móvil.
+#
+# Limitación conocida: el cron de GitHub tiene una resolución de 5 minutos y en
+# horas de mucha carga puede retrasarse. Sirve para enterarse en minutos, no en
+# segundos. Para eso último haría falta un monitor de pago.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# Un solo monitor a la vez: si una ejecución se retrasa, la siguiente no debe
+# duplicar avisos.
+concurrency:
+  group: monitor-crm
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+
+jobs:
+  comprobar:
+    name: Comprobar salud
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Consultar /api/health
+        id: salud
+        env:
+          URL: ${{ vars.CRM_URL || 'https://sighbocazo-crm.camiloriverac0.workers.dev' }}
+        run: |
+          # Tres intentos antes de dar la alarma: un fallo de red aislado desde
+          # el runner de GitHub no es una caída del CRM, y un aviso en falso
+          # cada pocas horas acaba en que nadie los mira.
+          for intento in 1 2 3; do
+            codigo=$(curl -s -o /tmp/salud.json -w '%{http_code}' --max-time 25 "$URL/api/health" || echo "000")
+            [ "$codigo" = "200" ] && break
+            echo "intento $intento: HTTP $codigo"
+            [ $intento -lt 3 ] && sleep 15
+          done
+
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+
+          if [ "$codigo" = "200" ]; then
+            echo "CRM sano"
+            echo "sano=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "sano=false" >> "$GITHUB_OUTPUT"
+
+          # El cuerpo de /api/health dice QUÉ falla, no solo que algo falla.
+          # Se recorta porque acaba dentro del cuerpo de una incidencia.
+          detalle=$(head -c 1500 /tmp/salud.json 2>/dev/null || echo "sin respuesta")
+          {
+            echo 'detalle<<FIN'
+            echo "$detalle"
+            echo 'FIN'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Abrir o actualizar la incidencia
+        if: steps.salud.outputs.sano == 'false'
+        uses: actions/github-script@v7
+        env:
+          CODIGO: ${{ steps.salud.outputs.codigo }}
+          DETALLE: ${{ steps.salud.outputs.detalle }}
+          URL: ${{ vars.CRM_URL || 'https://sighbocazo-crm.camiloriverac0.workers.dev' }}
+        with:
+          script: |
+            const TITULO = 'CRM caído';
+            const { CODIGO, DETALLE, URL } = process.env;
+
+            const cuerpo = [
+              `El CRM no responde correctamente en ${URL}`,
+              '',
+              `**HTTP ${CODIGO}** — ${CODIGO === '503'
+                ? 'el CRM responde pero se declara caído (falta un secreto o un binding).'
+                : CODIGO === '000'
+                  ? 'no hubo respuesta: el Worker puede estar caído o inalcanzable.'
+                  : 'respuesta inesperada.'}`,
+              '',
+              '```json',
+              DETALLE || 'sin cuerpo',
+              '```',
+              '',
+              `Comprobado: ${new Date().toISOString()}`,
+              '',
+              'Esta incidencia se cierra sola cuando el CRM vuelva a responder.',
+            ].join('\n');
+
+            // Se reutiliza la incidencia abierta en lugar de crear una nueva en
+            // cada ciclo: con el cron cada 5 minutos, una caída de una hora
+            // generaría doce avisos idénticos.
+            const abiertas = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'caida-crm',
+            });
+
+            if (abiertas.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: abiertas.data[0].number,
+                body: `Sigue caído.\n\n${cuerpo}`,
+              });
+              core.setFailed(`CRM caído (HTTP ${CODIGO}) — ver incidencia #${abiertas.data[0].number}`);
+              return;
+            }
+
+            const nueva = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: TITULO,
+              body: cuerpo,
+              labels: ['caida-crm'],
+            });
+
+            core.setFailed(`CRM caído (HTTP ${CODIGO}) — abierta la incidencia #${nueva.data.number}`);
+
+      - name: Cerrar la incidencia si el CRM se recuperó
+        if: steps.salud.outputs.sano == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const abiertas = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'caida-crm',
+            });
+
+            for (const incidencia of abiertas.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: incidencia.number,
+                body: `El CRM volvió a responder correctamente el ${new Date().toISOString()}.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: incidencia.number,
+                state: 'closed',
+              });
+            }

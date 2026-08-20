@@ -3,6 +3,7 @@
 // =============================================================================
 
 import type { ReactNode } from 'react';
+import { describirAntiguedad } from '@/lib/respaldo';
 
 // -----------------------------------------------------------------------------
 // Etiquetas de estado
@@ -200,4 +201,25 @@ export function desde(valor: string | Date | null | undefined): string {
   if (dias < 30) return `hace ${dias} días`;
   if (dias < 365) return `hace ${Math.floor(dias / 30)} meses`;
   return `hace ${Math.floor(dias / 365)} años`;
+}
+
+/**
+ * Aviso de que lo que se está viendo no viene de la base, sino del respaldo.
+ *
+ * Sin esto, el modo degradado sería peor que una caída: la pantalla mostraría
+ * cifras de hace horas con el mismo aspecto que las de hace un segundo, y
+ * alguien decidiría sobre stock o cobros con datos que ya no son ciertos.
+ */
+export function AvisoDegradado({ edadSegundos }: { edadSegundos?: number }) {
+  return (
+    <div
+      role="status"
+      className="mb-4 rounded-md border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-sm text-amber-200"
+    >
+      <strong className="font-semibold">Sin conexión con la base de datos.</strong>{' '}
+      Se muestran los últimos datos disponibles
+      {typeof edadSegundos === 'number' ? `, de ${describirAntiguedad(edadSegundos)}` : ''}. Los
+      cambios que hagas ahora no se guardarán.
+    </div>
+  );
 }

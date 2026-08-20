@@ -11,6 +11,7 @@
 // una sola vez.
 
 import { conBaseDeDatos } from '@/lib/cloudflare';
+import { conRespaldo } from '@/lib/respaldo';
 import {
   accounts,
   consignationLogs,
@@ -81,7 +82,10 @@ export async function listarCuentas(f: FiltrosCuentas = {}) {
   const columna = ORDENABLES[f.orden ?? 'creado'];
   const ordenacion = f.dir === 'asc' ? asc(columna) : desc(columna);
 
-  return conBaseDeDatos(async (db) => {
+  const clave = `cuentas:${limite}:${pagina}:${f.orden ?? 'creado'}:${f.dir ?? 'desc'}:` +
+    `${f.etapa ?? ''}:${f.zona ?? ''}:${f.riesgo ?? ''}:${f.buscar ?? ''}`;
+
+  return conRespaldo(clave, () => conBaseDeDatos(async (db) => {
     // El total va en su propia consulta: con paginación, `filas.length` es el
     // tamaño de la página, no el número de resultados.
     const [filas, [{ total }]] = await Promise.all([
@@ -121,22 +125,22 @@ export async function listarCuentas(f: FiltrosCuentas = {}) {
         paginas: Math.max(1, Math.ceil(total / limite)),
       },
     };
-  });
+  }));
 }
 
 /** Valores distintos de zona, para poblar el filtro sin inventarse la lista. */
 export async function listarZonas() {
-  return conBaseDeDatos(async (db) => {
+  return conRespaldo('zonas', () => conBaseDeDatos(async (db) => {
     const filas = await db
       .selectDistinct({ zona: accounts.zone })
       .from(accounts)
       .orderBy(asc(accounts.zone));
     return filas.map((f) => f.zona).filter(Boolean);
-  });
+  }));
 }
 
 export async function resumenPipeline() {
-  return conBaseDeDatos(async (db) => {
+  return conRespaldo('pipeline', () => conBaseDeDatos(async (db) => {
     const [conteos, tarjetas] = await Promise.all([
       db
         .select({ etapa: accounts.pipelineStage, total: count(accounts.id) })
@@ -172,11 +176,11 @@ export async function resumenPipeline() {
       })),
       total: conteos.reduce((s, c) => s + c.total, 0),
     };
-  });
+  }));
 }
 
 export async function resumenPanel() {
-  return conBaseDeDatos(async (db) => {
+  return conRespaldo('panel', () => conBaseDeDatos(async (db) => {
     const [
       [cuentas],
       [activas],
@@ -266,11 +270,11 @@ export async function resumenPanel() {
       enRiesgo,
       stockBajo,
     };
-  });
+  }));
 }
 
 export async function entregasRecientes(limite = 50) {
-  return conBaseDeDatos(async (db) =>
+  return conRespaldo(`entregas:${limite}`, () => conBaseDeDatos(async (db) =>
     db
       .select({
         id: consignationLogs.id,
@@ -291,11 +295,11 @@ export async function entregasRecientes(limite = 50) {
       .innerJoin(accounts, eq(accounts.id, consignationLogs.accountId))
       .orderBy(desc(consignationLogs.dispatchedAt))
       .limit(Math.min(200, limite))
-  );
+  ));
 }
 
 export async function codigosQr(limite = 200) {
-  return conBaseDeDatos(async (db) => {
+  return conRespaldo(`qr:${limite}`, () => conBaseDeDatos(async (db) => {
     const [filas, escaneos] = await Promise.all([
       db
         .select({
@@ -321,5 +325,5 @@ export async function codigosQr(limite = 200) {
 
     const porCuenta = new Map(escaneos.map((e) => [e.cuentaId, e.total]));
     return filas.map((f) => ({ ...f, escaneosCuenta: porCuenta.get(f.cuentaId) ?? 0 }));
-  });
+  }));
 }

@@ -29,6 +29,7 @@ import {
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { conRespaldo } from '@/lib/respaldo';
 import { nivelDeComensal } from '@/lib/fidelizacion';
+import { umbralesActuales } from '@/lib/configuracion';
 
 // -----------------------------------------------------------------------------
 // Directorio de comensales
@@ -48,7 +49,14 @@ export interface FiltrosComensales {
   limite?: number;
 }
 
-/** Umbrales de inactividad, en días. Coinciden con los segmentos sembrados. */
+/**
+ * Umbrales de inactividad, en días.
+ *
+ * Son los valores de DISEÑO. Los que se aplican de verdad salen de
+ * umbralesActuales(), que lee lo calibrado desde la pantalla del agente. Se
+ * conservan estos como respaldo y como referencia de con qué se pensó el
+ * sistema.
+ */
 export const DIAS_RIESGO = 15;
 export const DIAS_DORMIDO = 45;
 
@@ -107,12 +115,18 @@ export async function listarComensales(f: FiltrosComensales = {}) {
     )`);
   }
 
+  // Los umbrales calibrados, no las constantes: si alguien baja "en riesgo" a
+  // 10 días desde la pantalla del agente, este filtro debe seguirlo.
+  const umbrales = await umbralesActuales();
+  const diasRiesgo = umbrales.dias_riesgo ?? DIAS_RIESGO;
+  const diasDormido = umbrales.dias_dormido ?? DIAS_DORMIDO;
+
   if (f.actividad === 'riesgo') {
-    partes.push(sql`${ultimoMomento} < now() - (${DIAS_RIESGO} || ' days')::interval`);
+    partes.push(sql`${ultimoMomento} < now() - (${diasRiesgo} || ' days')::interval`);
   } else if (f.actividad === 'dormidos') {
-    partes.push(sql`(${ultimoMomento} IS NULL OR ${ultimoMomento} < now() - (${DIAS_DORMIDO} || ' days')::interval)`);
+    partes.push(sql`(${ultimoMomento} IS NULL OR ${ultimoMomento} < now() - (${diasDormido} || ' days')::interval)`);
   } else if (f.actividad === 'activos') {
-    partes.push(sql`${ultimoMomento} >= now() - (${DIAS_RIESGO} || ' days')::interval`);
+    partes.push(sql`${ultimoMomento} >= now() - (${diasRiesgo} || ' days')::interval`);
   }
 
   const donde = partes.length > 0 ? and(...partes) : undefined;
@@ -125,8 +139,11 @@ export async function listarComensales(f: FiltrosComensales = {}) {
     nombre: asc(b2cConsumers.fullName),
   }[f.orden ?? 'reciente'];
 
+  // El umbral entra en la clave: sin él, cambiar "en riesgo" de 15 a 10 días
+  // seguiría sirviendo el listado calculado con el valor viejo.
   const clave = `b2c:comensales:${limite}:${pagina}:${f.orden ?? 'reciente'}:` +
-    `${f.buscar ?? ''}:${f.nivel ?? ''}:${f.linea ?? ''}:${f.zona ?? ''}:${f.actividad ?? ''}`;
+    `${f.buscar ?? ''}:${f.nivel ?? ''}:${f.linea ?? ''}:${f.zona ?? ''}:${f.actividad ?? ''}:` +
+    `${diasRiesgo}:${diasDormido}`;
 
   return conRespaldo(clave, () => conBaseDeDatos(async (db) => {
     const [filas, [{ total }]] = await Promise.all([

@@ -250,6 +250,15 @@ export const estadoCanjeEnum = pgEnum('estado_canje', [
   'anulado',     // revertido; los puntos vuelven al comensal
 ]);
 
+/** Canal por el que se dio o revoco un consentimiento. */
+export const canalConsentimientoEnum = pgEnum('canal_consentimiento', [
+  'whatsapp',
+  'email',
+  'sms',
+  'push',
+  'datos',      // tratamiento general de datos personales
+]);
+
 /** Como se mantiene un segmento: a mano o por regla evaluada. */
 export const segmentoTipoEnum = pgEnum('segmento_tipo', ['dinamico', 'manual']);
 
@@ -539,11 +548,29 @@ export const dataConsents = pgTable('data_consents', {
   id: uuid('id').primaryKey().defaultRandom(),
   consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
   consentType: varchar('consent_type', { length: 50 }).notNull(),
+  /**
+   * Canal concreto al que aplica.
+   *
+   * Antes solo habia `consent_type` como texto libre, asi que no se podia
+   * revocar el WhatsApp conservando el email: era todo o nada.
+   */
+  canal: canalConsentimientoEnum('canal'),
   ipAddress: varchar('ip_address', { length: 50 }),
   userAgent: text('user_agent'),
-  grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow()
+  grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow(),
+  /**
+   * Cuando se revoco. NULL = sigue vigente.
+   *
+   * Se marca en lugar de borrar la fila: hay que poder demostrar que hubo
+   * consentimiento antes y cuando dejo de haberlo. Borrarlo destruiria la
+   * prueba de ambas cosas.
+   */
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  /** Quien lo revoco: el propio comensal o alguien del equipo. */
+  revokedBy: varchar('revoked_by', { length: 150 }),
 }, (t) => [
   index('idx_data_consents_consumer').on(t.consumerId),
+  index('idx_data_consents_vigente').on(t.consumerId, t.revokedAt),
 ]);
 
 // =============================================================================
@@ -2126,3 +2153,57 @@ export type Reward = typeof rewards.$inferSelect;
 export type NewReward = typeof rewards.$inferInsert;
 export type Redemption = typeof redemptions.$inferSelect;
 export type NewRedemption = typeof redemptions.$inferInsert;
+
+// =============================================================================
+// OPERACION DEL CRM: configuracion, consentimientos y respuestas
+// =============================================================================
+
+/**
+ * Configuracion del sistema, en clave-valor.
+ *
+ * Los umbrales del agente —cuantos dias sin escanear cuentan como "en riesgo",
+ * a partir de que confianza actua solo— estaban repartidos como constantes en
+ * el codigo. Calibrarlos exigia un despliegue, asi que en la practica nadie los
+ * tocaba y el agente operaba siempre con los valores que alguien eligio una vez.
+ */
+export const configuracion = pgTable('configuracion', {
+  clave: varchar('clave', { length: 100 }).primaryKey(),
+  valor: jsonb('valor').notNull(),
+  descripcion: text('descripcion'),
+  /** Quien lo cambio por ultima vez: un umbral mal puesto hay que poder rastrearlo. */
+  actualizadoPor: uuid('actualizado_por').references(() => staffUsers.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
+/**
+ * Respuestas del comensal a un mensaje automatizado.
+ *
+ * Sin esto, la mensajeria es un altavoz: se envia y nadie sabe si alguien
+ * contesto. Una respuesta a un WhatsApp automatico es la senal mas fuerte de
+ * interes que puede dar un comensal, y se estaba perdiendo.
+ */
+export const mensajesEntrantes = pgTable('mensajes_entrantes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  /** Envio al que responde, si se pudo emparejar. */
+  logId: uuid('log_id').references(() => automationLogs.id, { onDelete: 'set null' }),
+  canal: automationChannelEnum('canal').notNull(),
+  /** Telefono o direccion desde la que llego, por si no hay comensal conocido. */
+  remitente: varchar('remitente', { length: 100 }).notNull(),
+  texto: text('texto').notNull(),
+  /** true cuando alguien del equipo ya lo atendio. */
+  atendido: boolean('atendido').notNull().default(false),
+  atendidoPor: uuid('atendido_por').references(() => staffUsers.id),
+  atendidoEn: timestamp('atendido_en', { withTimezone: true }),
+  notaInterna: text('nota_interna'),
+  recibidoEn: timestamp('recibido_en', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_entrantes_consumer').on(t.consumerId),
+  index('idx_entrantes_atendido').on(t.atendido),
+  index('idx_entrantes_fecha').on(t.recibidoEn),
+]);
+
+export type Configuracion = typeof configuracion.$inferSelect;
+export type NewConfiguracion = typeof configuracion.$inferInsert;
+export type MensajeEntrante = typeof mensajesEntrantes.$inferSelect;
+export type NewMensajeEntrante = typeof mensajesEntrantes.$inferInsert;

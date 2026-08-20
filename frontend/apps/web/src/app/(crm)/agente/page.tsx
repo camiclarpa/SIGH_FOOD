@@ -14,6 +14,12 @@ import {
   crmProcedures,
 } from '@sighfood/domain/db/schema';
 import { count, desc, eq } from 'drizzle-orm';
+import { configuracion } from '@sighfood/domain/db/schema';
+import { puede, rolActual } from '@/lib/permisos';
+import { valoresPorDefecto } from '@/lib/umbrales';
+import { TarjetaDecision } from './TarjetaDecision';
+import { Umbrales } from './Umbrales';
+import { Sandbox } from './Sandbox';
 import {
   Etiqueta,
   Metrica,
@@ -50,7 +56,7 @@ async function cargar() {
   return conBaseDeDatos(async (db) => {
     const [
       salud, metricas, episodios, patrones, procedimientos,
-      predicciones, aprobaciones, seguridad, razonamientos,
+      predicciones, aprobaciones, config, seguridad, razonamientos,
       nodos, aristas, embeddings,
     ] = await Promise.all([
       db.select().from(crmAgentHealth).orderBy(desc(crmAgentHealth.checkedAt)).limit(5),
@@ -64,6 +70,9 @@ async function cargar() {
         .from(multivariatePredictions).groupBy(multivariatePredictions.predictionType),
       db.select().from(approvalRequests).where(eq(approvalRequests.status, 'pending'))
         .orderBy(desc(approvalRequests.createdAt)).limit(10),
+
+      // Los umbrales calibrados. Lo que no esté guardado usa el valor de diseño.
+      db.select().from(configuracion),
       db.select({ severidad: agentSecurityLog.severity, total: count(agentSecurityLog.id) })
         .from(agentSecurityLog).groupBy(agentSecurityLog.severity),
       db.select({ decision: cotExecutions.finalDecision, total: count(cotExecutions.id) })
@@ -73,8 +82,15 @@ async function cargar() {
       db.select({ total: count(embeddingIndex.id) }).from(embeddingIndex),
     ]);
 
+    // Lo guardado pisa al valor de diseño; lo que no esté, se queda con el suyo.
+    const umbrales = { ...valoresPorDefecto() };
+    for (const fila of config) {
+      const v = Number(fila.valor);
+      if (Number.isFinite(v)) umbrales[fila.clave] = v;
+    }
+
     return {
-      salud, metricas, episodios, patrones, predicciones, aprobaciones,
+      salud, metricas, episodios, patrones, predicciones, aprobaciones, umbrales,
       seguridad, razonamientos,
       procedimientos: procedimientos[0]?.total ?? 0,
       nodos: nodos[0]?.total ?? 0,
@@ -85,7 +101,11 @@ async function cargar() {
 }
 
 export default async function PaginaAgente() {
-  const d = await cargar();
+  const [d, rol] = await Promise.all([cargar(), rolActual()]);
+
+  const puedeAprobar = puede(rol, 'agente.aprobar');
+  const puedeCalibrar = puede(rol, 'agente.calibrar');
+  const puedeProbar = puede(rol, 'agente.sandbox');
 
   const totalEpisodios = d.episodios.reduce((s, e) => s + e.total, 0);
   const exitos = d.episodios.find((e) => e.resultado === 'SUCCESS')?.total ?? 0;
@@ -183,12 +203,19 @@ export default async function PaginaAgente() {
           {d.aprobaciones.length === 0 ? (
             <Vacio>Nada esperando aprobación humana.</Vacio>
           ) : (
-            <ul className="divide-y borde-tema text-sm">
+            <ul className="space-y-3">
               {d.aprobaciones.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <span className="truncate">{a.actionType}</span>
-                  <span className="texto-suave shrink-0 text-xs">expira {desde(a.expiresAt)}</span>
-                </li>
+                <TarjetaDecision
+                  key={a.id}
+                  puedeAprobar={puedeAprobar}
+                  solicitud={{
+                    id: a.id,
+                    accion: a.actionType ?? 'acción sin nombre',
+                    datos: (a.approvalData ?? null) as Record<string, unknown> | null,
+                    creada: desde(a.createdAt),
+                    expira: a.expiresAt ? new Date(a.expiresAt).toISOString() : null,
+                  }}
+                />
               ))}
             </ul>
           )}
@@ -210,6 +237,25 @@ export default async function PaginaAgente() {
           )}
         </Tarjeta>
       </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <Tarjeta titulo="Calibración del agente">
+          <p className="texto-suave mb-4 text-xs">
+            Estos números deciden a quién se persigue y a quién se da por perdido. Estaban
+            fijos en el código: cambiarlos exigía un despliegue.
+          </p>
+          <Umbrales valores={d.umbrales} puedeCalibrar={puedeCalibrar} />
+        </Tarjeta>
+
+        <Tarjeta titulo="Sandbox">
+          <p className="texto-suave mb-4 text-xs">
+            Prueba cómo reaccionaría el agente ante un comensal inventado. Nada de lo que
+            ocurra aquí se guarda ni se envía a nadie.
+          </p>
+          <Sandbox puedeProbar={puedeProbar} />
+        </Tarjeta>
+      </div>
+
     </>
   );
 }

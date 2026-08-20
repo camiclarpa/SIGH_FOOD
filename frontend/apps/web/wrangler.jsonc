@@ -31,7 +31,30 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "be704b244ff041d0b3200284bff8c965"
+      "id": "be704b244ff041d0b3200284bff8c965",
+
+      // Marcador de posición, no una credencial. Wrangler lo usa SOLO para
+      // emular Hyperdrive en `wrangler dev`; el despliegue real usa el id de
+      // arriba y nunca lee esta cadena.
+      //
+      // Está aquí porque sin ella el despliegue fallaba. `opennextjs-cloudflare
+      // deploy` llama a getPlatformProxy() para leer los bindings, y con
+      // Hyperdrive declarado wrangler exige una cadena local aunque esté
+      // publicando a producción:
+      //
+      //   UserError: When developing locally, you should use a local Postgres
+      //   connection string to emulate Hyperdrive functionality.
+      //
+      // El comando de despliegue intentaba cubrirlo con
+      // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL",
+      // pero esa variable no existe en el entorno de Workers Builds, así que
+      // llegaba vacía y wrangler la trataba como ausente. Resolverlo aquí evita
+      // depender de una variable del panel y no expone ninguna credencial.
+      //
+      // Para desarrollo local con `wrangler dev` contra una base real, cambia
+      // esto por tu Postgres local — nunca por la cadena de Neon de producción,
+      // que este archivo sí está en git.
+      "localConnectionString": "postgresql://usuario:contrasena@localhost:5432/sighfood_local"
     }
   ],
 

@@ -10,6 +10,7 @@
 // los datos y se celebra el resultado.
 
 import { useState } from 'react';
+import { RetoEnMesa } from './RetoEnMesa';
 
 interface Linea {
   codigo: string;
@@ -26,6 +27,10 @@ type Estado =
       insignias: Array<{ nombre: string; icono: string }>;
       nivel: string | null;
       momentos: number | null;
+      // Lo que necesita el desafío que se ofrece a continuación.
+      consumerId: string | null;
+      accountId: string | null;
+      lineaProducto: string | null;
     };
 
 export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Linea[] }) {
@@ -68,6 +73,9 @@ export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Li
         insignias: d.data?.insignias_nuevas ?? [],
         nivel: d.data?.nivel_nuevo ?? null,
         momentos: d.data?.momentos_totales ?? null,
+        consumerId: d.data?.consumer_id ?? null,
+        accountId: d.data?.account_id ?? null,
+        lineaProducto: d.data?.product_line ?? null,
       });
     } catch {
       setEstado({
@@ -114,6 +122,16 @@ export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Li
             Llevas {estado.momentos} momento{estado.momentos === 1 ? '' : 's'} registrado
             {estado.momentos === 1 ? '' : 's'}.
           </p>
+        )}
+
+        {/* Va DESPUÉS de la celebración: primero el comensal ve sus puntos, que
+            es a lo que vino, y solo entonces se le propone algo más. */}
+        {estado.consumerId && (
+          <RetoEnMesa
+            consumerId={estado.consumerId}
+            accountId={estado.accountId}
+            lineaProducto={estado.lineaProducto}
+          />
         )}
       </div>
     );

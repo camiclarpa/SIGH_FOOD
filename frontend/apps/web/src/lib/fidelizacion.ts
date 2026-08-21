@@ -112,6 +112,20 @@ export async function otorgarPuntos(
 // Insignias
 // -----------------------------------------------------------------------------
 
+/**
+ * Huso horario del negocio.
+ *
+ * `scanned_at` es timestamptz y la sesión de Postgres va en GMT, así que sin
+ * convertir explícitamente las horas salen desplazadas cinco horas. Para un CRM
+ * de bares eso no es un detalle: un escaneo del sábado a las 23:30 se leía como
+ * las 4 de la mañana, y la insignia de franja nocturna ("22-4") medía justo las
+ * horas en las que el bar está cerrado.
+ *
+ * Colombia no aplica horario de verano, así que la conversión es un desplazamiento
+ * fijo y las semanas duran siempre 7×24 h — de lo que depende el cálculo de rachas.
+ */
+export const ZONA_NEGOCIO = 'America/Bogota';
+
 /** Métricas del comensal contra las que se evalúan los criterios. */
 export interface MetricasComensal {
   escaneosTotales: number;
@@ -120,10 +134,43 @@ export interface MetricasComensal {
   referidosConvertidos: number;
   /** Escaneos por franja horaria, indexado por hora local 0-23. */
   escaneosPorHora: Record<number, number>;
+  /** Semanas seguidas con actividad, la racha más larga que ha logrado. */
+  rachaSemanas: number;
+}
+
+/**
+ * La racha más larga de semanas consecutivas.
+ *
+ * Recibe los lunes de cada semana con actividad, ya ordenados y sin repetir.
+ * Cuenta la racha MÁS LARGA y no la actual a propósito: una insignia es un
+ * logro y no se pierde: quien encadenó cuatro semanas y luego faltó una se la
+ * ganó igual, y con la racha actual dejaría de cumplir el criterio antes de que
+ * nadie se la otorgara.
+ *
+ * Es una función aparte, y pura, porque la lógica de "consecutivas" es
+ * justamente lo que conviene poder probar sin base de datos.
+ */
+export function rachaMasLarga(semanas: Date[]): number {
+  if (semanas.length === 0) return 0;
+
+  const UNA_SEMANA = 7 * 24 * 60 * 60 * 1000;
+  let mejor = 1;
+  let actual = 1;
+
+  for (let i = 1; i < semanas.length; i++) {
+    const salto = semanas[i]!.getTime() - semanas[i - 1]!.getTime();
+    // Exactamente una semana. Vale la igualdad estricta porque las fechas vienen
+    // de date_trunc en un huso sin horario de verano: no hay semanas de 23 o 25
+    // horas que obliguen a un margen.
+    actual = salto === UNA_SEMANA ? actual + 1 : 1;
+    if (actual > mejor) mejor = actual;
+  }
+
+  return mejor;
 }
 
 export async function medirComensal(db: Database, consumerId: string): Promise<MetricasComensal> {
-  const [[totales], porHora, [refs]] = await Promise.all([
+  const [[totales], porHora, [refs], semanas] = await Promise.all([
     db
       .select({
         escaneos: count(sensoryMoments.id),
@@ -133,19 +180,33 @@ export async function medirComensal(db: Database, consumerId: string): Promise<M
       .from(sensoryMoments)
       .where(eq(sensoryMoments.consumerId, consumerId)),
 
+    // La hora se lee en el huso del negocio, no en el de la sesión: ver
+    // ZONA_NEGOCIO. Sin el AT TIME ZONE, un escaneo de las 23:30 contaba como
+    // las 4 de la mañana.
     db
       .select({
-        hora: sql<number>`EXTRACT(HOUR FROM ${sensoryMoments.scannedAt})::int`,
+        hora: sql<number>`EXTRACT(HOUR FROM (${sensoryMoments.scannedAt} AT TIME ZONE ${sql.raw(`'${ZONA_NEGOCIO}'`)}))::int`,
         total: count(sensoryMoments.id),
       })
       .from(sensoryMoments)
       .where(eq(sensoryMoments.consumerId, consumerId))
-      .groupBy(sql`EXTRACT(HOUR FROM ${sensoryMoments.scannedAt})`),
+      .groupBy(sql`EXTRACT(HOUR FROM (${sensoryMoments.scannedAt} AT TIME ZONE ${sql.raw(`'${ZONA_NEGOCIO}'`)}))`),
 
     db
       .select({ total: count(referrals.id) })
       .from(referrals)
       .where(and(eq(referrals.referrerId, consumerId), eq(referrals.status, 'converted'))),
+
+    // Un lunes por cada semana con actividad, ordenados. El agrupado lo hace
+    // Postgres: traerse todos los escaneos para agruparlos en JavaScript sería
+    // proporcional al historial del comensal, y esto se ejecuta en cada escaneo.
+    db
+      .selectDistinct({
+        semana: sql<Date>`date_trunc('week', ${sensoryMoments.scannedAt} AT TIME ZONE ${sql.raw(`'${ZONA_NEGOCIO}'`)})`,
+      })
+      .from(sensoryMoments)
+      .where(eq(sensoryMoments.consumerId, consumerId))
+      .orderBy(sql`1`),
   ]);
 
   return {
@@ -154,6 +215,7 @@ export async function medirComensal(db: Database, consumerId: string): Promise<M
     baresDistintos: Number(totales?.bares ?? 0),
     referidosConvertidos: Number(refs?.total ?? 0),
     escaneosPorHora: Object.fromEntries(porHora.map((f) => [f.hora, Number(f.total)])),
+    rachaSemanas: rachaMasLarga(semanas.map((f) => new Date(f.semana))),
   };
 }
 
@@ -185,9 +247,7 @@ function valorDelCriterio(
       return total;
     }
     case 'racha_semanas':
-      // Pendiente: exige recorrer el historial semana a semana. Devolver 0 evita
-      // otorgar la insignia por accidente mientras no esté implementada.
-      return 0;
+      return m.rachaSemanas;
     default:
       return 0;
   }

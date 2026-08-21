@@ -25,6 +25,7 @@ const GRUPOS = [
       { href: '/resenas', texto: 'Reseñas', icono: '✎' },
       { href: '/segmentos', texto: 'Segmentos', icono: '◒' },
       { href: '/qr', texto: 'Códigos QR', icono: '⊞' },
+      { href: '/bandeja', texto: 'Bandeja', icono: '✉' },
       { href: '/mensajeria', texto: 'Mensajería', icono: '✈' },
       { href: '/agente', texto: 'Agente IA', icono: '◈' },
       { href: '/usuarios', texto: 'Usuarios', icono: '⚿' },

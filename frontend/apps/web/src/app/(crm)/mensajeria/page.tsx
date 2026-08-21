@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { resumenMensajeria } from '@/lib/consultas-b2c';
+import { motivoNoEnviable } from '@/lib/plantillas';
 import { puede, rolActual } from '@/lib/permisos';
 import { EditorSecuencia } from './EditorSecuencia';
 import { InterruptorSecuencia } from './InterruptorSecuencia';
@@ -123,7 +124,11 @@ export default async function PaginaMensajeria() {
                               template: s.template ?? '',
                               delayHours: s.delayHours ?? 0,
                               targetSegment: s.targetSegment,
+                              metaTemplateName: s.metaTemplateName,
+                              metaTemplateLang: s.metaTemplateLang,
+                              metaTemplateVars: s.metaTemplateVars ?? null,
                             }}
+                            puedeProbar={puedeActivar}
                           />
                         )}
                       </div>
@@ -143,6 +148,28 @@ export default async function PaginaMensajeria() {
                         <p className="texto-suave mt-2 rounded-md border borde-tema px-3 py-2 text-xs">
                           {s.template}
                         </p>
+                      )}
+
+                      {/*
+                        El texto de arriba es el del CRM. Fuera de la ventana de
+                        24 h, WhatsApp entrega la plantilla aprobada en Meta y no
+                        eso, así que se dice cuál es — y se avisa cuando falta,
+                        porque sin ella la campaña no puede activarse.
+                      */}
+                      {s.channel === 'whatsapp' && (
+                        !motivoNoEnviable(s) ? (
+                          <p className="texto-suave mt-1.5 text-xs">
+                            Plantilla de Meta: <span className="cifras">{s.metaTemplateName}</span>
+                            {s.metaTemplateLang ? ` (${s.metaTemplateLang})` : ''}
+                            {s.metaTemplateVars?.length
+                              ? ` · huecos: ${s.metaTemplateVars.map((v, i) => `{{${i + 1}}}=${v}`).join(', ')}`
+                              : ''}
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 text-xs text-amber-500">
+                            No se puede activar: {motivoNoEnviable(s)}
+                          </p>
+                        )
                       )}
                     </div>
 

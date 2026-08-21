@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { resumenFidelizacion } from '@/lib/consultas-b2c';
-import { etiquetaNivel } from '@/lib/fidelizacion';
+import { etiquetaNivel, LINEAS_PRODUCTO } from '@/lib/fidelizacion';
+import { EditorDesafio } from './EditorDesafio';
+import { EstadoDesafio } from './EstadoDesafio';
 import { Exportar } from '@/components/Exportar';
 import { puede, rolActual } from '@/lib/permisos';
 import {
@@ -38,6 +40,8 @@ export default async function PaginaFidelizacion() {
     resumenFidelizacion(),
     rolActual(),
   ]);
+
+  const puedeGestionar = puede(rol, 'desafios.gestionar');
 
   const enCirculacion = d.puntos.emitidos - d.puntos.canjeados;
 
@@ -155,7 +159,10 @@ export default async function PaginaFidelizacion() {
           )}
         </Tarjeta>
 
-        <Tarjeta titulo="Desafíos en mesa">
+        <Tarjeta
+          titulo="Desafíos en mesa"
+          accion={puedeGestionar ? <EditorDesafio lineas={[...LINEAS_PRODUCTO]} /> : null}
+        >
           {d.desafios.length === 0 ? (
             <Vacio>
               Sin desafíos creados. Son dinámicas rápidas de tres preguntas que el comensal
@@ -167,16 +174,50 @@ export default async function PaginaFidelizacion() {
                 <li key={c.id} className="py-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{c.titulo}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-medium">{c.titulo}</p>
+                        {puedeGestionar && (
+                          <EditorDesafio
+                            lineas={[...LINEAS_PRODUCTO]}
+                            desafio={{
+                              id: c.id,
+                              titulo: c.titulo,
+                              descripcion: c.descripcion,
+                              preguntas: c.preguntas,
+                              puntosPremio: c.puntosPremio,
+                              premioDescripcion: c.premioDescripcion,
+                              lineaProducto: c.lineaProducto,
+                              zona: c.zona,
+                              empiezaEn: c.empiezaEn ? new Date(c.empiezaEn).toISOString() : null,
+                              terminaEn: c.terminaEn ? new Date(c.terminaEn).toISOString() : null,
+                            }}
+                          />
+                        )}
+                      </div>
                       <p className="texto-suave text-xs">
                         {c.preguntas.length} pregunta{c.preguntas.length === 1 ? '' : 's'} ·{' '}
                         {numero(c.puntosPremio)} puntos
                         {c.premioDescripcion ? ` · ${c.premioDescripcion}` : ''}
                       </p>
+                      {/* El alcance decide a quién se le ofrece: conviene verlo
+                          sin abrir el editor. */}
+                      {(c.lineaProducto || c.zona) && (
+                        <p className="texto-suave text-xs">
+                          Solo para{c.lineaProducto ? ` ${c.lineaProducto}` : ''}
+                          {c.lineaProducto && c.zona ? ' ·' : ''}
+                          {c.zona ? ` ${c.zona}` : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="shrink-0 text-right">
                       <Etiqueta tono={ESTADOS_DESAFIO[c.estado] ?? 'neutro'}>{c.estado}</Etiqueta>
                       <p className="texto-suave cifras mt-1 text-xs">{numero(c.respuestas)} respuestas</p>
+                      <EstadoDesafio
+                        id={c.id}
+                        titulo={c.titulo}
+                        estado={c.estado as 'borrador' | 'activo' | 'pausado' | 'finalizado'}
+                        puedeGestionar={puedeGestionar}
+                      />
                     </div>
                   </div>
                   {c.createdAt && (

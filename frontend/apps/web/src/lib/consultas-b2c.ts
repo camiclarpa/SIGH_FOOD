@@ -27,6 +27,8 @@ import {
   redemptions,
   staffUsers,
   mensajesEntrantes,
+  chatConversations,
+  chatMessages,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { conRespaldo } from '@/lib/respaldo';
@@ -955,5 +957,89 @@ export async function bandejaEntrada() {
     ]);
 
     return { filas, totales: totales ?? { total: 0, pendientes: 0 } };
+  }));
+}
+
+// -----------------------------------------------------------------------------
+// Bandeja de WhatsApp
+// -----------------------------------------------------------------------------
+
+export async function listarConversaciones() {
+  return conRespaldo('wa:conversaciones', () => conBaseDeDatos(async (db) => {
+    const [filas, [totales]] = await Promise.all([
+      db
+        .select({
+          id: chatConversations.id,
+          telefono: chatConversations.telefono,
+          nombrePerfil: chatConversations.nombrePerfil,
+          estado: chatConversations.estado,
+          sinLeer: chatConversations.sinLeer,
+          ultimoMensajeEn: chatConversations.ultimoMensajeEn,
+          ventanaExpiraEn: chatConversations.ventanaExpiraEn,
+          comensalId: b2cConsumers.id,
+          comensal: b2cConsumers.fullName,
+          nivel: b2cConsumers.membershipTier,
+          puntos: b2cConsumers.points,
+          asignadoA: staffUsers.email,
+          // Un extracto para la lista: traer el hilo entero de cada
+          // conversación solo para pintar una línea sería absurdo.
+          ultimoTexto: sql<string | null>`(
+            SELECT ${chatMessages.texto} FROM ${chatMessages}
+            WHERE ${chatMessages.conversationId} = ${chatConversations.id}
+            ORDER BY ${chatMessages.createdAt} DESC LIMIT 1
+          )`,
+        })
+        .from(chatConversations)
+        .leftJoin(b2cConsumers, eq(b2cConsumers.id, chatConversations.consumerId))
+        .leftJoin(staffUsers, eq(staffUsers.id, chatConversations.asignadoA))
+        // Sin leer primero: son los que esperan a alguien.
+        .orderBy(desc(chatConversations.sinLeer), desc(chatConversations.ultimoMensajeEn))
+        .limit(50),
+
+      db
+        .select({
+          total: count(chatConversations.id),
+          sinAtender: sql<number>`COUNT(*) FILTER (WHERE ${chatConversations.sinLeer} > 0)::int`,
+          abiertas: sql<number>`COUNT(*) FILTER (WHERE ${chatConversations.ventanaExpiraEn} > now())::int`,
+        })
+        .from(chatConversations),
+    ]);
+
+    return { filas, totales: totales ?? { total: 0, sinAtender: 0, abiertas: 0 } };
+  }));
+}
+
+/** Hilo completo de una conversación. */
+export async function hiloConversacion(conversationId: string) {
+  return conRespaldo(`wa:hilo:${conversationId}`, () => conBaseDeDatos(async (db) => {
+    const [conversacion] = await db
+      .select({
+        id: chatConversations.id,
+        telefono: chatConversations.telefono,
+        nombrePerfil: chatConversations.nombrePerfil,
+        estado: chatConversations.estado,
+        ventanaExpiraEn: chatConversations.ventanaExpiraEn,
+        comensalId: b2cConsumers.id,
+        comensal: b2cConsumers.fullName,
+        nivel: b2cConsumers.membershipTier,
+        puntos: b2cConsumers.points,
+        asignadoA: staffUsers.email,
+      })
+      .from(chatConversations)
+      .leftJoin(b2cConsumers, eq(b2cConsumers.id, chatConversations.consumerId))
+      .leftJoin(staffUsers, eq(staffUsers.id, chatConversations.asignadoA))
+      .where(eq(chatConversations.id, conversationId))
+      .limit(1);
+
+    if (!conversacion) return null;
+
+    const mensajes = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(asc(chatMessages.createdAt))
+      .limit(200);
+
+    return { conversacion, mensajes };
   }));
 }

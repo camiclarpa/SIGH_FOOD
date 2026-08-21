@@ -17,7 +17,8 @@ import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import { etiquetaNivel } from '@/lib/fidelizacion';
-import { VARIABLES, variablesDesconocidas, rellenarPlantilla } from '@/lib/plantillas';
+import { VARIABLES, variablesDesconocidas, rellenarPlantilla, motivoNoEnviable } from '@/lib/plantillas';
+import { enviarPlantilla } from '@/lib/acciones/whatsapp';
 
 export interface Resultado<T = undefined> {
   ok: boolean;
@@ -47,6 +48,11 @@ export async function guardarSecuencia(datos: {
   template: string;
   delayHours: number;
   targetSegment?: string | null;
+  /** Nombre exacto de la plantilla aprobada en Meta. Solo para WhatsApp. */
+  metaTemplateName?: string | null;
+  metaTemplateLang?: string | null;
+  /** Claves del CRM en el orden de {{1}}, {{2}}… de la plantilla de Meta. */
+  metaTemplateVars?: string[] | null;
 }): Promise<Resultado<{ id: string }>> {
   return ejecutar('guardarSecuencia', async () => {
     await exigir('campanas.editar');
@@ -63,6 +69,18 @@ export async function guardarSecuencia(datos: {
       );
     }
 
+    // El mapeo de huecos apunta a variables del CRM: una clave inventada
+    // llegaría a Meta como '—' y el comensal leería un guion en mitad de la
+    // frase. Se rechaza aquí, no en el envío.
+    const mapeo = (datos.metaTemplateVars ?? []).map((v) => v.trim()).filter(Boolean);
+    const invalidas = mapeo.filter((v) => !VARIABLES.some((d) => d.clave === v));
+    if (invalidas.length > 0) {
+      throw new Error(
+        `Variables de plantilla que no existen: ${invalidas.join(', ')}. ` +
+        `Disponibles: ${VARIABLES.map((v) => v.clave).join(', ')}`
+      );
+    }
+
     return conBaseDeDatos(async (db) => {
       const valores = {
         name: datos.name.trim(),
@@ -71,6 +89,11 @@ export async function guardarSecuencia(datos: {
         template: datos.template.trim(),
         delayHours: Math.max(0, datos.delayHours),
         targetSegment: datos.targetSegment?.trim() || null,
+        metaTemplateName: datos.metaTemplateName?.trim() || null,
+        // Meta rechaza el envío si el idioma no es exactamente el aprobado; por
+        // defecto 'es', que es con el que se aprueban las plantillas del CRM.
+        metaTemplateLang: datos.metaTemplateLang?.trim() || 'es',
+        metaTemplateVars: mapeo.length > 0 ? mapeo : null,
         updatedAt: new Date(),
       };
 
@@ -111,6 +134,14 @@ export async function alternarSecuencia(id: string, activar: boolean): Promise<R
         if (malas.length > 0) {
           throw new Error(`No se puede activar: variables sin definir ${malas.map((m) => `{{${m}}}`).join(', ')}`);
         }
+
+        // Una secuencia de WhatsApp sin plantilla de Meta no puede enviar nada:
+        // fuera de la ventana de 24 h la Cloud API solo acepta plantillas
+        // aprobadas. Antes se dejaba activar igualmente y la campaña quedaba en
+        // "activa" sin mandar un solo mensaje, que es el peor fallo posible:
+        // silencioso.
+        const impedimento = motivoNoEnviable(secuencia);
+        if (impedimento) throw new Error(`No se puede activar: ${impedimento}`);
       }
 
       await db.update(automationSequences)
@@ -136,8 +167,14 @@ export async function alternarSecuencia(id: string, activar: boolean): Promise<R
 /**
  * Rellena la plantilla con los datos reales de un comensal.
  *
- * Es una vista previa, no un envío: el CRM todavía no tiene pasarela de
- * WhatsApp conectada, y fingir que se envió sería peor que decirlo.
+ * Es una vista previa, no un envío: no toca Meta ni gasta conversación. Para
+ * mandar de verdad están enviarSecuencia() y, sin destinatario registrado,
+ * enviarPrueba().
+ *
+ * Ojo con lo que enseña: este es el texto del CRM, y fuera de la ventana de
+ * 24 h lo que llega al móvil es la plantilla aprobada en Meta, no esto. La
+ * previa sirve para comprobar que las variables se rellenan, no para dar por
+ * bueno el texto final.
  */
 export async function previsualizar(datos: {
   plantilla: string;
@@ -210,5 +247,63 @@ export async function previsualizar(datos: {
         avisos,
       };
     });
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Envío real
+// -----------------------------------------------------------------------------
+
+/**
+ * Envía una secuencia a un comensal, por la plantilla aprobada en Meta.
+ *
+ * Es el puente entre el constructor de campañas y la pasarela: la secuencia
+ * aporta QUÉ plantilla y en qué orden van sus huecos, y enviarPlantilla() se
+ * ocupa del resto (normalizar el teléfono, resolver las variables del comensal,
+ * llamar a la Cloud API y dejar el mensaje en el hilo de la bandeja).
+ *
+ * No comprueba el estado de la secuencia: se usa tanto desde una campaña activa
+ * como desde el editor para probar con un comensal real, y exigir 'active' haría
+ * imposible lo segundo. Quien no deba enviar lo para el permiso.
+ */
+export async function enviarSecuencia(datos: {
+  sequenceId: string;
+  consumerId: string;
+}): Promise<Resultado<{ wamid: string }>> {
+  return ejecutar('enviarSecuencia', async () => {
+    await exigir('campanas.activar');
+
+    const secuencia = await conBaseDeDatos(async (db) => {
+      const [s] = await db
+        .select()
+        .from(automationSequences)
+        .where(eq(automationSequences.id, datos.sequenceId))
+        .limit(1);
+      return s;
+    });
+
+    if (!secuencia) throw new Error('La secuencia no existe');
+    if (secuencia.channel !== 'whatsapp') {
+      throw new Error(`Esta secuencia es de ${secuencia.channel}: la pasarela solo envía WhatsApp`);
+    }
+    if (!secuencia.metaTemplateName?.trim()) {
+      throw new Error('La secuencia no tiene plantilla de Meta configurada');
+    }
+
+    const r = await enviarPlantilla({
+      consumerId: datos.consumerId,
+      templateName: secuencia.metaTemplateName.trim(),
+      languageCode: secuencia.metaTemplateLang ?? 'es',
+      variables: secuencia.metaTemplateVars ?? [],
+      sequenceId: secuencia.id,
+    });
+
+    // enviarPlantilla ya deja el fallo registrado en automation_logs y en el
+    // hilo; aquí solo se propaga para que la interfaz lo enseñe.
+    if (!r.ok || !r.datos) throw new Error(r.error ?? 'No se pudo enviar');
+    return { wamid: r.datos.wamid };
+  }).then((r) => {
+    if (r.ok) { revalidatePath('/mensajeria'); revalidatePath('/bandeja'); }
+    return r;
   });
 }

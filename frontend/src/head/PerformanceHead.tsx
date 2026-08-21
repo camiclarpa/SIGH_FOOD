@@ -58,19 +58,21 @@ export default function PerformanceHead() {
         />
       )}
       
-      {/* 
-        PRELOAD DE LA FUENTE TIPOGRÁFICA PRINCIPAL
-        Inter Variable en formato WOFF2 para máxima compresión.
-        crossOrigin es necesario porque la fuente puede servirse desde CDN.
+      {/*
+        SIN PRELOAD DE FUENTE
+
+        Aquí había un preload de /assets/fonts/inter-var.woff2, pero ese archivo
+        nunca llegó a existir: en public/assets/fonts solo hay un marcador de
+        posición. El resultado era un 404 en cada visita, y un preload fallido
+        es peor que no tenerlo — gasta una petición del presupuesto de conexiones
+        justo durante la carga inicial, que es cuando más escasean.
+
+        La pila de fuentes del sistema, declarada más abajo, cubre el caso sin
+        descargar nada: iOS y Android ya tienen esas fuentes en memoria. Si algún
+        día se añade Inter de verdad, se sube el .woff2 a esa ruta y se restaura
+        este preload.
       */}
-      <link
-        rel="preload"
-        as="font"
-        href="/assets/fonts/inter-var.woff2"
-        type="font/woff2"
-        crossOrigin="anonymous"
-      />
-      
+
       {/* 
         PRECONNECT A DOMINIOS EXTERNOS CRÍTICOS
         Establece conexión temprana (DNS + TLS handshake) para reducir

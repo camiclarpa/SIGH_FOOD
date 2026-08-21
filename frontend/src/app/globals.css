@@ -1,8 +1,47 @@
 @import "tailwindcss";
 
+/* ===========================================================================
+   Paleta
+   ===========================================================================
+
+   La landing es oscura y cálida por una razón concreta: la fotografía de los
+   conos está tomada sobre fondos oscuros —brasas, humo, madera— y sobre un
+   fondo claro esas fotos se ven apagadas y sucias. Sobre negro cálido, la
+   comida brilla.
+
+   El negro no es negro puro sino #12100e, con marrón dentro. El negro puro
+   sobre una pantalla resulta duro y clínico; con calidez, el ojo lo lee como
+   penumbra de bar, que es exactamente donde se come esto.
+
+   El naranja #d97325 viene de la identidad de la marca y coincide con el color
+   de los propios conos, así que la página y el producto no compiten.
+   =========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /*
+     El fondo base es oscuro, no blanco.
+
+     No es una preferencia: la regla `body { background: var(--background) }` de
+     más abajo va SIN capa, y en Tailwind v4 lo no estratificado gana a las
+     utilidades, que sí van en @layer. Es decir, el `bg-[#1a1a1a]` del layout
+     nunca se aplicaba y el body quedaba blanco detrás de toda la página. No se
+     notaba salvo al rebotar el scroll en móvil, donde aparecía un destello
+     blanco sobre una página negra.
+
+     Se arregla en el origen —la variable— en lugar de a base de !important.
+  */
+  --background: #12100e;
+  --foreground: #f5f1ea;
+
+  /* Marca */
+  --bocazo-fondo: #12100e;
+  --bocazo-fondo-alt: #17140f;
+  --bocazo-superficie: #1c1812;
+  --bocazo-acento: #d97325;
+  --bocazo-acento-claro: #e8892f;
+  --bocazo-texto: #f5f1ea;
+  --bocazo-texto-suave: #c9bfb2;
+  --bocazo-texto-tenue: #8f8479;
 }
 
 @theme inline {
@@ -10,17 +49,77 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /*
+     Tipografía de titulares.
+
+     Una serif con contraste marcado: en comida, la serif se lee como algo
+     hecho a mano y con criterio, mientras que la geométrica sin serifas se
+     lee como cadena. Bocazo quiere lo primero.
+
+     Va sin descarga a propósito. Georgia está en Windows y Android; Iowan y
+     Palatino en Apple. Cargar una fuente de Google costaría dos conexiones
+     nuevas y un salto de texto en el titular más importante de la página —
+     justo el que decide si la persona se queda.
+  */
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
+    'Times New Roman', serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/*
+   No hay variante clara.
+
+   Antes había un bloque prefers-color-scheme que aclaraba la paleta, pero la
+   landing está construida sobre fotografía en fondo oscuro: en claro, las fotos
+   de los conos se ven apagadas y el diseño entero pierde el sentido. Es una
+   decisión de marca, no un olvido.
+*/
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* La pila del sistema: cero descargas y ya está en memoria en cualquier
+     móvil, que es donde se va a ver esta página. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   Desplazamiento suave entre secciones
+   ---------------------------------------------------------------------------
+
+   Los enlaces del menú saltan dentro de la misma página. Sin esto el salto es
+   instantáneo y desorienta: la persona no sabe si cambió de página o se movió.
+
+   scroll-padding-top compensa el encabezado fijo; sin él, cada sección aterriza
+   con su título escondido debajo de la barra.
+
+   Se desactiva para quien pide menos movimiento: un desplazamiento largo y
+   automático puede provocar mareo real, no es solo una preferencia estética. */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  /* Las transiciones se acortan en lugar de eliminarse: a 0s los cambios de
+     estado se vuelven bruscos y cuesta seguir qué pasó. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Selección de texto en los colores de la marca. */
+::selection {
+  background: var(--bocazo-acento);
+  color: var(--bocazo-fondo);
 }

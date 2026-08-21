@@ -27,16 +27,42 @@ import type { Metadata } from 'next';
 import PerformanceHead from '@/head/PerformanceHead';
 import './globals.css';
 
+/**
+ * Dominio público del sitio.
+ *
+ * Sin esto, Next resuelve las imágenes de Open Graph contra localhost:3000 y la
+ * vista previa sale rota justo donde más se comparte esta página: al pegar el
+ * enlace en un chat de WhatsApp. Un enlace sin foto en WhatsApp se ignora.
+ *
+ * El valor por defecto es la URL actual del Worker. Cuando haya dominio propio
+ * —bocazo.co o el que sea—, se define NEXT_PUBLIC_SITIO_URL en el entorno de
+ * compilacion y esta constante lo recoge sin tocar codigo.
+ *
+ * Va aqui y no en un .env porque .env* esta en .gitignore: dejarlo solo alli
+ * significaria que cualquier compilacion limpia vuelve a generar vistas previas
+ * rotas, y nadie se daria cuenta hasta pegar el enlace en un chat.
+ */
+const SITIO =
+  process.env.NEXT_PUBLIC_SITIO_URL ?? 'https://sigh-bocazo.camiloriverac0.workers.dev';
+
 export const metadata: Metadata = {
-  title: 'SIGH_FOOD — Experiencia de autor sin cocina para tu bar',
-  description: '20 segundos, sin cambiar nada. Kit Piloto B2B para gastrobares.',
-  keywords: ['gastrobar', 'licores', 'conos', 'RTA', 'phygital', 'B2B'],
-  authors: [{ name: 'SIGH_FOOD' }],
+  metadataBase: new URL(SITIO),
+  title: 'Bocazo — El antojo que no se te va hasta que lo pruebas',
+  description:
+    'Conos crujientes rellenos al momento, con combinaciones que no encuentras ' +
+    'en otro sitio. Cinco sabores. Pide por WhatsApp.',
+  keywords: ['conos', 'snack gourmet', 'Bogotá', 'antojo', 'domicilio', 'Bocazo'],
+  authors: [{ name: 'Bocazo' }],
   openGraph: {
-    title: 'SIGH_FOOD — Experiencia de autor sin cocina para tu bar',
-    description: '20 segundos, sin cambiar nada. Kit Piloto B2B para gastrobares.',
+    title: 'Bocazo — Conos rellenos al momento',
+    description:
+      'Cinco sabores que no se parecen a nada. Se comen de pie, en cinco minutos.',
     type: 'website',
     locale: 'es_CO',
+    siteName: 'Bocazo',
+  },
+  twitter: {
+    card: 'summary_large_image',
   },
 };
 

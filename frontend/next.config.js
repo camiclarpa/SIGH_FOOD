@@ -61,9 +61,18 @@ const nextConfig = {
   // =========================================================================
   
   images: {
-    // Formatos modernos: AVIF (primario) + WebP (fallback)
-    // AVIF ofrece 30-50% menor tamaño que JPEG a igual calidad
-    formats: ['image/avif', 'image/webp'],
+    // Cargador propio en lugar del optimizador de Next.
+    //
+    // Medido contra el preview real de Cloudflare Workers: /_next/image?w=1080
+    // devuelve el fichero entero sin redimensionar. Es decir, ahi el optimizador
+    // no optimiza — solo anade un salto. Las variantes por ancho se generan de
+    // antemano y las elige src/lib/cargadorImagen.ts.
+    //
+    // `formats` deja de aplicarse con un cargador personalizado: los ficheros ya
+    // son WebP, que es lo que se sirve.
+    loader: 'custom',
+    loaderFile: './src/lib/cargadorImagen.ts',
+
     
     // Tamaños para srcset responsive
     // El navegador elige el tamaño óptimo según el viewport

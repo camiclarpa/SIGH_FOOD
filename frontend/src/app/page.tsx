@@ -1,104 +1,141 @@
 /**
  * ============================================================================
- * LANDING B2B — SSG con ISR (RFC-HPBN, Capítulo 12)
- * RFC-001: Capa Edge — Contenido estático (SSG)
+ * LANDING B2C — Bocazo
  * ============================================================================
- * 
- * FUNCIÓN: Página principal del landing B2B de SIGH_FOOD con Incremental
- * Static Regeneration (ISR) para balance entre frescura y cache hit ratio.
- * 
- * PRINCIPIO APLICADO (RFC-HPBN Cap. 12):
- *   Kleppmann documenta el filesystem caching del sistema operativo Unix:
- *   el SO mantiene en caché lo que se usó recientemente porque es probable
- *   que se vuelva a usar pronto (Principio 5.1.8: Caches Depend on Locality
- *   of Reference).
- * 
- * En Next.js, esto se traduce a ISR (Incremental Static Regeneration):
- * el HTML se genera una vez en build time (SSG), y se regenera
- * automáticamente cada X segundos si hay una solicitud nueva después de
- * ese período.
- * 
- * CONFIGURACIÓN:
- *   • revalidate = 3600 (1 hora)
- *   • Balance: frescura de contenido vs. aprovechar al máximo el caché Edge
- *   • El 95%+ de las solicitudes se sirven desde caché (Cache Hit Ratio)
- *   • Solo el 5% restante (después de 1 hora) triggera regeneración
- * 
- * INTEGRACIÓN CON MADE TO STICK:
- *   • La página importa todos los componentes SUCCESs (Hero, Concrete,
- *     Credible, Emotional, Stories)
- *   • El contenido es casi estático (portafolio de 5 conos, cifras financieras)
- *   • Ideal para SSG completo con revalidación poco frecuente
- * ============================================================================
+ *
+ * La página que ve el cliente final. La versión B2B —calculadora de ROI,
+ * formulario para dueños de bar— sigue viva en /b2b: no se borró, se apartó,
+ * porque la estrategia B2B está pausada hasta que la marca escale.
+ *
+ * El orden de las secciones no es decorativo. Cada una contesta la pregunta que
+ * la persona tiene EN ESE MOMENTO, y contestarla antes de tiempo o después no
+ * sirve:
+ *
+ *   Hero          ¿qué es esto?
+ *   Antojo        ¿por qué debería importarme?
+ *   Catálogo      ¿qué compro y cuánto vale?
+ *   Diferencia    ¿por qué este y no otro?
+ *   Experiencia   ¿es de verdad tan bueno?
+ *   Prueba social ¿alguien más lo dice, o solo ellos?
+ *   Confianza     ¿y si no me gusta?
+ *   Preguntas     ¿qué más necesito saber?
+ *   Cierre        lo pido.
+ *
+ * El precio va en el catálogo y no al final, al contrario de lo que suele
+ * hacerse. En comida a $32.000 el precio no es una objeción que haya que
+ * preparar: esconderlo genera más desconfianza que enseñarlo junto a la foto.
+ *
+ * ISR de una hora, como el resto del sitio: el contenido es casi estático y así
+ * el 95% de las visitas se sirven desde el caché del edge.
  */
 
-import HeroSection from '@/components/hero/HeroSection';
-import PortafolioConos from '@/components/portafolio/PortafolioConos';
-import CalculadoraRoi from '@/components/calculadora/CalculadoraRoi';
-import FormularioLead from '@/components/formulario/FormularioLead';
-import HistoriasArquetipos from '@/components/historias/HistoriasArquetipos';
-import BloquesCredibilidad from '@/components/credibilidad/BloquesCredibilidad';
-import Footer from '@/components/footer/Footer';
+import type { Metadata } from 'next';
+import Encabezado from '@/components/b2c/Encabezado';
+import Hero from '@/components/b2c/Hero';
+import Antojo from '@/components/b2c/Antojo';
+import Catalogo from '@/components/b2c/Catalogo';
+import PorQueDiferente from '@/components/b2c/PorQueDiferente';
+import Experiencia from '@/components/b2c/Experiencia';
+import PruebaSocial from '@/components/b2c/PruebaSocial';
+import Confianza from '@/components/b2c/Confianza';
+import Preguntas from '@/components/b2c/Preguntas';
+import CierreCta from '@/components/b2c/CierreCta';
+import PieB2C from '@/components/b2c/PieB2C';
+import BotonFlotante from '@/components/b2c/BotonFlotante';
+import { CONOS, MARCA, PREGUNTAS, precio } from '@/components/b2c/datos';
 
-// ISR: regenerar cada 1 hora (3600 segundos)
-// Balance entre frescura de contenido y Cache Hit Ratio > 95%
 export const revalidate = 3600;
 
-export default function LandingB2B() {
+const DESCRIPCION =
+  'Conos crujientes rellenos al momento, con combinaciones que no encuentras en otro sitio. ' +
+  `Cinco sabores a ${precio(CONOS[0].precioCOP)}. Pide por WhatsApp.`;
+
+export const metadata: Metadata = {
+  title: `${MARCA.nombre} — El antojo que no se te va hasta que lo pruebas`,
+  description: DESCRIPCION,
+  keywords: ['conos', 'snack gourmet', MARCA.ciudad, 'antojo', 'domicilio', MARCA.nombre],
+  openGraph: {
+    title: `${MARCA.nombre} — Conos rellenos al momento`,
+    description: DESCRIPCION,
+    type: 'website',
+    locale: 'es_CO',
+    // La foto del Volcano es la que mejor funciona como miniatura: se entiende
+    // qué es a tamaño pequeño, que es como se ve al compartir un enlace.
+    images: [{ url: '/conos/spicy-volcano-1100.webp', width: 1100, height: 1374 }],
+  },
+};
+
+/**
+ * Datos estructurados para Google.
+ *
+ * Sin esto, una búsqueda de "conos en Bogotá" no tiene forma de saber que esta
+ * página es un menú con precios. Con esto, puede enseñar el producto y el
+ * precio directamente en el resultado.
+ *
+ * Solo se declara lo que es cierto: no hay aggregateRating porque todavía no hay
+ * reseñas reales, y un rating inventado en datos estructurados es motivo de
+ * penalización manual además de ser mentira.
+ */
+function datosEstructurados() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: MARCA.nombre,
+    description: DESCRIPCION,
+    servesCuisine: 'Snacks gourmet',
+    priceRange: '$$',
+    telephone: `+${MARCA.whatsapp}`,
+    address: { '@type': 'PostalAddress', addressLocality: MARCA.ciudad, addressCountry: 'CO' },
+    hasMenu: {
+      '@type': 'Menu',
+      hasMenuSection: {
+        '@type': 'MenuSection',
+        name: 'Conos',
+        hasMenuItem: CONOS.map((c) => ({
+          '@type': 'MenuItem',
+          name: c.nombre,
+          description: c.descripcion,
+          offers: { '@type': 'Offer', price: c.precioCOP, priceCurrency: 'COP' },
+        })),
+      },
+    },
+    mainEntityOfPage: {
+      '@type': 'FAQPage',
+      mainEntity: PREGUNTAS.map((q) => ({
+        '@type': 'Question',
+        name: q.p,
+        acceptedAnswer: { '@type': 'Answer', text: q.r },
+      })),
+    },
+  };
+}
+
+export default function LandingB2C() {
   return (
-    <main className="min-h-screen bg-[#1a1a1a] text-[#f5f5f5]">
-      {/* HERO SECTION — SIMPLE + UNEXPECTED + STORIES (Springboard) */}
-      <HeroSection />
-      
-      {/* CONCRETE BLOCKS — CONCRETE */}
-      <section className="py-20 px-6 bg-[#1f1f1f]">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-center text-gray-400 text-sm mb-12 tracking-widest uppercase">
-            El Momento SIGH_FOOD en Mesa
-          </h2>
-          <PortafolioConos />
-        </div>
-      </section>
-      
-      {/* CREDIBILITY BLOCKS — CREDIBLE */}
-      <section className="py-20 px-6 bg-[#1a1a1a]">
-        <div className="max-w-6xl mx-auto">
-          <BloquesCredibilidad />
-        </div>
-      </section>
-      
-      {/* EMOTIONAL BLOCKS — EMOTIONAL */}
-      <section className="py-20 px-6 bg-[#1f1f1f]">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center text-[#f5f5f5]">
-            Imagínese su propio fin de semana
-          </h2>
-        </div>
-      </section>
-      
-      {/* STORIES — 3 PLOTS ARQUETÍPICOS */}
-      <section className="py-20 px-6 bg-[#1a1a1a]">
-        <div className="max-w-6xl mx-auto">
-          <HistoriasArquetipos />
-        </div>
-      </section>
-      
-      {/* ROI CALCULATOR — CONCRETE + EMOTIONAL (WIIFY) */}
-      <section className="py-20 px-6 bg-[#1f1f1f]">
-        <div className="max-w-4xl mx-auto">
-          <CalculadoraRoi />
-        </div>
-      </section>
-      
-      {/* SPRINGBOARD STORY + FORM — STORIES + CTA */}
-      <section className="py-20 px-6 bg-[#1a1a1a]">
-        <div className="max-w-4xl mx-auto">
-          <FormularioLead />
-        </div>
-      </section>
-      
-      {/* FOOTER */}
-      <Footer />
-    </main>
+    <>
+      <script
+        type="application/ld+json"
+        // El JSON lo generamos nosotros a partir de constantes propias: no hay
+        // entrada de usuario que pueda escaparse de la etiqueta.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(datosEstructurados()) }}
+      />
+
+      <Encabezado />
+
+      <main className="bg-[#12100e]">
+        <Hero />
+        <Antojo />
+        <Catalogo />
+        <PorQueDiferente />
+        <Experiencia />
+        <PruebaSocial />
+        <Confianza />
+        <Preguntas />
+        <CierreCta />
+      </main>
+
+      <PieB2C />
+      <BotonFlotante />
+    </>
   );
 }

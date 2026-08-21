@@ -29,7 +29,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import { CONOS, enlaceWhatsApp, precio } from './datos';
+import { CONOS, LOCAL, enlaceWhatsApp, precio } from './datos';
 
 const CADA_MS = 6000;
 
@@ -90,7 +90,7 @@ export default function Hero() {
       <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-28 sm:px-8 lg:pb-14 lg:pt-24">
         <div className="max-w-xl">
           <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#d97325]/40 bg-[#d97325]/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-[#e8a05f]">
-            Cinco sabores · {MARCA_CIUDAD}
+            Cinco sabores · {LOCAL.ciudad}
           </p>
 
           <h1 className="font-display text-[2.6rem] font-bold leading-[1.05] tracking-tight text-[#f5f1ea] sm:text-6xl lg:text-[4.2rem]">
@@ -130,8 +130,15 @@ export default function Hero() {
             </a>
           </div>
 
+          {/* Tres datos, no tres adjetivos. Quien llega desde Instagram trae
+              tres dudas —cuanto cuesta, si esto existe de verdad y donde queda—
+              y las tres se contestan aqui, antes de pedirle nada. */}
           <p className="mt-5 text-sm text-[#8f8479]">
-            {precio(cono.precioCOP)} · preparado en el momento · listo en minutos
+            Desde <span className="text-[#c9bfb2]">{precio(cono.precioCOP)}</span> · Preparado
+            frente a ti ·{' '}
+            <a href="#donde" className="text-[#c9bfb2] underline underline-offset-4 hover:text-[#d97325]">
+              {LOCAL.zona}, {LOCAL.ciudad}
+            </a>
           </p>
         </div>
 
@@ -165,5 +172,3 @@ export default function Hero() {
     </section>
   );
 }
-
-const MARCA_CIUDAD = 'Bogotá';

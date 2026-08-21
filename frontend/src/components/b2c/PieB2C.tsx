@@ -13,13 +13,7 @@
  * decisión de compra.
  */
 
-import { MARCA, enlaceWhatsApp } from './datos';
-
-const HORARIOS = [
-  { dias: 'Lunes a jueves', horas: '5:00 p. m. – 11:00 p. m.' },
-  { dias: 'Viernes y sábado', horas: '5:00 p. m. – 2:00 a. m.' },
-  { dias: 'Domingo', horas: '4:00 p. m. – 10:00 p. m.' },
-];
+import { HORARIOS, LOCAL, MARCA, enlaceWhatsApp } from './datos';
 
 export default function PieB2C() {
   const año = new Date().getFullYear();
@@ -71,8 +65,22 @@ export default function PieB2C() {
           {/* --- Horarios --- */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[#c9bfb2]">
-              Horarios
+              Dónde y cuándo
             </h3>
+
+            <address className="mt-4 text-sm not-italic leading-relaxed">
+              <a
+                href={LOCAL.mapa}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#8f8479] transition-colors hover:text-[#d97325]"
+              >
+                {LOCAL.direccion}
+                <br />
+                {LOCAL.zona}, {LOCAL.ciudad}
+              </a>
+            </address>
+
             <ul className="mt-4 space-y-2.5 text-sm text-[#8f8479]">
               {HORARIOS.map((h) => (
                 <li key={h.dias}>
@@ -92,6 +100,11 @@ export default function PieB2C() {
               <li>
                 <a href="#sabores" className="text-[#8f8479] transition-colors hover:text-[#d97325]">
                   Los sabores
+                </a>
+              </li>
+              <li>
+                <a href="#donde" className="text-[#8f8479] transition-colors hover:text-[#d97325]">
+                  Cómo llegar
                 </a>
               </li>
               <li>

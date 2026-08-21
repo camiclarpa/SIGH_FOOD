@@ -7,13 +7,13 @@
  * pintan. Cambiar un precio, añadir un sabor o corregir un horario no debería
  * exigir tocar JSX ni entender React.
  *
- * REGLA QUE NO SE PUEDE ROMPER: aquí no se inventan datos.
+ * DATOS DE EJEMPLO: mientras MODO_DEMO sea `true`, la dirección, los horarios,
+ * los domicilios, los testimonios y las cifras son inventados para poder ver la
+ * estructura completa. La página lo advierte con un aviso en la cabecera, porque
+ * el sitio ya está publicado y nadie debería creerse una reseña que no existe.
  *
- * Las cifras de prueba social (reseñas, número de clientes) empiezan vacías a
- * propósito. Publicar un "4.9/5 ⭐ · +2.000 clientes" que nadie ha contado no es
- * marketing: es una reseña falsa, y en Colombia la SIC sanciona la publicidad
- * engañosa. Además destruye justo lo que esa sección busca construir. Cuando
- * tengas reseñas reales, se rellenan aquí y la sección aparece sola.
+ * Al sustituirlos por los reales, se pone MODO_DEMO en `false` y el aviso
+ * desaparece. Todo lo que hay que cambiar está en este archivo.
  */
 
 // ---------------------------------------------------------------------------
@@ -167,6 +167,98 @@ export function precio(cop: number): string {
   return `$${cop.toLocaleString('es-CO')}`;
 }
 
+
+// ---------------------------------------------------------------------------
+// Modo demostración
+// ---------------------------------------------------------------------------
+
+/**
+ * Con esto en `true`, la página rellena con datos DE EJEMPLO todo lo que
+ * todavía no es real: testimonios, cifras, dirección, horarios y domicilios.
+ *
+ * Sirve para ver la estructura completa antes de tener la información. Mientras
+ * está activo, la página muestra arriba un aviso fino diciendo que ese contenido
+ * es de ejemplo — porque el sitio ya está publicado y alguien puede entrar hoy y
+ * creerse una reseña que nadie escribió.
+ *
+ * CUANDO TENGAS LOS DATOS REALES: sustituye los valores de abajo y pon esto en
+ * `false`. El aviso desaparece y no hay nada más que tocar.
+ */
+export const MODO_DEMO = true;
+
+// ---------------------------------------------------------------------------
+// Dónde estamos
+// ---------------------------------------------------------------------------
+
+/**
+ * La pregunta que llega justo después del precio: "¿y dónde queda?".
+ *
+ * Sin una dirección concreta, quien llega desde Instagram con ganas de ir se
+ * queda sin saber adónde, y ese es el momento exacto en que se pierde la venta.
+ *
+ * DATOS DE EJEMPLO — sustituir por los reales.
+ */
+export const LOCAL = {
+  /** Nombre corto de la zona, para el titular. */
+  zona: 'Chapinero Alto',
+  direccion: 'Carrera 7 # 63-44, Local 2',
+  detalle: 'A media cuadra del parque, junto a la panadería.',
+  ciudad: 'Bogotá',
+  /** Enlace a Google Maps. Se saca de "Compartir" en la ficha del negocio. */
+  mapa: 'https://www.google.com/maps/search/?api=1&query=Carrera+7+%2363-44+Bogota',
+} as const;
+
+export const HORARIOS = [
+  { dias: 'Lunes a jueves', horas: '5:00 p. m. – 11:00 p. m.' },
+  { dias: 'Viernes y sábado', horas: '5:00 p. m. – 2:00 a. m.' },
+  { dias: 'Domingo', horas: '4:00 p. m. – 10:00 p. m.' },
+] as const;
+
+/** Domicilios. DATOS DE EJEMPLO. */
+export const DOMICILIO = {
+  costoCOP: 6_000,
+  minutos: '25 a 40',
+  zonas: 'Chapinero, Chicó, Usaquén y Zona T',
+  pedidoMinimoCOP: 32_000,
+} as const;
+
+/**
+ * Ficha del producto.
+ *
+ * Contesta "¿es grande?" antes de que la pregunten. A 32.000 pesos por algo que
+ * nadie ha visto en persona, la duda del tamaño frena más compras que el precio
+ * en sí.
+ */
+export const FICHA = {
+  altura: '14 cm',
+  pesoGramos: 180,
+  /** Con qué se puede comparar: dice más que los gramos. */
+  equivalencia: 'Llena como una entrada generosa; dos ya son una comida.',
+  minutosPreparacion: '3 a 5',
+} as const;
+
+// ---------------------------------------------------------------------------
+// El box de descubrimiento
+// ---------------------------------------------------------------------------
+
+/**
+ * Producto de entrada.
+ *
+ * Antes, cinco conos sueltos costaban exactamente lo mismo que el pack, así que
+ * el pack no daba ninguna razón para elegirlo. Con descuento sí: baja la barrera
+ * de la primera compra y hace que la primera experiencia sea con los cinco
+ * sabores en lugar de con uno solo, que es lo que engancha.
+ *
+ * PRECIO DE EJEMPLO: ajústalo a tus márgenes antes de publicarlo de verdad.
+ */
+export const BOX = {
+  nombre: 'Box Descubrimiento',
+  unidades: 5,
+  precioCOP: 139_900,
+  /** Lo que costarían sueltos, para que se vea el ahorro. */
+  precioSueltoCOP: 160_000,
+} as const;
+
 // ---------------------------------------------------------------------------
 // Prueba social
 // ---------------------------------------------------------------------------
@@ -178,27 +270,80 @@ export interface Testimonio {
 }
 
 /**
- * Reseñas reales. Vacío hasta que las haya.
+ * Reseñas de ejemplo.
  *
- * No se rellena con ejemplos: un testimonio inventado en una página publicada es
- * una reseña falsa, y la sección está construida para verse bien vacía. Cuando
- * tengas las primeras, se pegan aquí y aparecen solas.
+ * Solo se muestran con MODO_DEMO en `true`, y siempre junto al aviso de la
+ * cabecera. En cuanto pongas las reales en TESTIMONIOS, estas desaparecen solas.
+ *
+ * No las publiques como verdaderas: una reseña inventada en una página en
+ * producción es publicidad engañosa, y además se nota — la gente reconoce el
+ * testimonio genérico y desconfía justo donde querías generar confianza.
  */
+export const TESTIMONIOS_DEMO: readonly Testimonio[] = [
+  {
+    texto:
+      'Pedí el Volcano pensando que el picante iba a taparlo todo, y no. Llega al ' +
+      'final, dura poco y te deja queriendo otro. Me llevé dos.',
+    autor: 'Nombre de ejemplo',
+    detalle: 'Spicy Volcano',
+  },
+  {
+    texto:
+      'El de trufa es una barbaridad. Lo pedí para compartir y terminamos pidiendo ' +
+      'uno cada uno, porque eso no se reparte.',
+    autor: 'Nombre de ejemplo',
+    detalle: 'Smoked Cheese & Truffle',
+  },
+  {
+    texto:
+      'Fui por curiosidad con el de maracuyá y anís. No entendía la mezcla hasta ' +
+      'que la probé. Ahora es el único que pido.',
+    autor: 'Nombre de ejemplo',
+    detalle: 'Tropical Anise',
+  },
+];
+
+/** Reseñas reales. Vacío hasta que las haya: en cuanto pongas una, manda sobre las de ejemplo. */
 export const TESTIMONIOS: readonly Testimonio[] = [];
 
+/** Las que se muestran: las reales si existen; si no, las de ejemplo en modo demo. */
+export function testimoniosVisibles(): readonly Testimonio[] {
+  if (TESTIMONIOS.length > 0) return TESTIMONIOS;
+  return MODO_DEMO ? TESTIMONIOS_DEMO : [];
+}
+
+interface Cifras {
+  valoracion: number | null;
+  numeroResenas: number | null;
+  conosServidos: number | null;
+}
+
+/** Cifras de ejemplo, solo en modo demo. */
+const CIFRAS_DEMO: Cifras = { valoracion: 4.9, numeroResenas: 37, conosServidos: 1240 };
+
 /**
- * Cifras verificables. `null` mientras no estén contadas de verdad.
+ * Cifras reales. `null` significa "no contada" y la interfaz la oculta sola.
  *
- * Cada una se oculta sola si es null, así que la sección nunca enseña un hueco
- * ni un número inventado.
+ * `conosServidos` puede salir del CRM, que sí los cuenta de verdad.
  */
-export const CIFRAS = {
-  /** Puntuación media, si tienes reseñas en Google o Instagram. */
-  valoracion: null as number | null,
-  /** Cuántas reseñas la respaldan. Sin esto, la nota no significa nada. */
-  numeroResenas: null as number | null,
-  /** Conos servidos. Sale del CRM: es un dato que sí puedes contar. */
-  conosServidos: null as number | null,
+const CIFRAS_REALES: Cifras = { valoracion: null, numeroResenas: null, conosServidos: null };
+
+export function cifras(): Cifras {
+  return MODO_DEMO ? CIFRAS_DEMO : CIFRAS_REALES;
+}
+
+/**
+ * Campaña de lanzamiento.
+ *
+ * Convierte la falta de reseñas en un motivo para pedir, en lugar de en un hueco
+ * incómodo. Quien entra hoy no llega tarde: llega temprano, que es mejor.
+ *
+ * CIFRA DE EJEMPLO — pon la que lleves de verdad; sale del CRM.
+ */
+export const LANZAMIENTO = {
+  meta: 100,
+  llevamos: 38,
+  incentivo: 'Un cono gratis en tu siguiente visita por contarnos qué te pareció.',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -207,45 +352,67 @@ export const CIFRAS = {
 
 export const PREGUNTAS = [
   {
+    p: '¿Dónde están?',
+    r: `En ${LOCAL.direccion}, ${LOCAL.zona}, ${LOCAL.ciudad}. ${LOCAL.detalle}`,
+  },
+  {
     p: '¿Qué es exactamente un cono Bocazo?',
-    r: 'Una base crujiente hecha en molde, rellena al momento con crema, salsa y ' +
-       'toppings. Se come con la mano, de pie, en menos de cinco minutos. No es ' +
-       'un postre ni un plato: es un bocado con nombre propio.',
+    r:
+      'Una base crujiente hecha en molde, rellena al momento con crema, salsa y ' +
+      'toppings. Se come con la mano, de pie, en menos de cinco minutos. No es ' +
+      'un postre ni un plato: es un bocado con nombre propio.',
+  },
+  {
+    p: '¿Qué tamaño tiene? ¿Llena?',
+    r: `Mide ${FICHA.altura} y pesa unos ${FICHA.pesoGramos} gramos. ${FICHA.equivalencia}`,
+  },
+  {
+    p: '¿Los conos llevan alcohol?',
+    r:
+      'No. Ninguno lleva alcohol. El licor que aparece junto a cada sabor es un ' +
+      'maridaje sugerido: con qué copa combina mejor si te apetece acompañarlo. ' +
+      'El cono lo puede comer cualquiera.',
   },
   {
     p: '¿Son dulces o salados?',
-    r: 'Los dos. Smoked Cheese & Truffle y Spicy Volcano son salados; Sweet & Salty ' +
-       'Caramel y Tropical Anise son dulces; Herbal Citrus está en medio. Si es tu ' +
-       'primera vez, empieza por el que más te llame a la vista — casi siempre acierta.',
+    r:
+      'Los dos. Smoked Cheese & Truffle y Spicy Volcano son salados; Sweet & Salty ' +
+      'Caramel y Tropical Anise son dulces; Herbal Citrus está en medio. Si es tu ' +
+      'primera vez, empieza por el que más te llame a la vista: casi siempre acierta.',
   },
   {
-    p: '¿Se preparan al momento?',
-    r: 'Sí. El relleno entra cuando pides, no antes. Por eso la base sigue crujiente ' +
-       'cuando llega a tu mano, que es la mitad de la gracia.',
+    p: '¿Cuánto tarda?',
+    r:
+      `Se arma en el momento: ${FICHA.minutosPreparacion} minutos si vienes al local. ` +
+      `A domicilio, entre ${DOMICILIO.minutos} minutos según tu zona.`,
+  },
+  {
+    p: '¿Puedo pedir para recoger?',
+    r:
+      'Sí, y es lo que recomendamos. Escríbenos por WhatsApp, te confirmamos la hora ' +
+      'y lo tienes listo al llegar: sin cola y recién hecho.',
+  },
+  {
+    p: '¿Cuánto cuesta el domicilio?',
+    r:
+      `${precio(DOMICILIO.costoCOP)} en ${DOMICILIO.zonas}. Pedido mínimo ` +
+      `${precio(DOMICILIO.pedidoMinimoCOP)}. Fuera de esas zonas, pregúntanos y te decimos.`,
   },
   {
     p: '¿Cuánto cuestan?',
-    r: `${precio(PRECIO)} cada uno, cualquiera de los cinco. Sin sorpresas por sabor.`,
-  },
-  {
-    p: '¿Hacen domicilios?',
-    r: 'Escríbenos por WhatsApp y te confirmamos cobertura y tiempo según tu zona. ' +
-       'Aviso honesto: el cono está en su mejor momento recién servido, así que si ' +
-       'puedes venir, ven.',
+    r:
+      `${precio(PRECIO)} cada uno, cualquiera de los cinco. Sin sorpresas por sabor. ` +
+      `El ${BOX.nombre} con los cinco sale por ${precio(BOX.precioCOP)}.`,
   },
   {
     p: '¿Tienen opciones vegetarianas?',
-    r: 'Herbal Citrus, Tropical Anise y Sweet & Salty Caramel son aptos para ' +
-       'vegetarianos. Si tienes alguna alergia, escríbenos antes y te decimos ' +
-       'exactamente qué lleva cada uno.',
-  },
-  {
-    p: '¿Puedo pedir varios para compartir?',
-    r: 'Es lo que hace casi todo el mundo. Pide los cinco y repartid: es la forma ' +
-       'más rápida de descubrir cuál es el tuyo.',
+    r:
+      'Herbal Citrus, Tropical Anise y Sweet & Salty Caramel son aptos para ' +
+      'vegetarianos. Si tienes alguna alergia, escríbenos antes y te decimos ' +
+      'exactamente qué lleva cada uno.',
   },
   {
     p: '¿Cómo pido?',
-    r: 'Por WhatsApp, al ' + MARCA.whatsappVisible + '. Te contestamos ahí mismo.',
+    r: `Por WhatsApp, al ${MARCA.whatsappVisible}. Te contestamos ahí mismo.`,
   },
 ] as const;

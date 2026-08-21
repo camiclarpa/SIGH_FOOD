@@ -14,11 +14,12 @@
  */
 
 import { useEffect, useState } from 'react';
-import { MARCA, enlaceWhatsApp } from './datos';
+import { MARCA, MODO_DEMO, enlaceWhatsApp } from './datos';
 
 const ENLACES = [
   { href: '#sabores', texto: 'Sabores' },
   { href: '#experiencia', texto: 'La experiencia' },
+  { href: '#donde', texto: 'Dónde estamos' },
   { href: '#preguntas', texto: 'Preguntas' },
 ];
 
@@ -36,6 +37,8 @@ export default function Encabezado() {
 
   return (
     <header
+      // En modo demo el encabezado baja para dejar sitio al aviso de arriba.
+      style={MODO_DEMO ? { top: '1.75rem' } : undefined}
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
         bajado
           ? 'border-b border-white/10 bg-[#12100e]/90 backdrop-blur-md'

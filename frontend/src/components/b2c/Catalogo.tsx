@@ -30,7 +30,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { CONOS, FAMILIAS, enlaceWhatsApp, precio } from './datos';
+import { BOX, CONOS, FAMILIAS, FICHA, enlaceWhatsApp, precio } from './datos';
 
 type Familia = (typeof FAMILIAS)[number]['id'];
 
@@ -55,6 +55,40 @@ export default function Catalogo() {
             El mismo precio para los cinco, así solo tienes que decidir cuál te apetece.
           </p>
         </div>
+
+        {/*
+          Qué te llevas por ese dinero.
+
+          Va ANTES de ver el precio en las tarjetas, no después. A 32.000 pesos
+          por algo que nadie ha visto en persona, la duda no suele ser "es caro"
+          sino "¿cuánto es?" y "¿de qué tamaño?". Contestarlo aquí evita que el
+          precio aterrice sobre un vacío.
+        */}
+        <dl className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-6 rounded-2xl border border-white/10 bg-[#1c1812] p-6 text-center sm:grid-cols-4 sm:p-7">
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-[#8f8479]">Tamaño</dt>
+            <dd className="font-display mt-1.5 text-xl font-bold text-[#f5f1ea]">{FICHA.altura}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-[#8f8479]">Peso</dt>
+            <dd className="font-display mt-1.5 text-xl font-bold text-[#f5f1ea]">
+              {FICHA.pesoGramos} g
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-[#8f8479]">Listo en</dt>
+            <dd className="font-display mt-1.5 text-xl font-bold text-[#f5f1ea]">
+              {FICHA.minutosPreparacion} min
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-[#8f8479]">Relleno</dt>
+            <dd className="font-display mt-1.5 text-xl font-bold text-[#f5f1ea]">Al momento</dd>
+          </div>
+          <div className="col-span-2 sm:col-span-4">
+            <p className="text-sm text-[#c9bfb2]">{FICHA.equivalencia}</p>
+          </div>
+        </dl>
 
         {/* --- Filtro --- */}
         <div className="mt-10 flex flex-wrap justify-center gap-2">
@@ -129,6 +163,10 @@ export default function Catalogo() {
                   ))}
                 </ul>
 
+                {/* "Va bien con" y no "lleva": el cono NO tiene alcohol, y sin
+                    esa distinción el maridaje se lee como ingrediente. Es una
+                    objeción silenciosa — quien no bebe, o va con niños, se va
+                    sin preguntar. */}
                 <p className="mt-4 text-xs text-[#8f8479]">
                   Va bien con{' '}
                   <span className="text-[#c9bfb2]">{c.maridaje.join(' o ')}</span>
@@ -153,25 +191,73 @@ export default function Catalogo() {
           ))}
         </div>
 
-        {/* --- Empujón para llevarse varios --- */}
-        <div className="mt-14 rounded-2xl border border-[#d97325]/30 bg-gradient-to-br from-[#d97325]/10 to-transparent p-8 text-center sm:p-10">
-          <h3 className="font-display text-2xl font-bold text-[#f5f1ea] sm:text-3xl">
-            ¿No sabes cuál? Llévate los cinco.
-          </h3>
-          <p className="mx-auto mt-3 max-w-xl text-[#c9bfb2]">
-            Es lo que hace casi todo el mundo la primera vez: se piden los cinco,
-            se reparten y cada quien descubre el suyo. Después ya vienen a por
-            ese.
-          </p>
-          <a
-            href={enlaceWhatsApp('Hola, quiero pedir los cinco conos para compartir.')}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-7 inline-flex items-center justify-center rounded-full bg-[#d97325] px-8 py-4 text-base font-semibold text-[#12100e] shadow-lg shadow-[#d97325]/20 transition-all hover:scale-[1.02] hover:bg-[#e8892f] active:scale-100"
-          >
-            Pedir los cinco · {precio(CONOS[0].precioCOP * 5)}
-          </a>
+        {/*
+          El producto de entrada.
+
+          Antes esto ofrecía los cinco al mismo precio que sueltos, así que no
+          daba ninguna razón para elegirlo. Con descuento sí: baja la barrera de
+          la primera compra y hace que la primera experiencia sea con los cinco
+          sabores en vez de con uno — que es lo que engancha y lo que hace que
+          vuelvan a por "el suyo".
+
+          El precio tachado va al lado del bueno porque el ahorro solo existe si
+          se ve la comparación.
+        */}
+        <div className="mt-14 overflow-hidden rounded-2xl border border-[#d97325]/40 bg-gradient-to-br from-[#d97325]/12 to-transparent p-8 sm:p-10">
+          <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+            <div className="text-center lg:text-left">
+              <p className="text-xs font-medium uppercase tracking-[0.3em] text-[#d97325]">
+                Para la primera vez
+              </p>
+
+              <h3 className="font-display mt-3 text-2xl font-bold text-[#f5f1ea] sm:text-3xl">
+                {BOX.nombre}: los cinco sabores
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-xl text-[#c9bfb2] lg:mx-0">
+                Es lo que hace casi todo el mundo la primera vez: se piden los cinco,
+                se reparten y cada quien descubre el suyo. Después ya vienen a por ese.
+              </p>
+
+              <ul className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-[#c9bfb2] lg:justify-start">
+                {CONOS.map((c) => (
+                  <li key={c.id} className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#d97325]" />
+                    {c.corto}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="text-center lg:w-60">
+              <p className="text-sm text-[#8f8479]">
+                <s>{precio(BOX.precioSueltoCOP)}</s> sueltos
+              </p>
+              <p className="font-display text-4xl font-bold text-[#f5f1ea]">
+                {precio(BOX.precioCOP)}
+              </p>
+              <p className="mt-1 text-sm font-medium text-[#d97325]">
+                ahorras {precio(BOX.precioSueltoCOP - BOX.precioCOP)}
+              </p>
+
+              <a
+                href={enlaceWhatsApp(`Hola, quiero el ${BOX.nombre} con los cinco sabores.`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#d97325] px-8 py-4 text-base font-semibold text-[#12100e] shadow-lg shadow-[#d97325]/20 transition-all hover:scale-[1.02] hover:bg-[#e8892f] active:scale-100"
+              >
+                Quiero el box
+              </a>
+            </div>
+          </div>
         </div>
+
+        {/* El aviso del alcohol cierra la sección: es la última duda que queda
+            después de haber leído cinco maridajes con licor. */}
+        <p className="mt-8 text-center text-sm text-[#8f8479]">
+          Los licores son <span className="text-[#c9bfb2]">maridajes sugeridos</span>.
+          Ningún cono lleva alcohol.
+        </p>
       </div>
     </section>
   );

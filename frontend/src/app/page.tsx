@@ -14,6 +14,9 @@
  *   Hero          ¿qué es esto?
  *   Antojo        ¿por qué debería importarme?
  *   Catálogo      ¿qué compro y cuánto vale?
+ *   Dónde         ¿y dónde queda? — llega justo después del precio, que es
+ *                 cuando aparece. Antes estaba solo en el pie, y quien venía
+ *                 de Instagram con ganas de ir no encontraba una dirección.
  *   Diferencia    ¿por qué este y no otro?
  *   Experiencia   ¿es de verdad tan bueno?
  *   Prueba social ¿alguien más lo dice, o solo ellos?
@@ -34,6 +37,7 @@ import Encabezado from '@/components/b2c/Encabezado';
 import Hero from '@/components/b2c/Hero';
 import Antojo from '@/components/b2c/Antojo';
 import Catalogo from '@/components/b2c/Catalogo';
+import Donde from '@/components/b2c/Donde';
 import PorQueDiferente from '@/components/b2c/PorQueDiferente';
 import Experiencia from '@/components/b2c/Experiencia';
 import PruebaSocial from '@/components/b2c/PruebaSocial';
@@ -42,7 +46,8 @@ import Preguntas from '@/components/b2c/Preguntas';
 import CierreCta from '@/components/b2c/CierreCta';
 import PieB2C from '@/components/b2c/PieB2C';
 import BotonFlotante from '@/components/b2c/BotonFlotante';
-import { CONOS, MARCA, PREGUNTAS, precio } from '@/components/b2c/datos';
+import AvisoDemo from '@/components/b2c/AvisoDemo';
+import { BOX, CONOS, HORARIOS, LOCAL, MARCA, PREGUNTAS, precio } from '@/components/b2c/datos';
 
 export const revalidate = 3600;
 
@@ -85,18 +90,32 @@ function datosEstructurados() {
     servesCuisine: 'Snacks gourmet',
     priceRange: '$$',
     telephone: `+${MARCA.whatsapp}`,
-    address: { '@type': 'PostalAddress', addressLocality: MARCA.ciudad, addressCountry: 'CO' },
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: LOCAL.direccion,
+      addressLocality: LOCAL.ciudad,
+      addressCountry: 'CO',
+    },
+    openingHours: HORARIOS.map((h) => `${h.dias} ${h.horas}`),
     hasMenu: {
       '@type': 'Menu',
       hasMenuSection: {
         '@type': 'MenuSection',
         name: 'Conos',
-        hasMenuItem: CONOS.map((c) => ({
-          '@type': 'MenuItem',
-          name: c.nombre,
-          description: c.descripcion,
-          offers: { '@type': 'Offer', price: c.precioCOP, priceCurrency: 'COP' },
-        })),
+        hasMenuItem: [
+          ...CONOS.map((c) => ({
+            '@type': 'MenuItem',
+            name: c.nombre,
+            description: c.descripcion,
+            offers: { '@type': 'Offer', price: c.precioCOP, priceCurrency: 'COP' },
+          })),
+          {
+            '@type': 'MenuItem',
+            name: BOX.nombre,
+            description: `Los ${BOX.unidades} sabores en un solo pedido.`,
+            offers: { '@type': 'Offer', price: BOX.precioCOP, priceCurrency: 'COP' },
+          },
+        ],
       },
     },
     mainEntityOfPage: {
@@ -120,12 +139,14 @@ export default function LandingB2C() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(datosEstructurados()) }}
       />
 
+      <AvisoDemo />
       <Encabezado />
 
       <main className="bg-[#12100e]">
         <Hero />
         <Antojo />
         <Catalogo />
+        <Donde />
         <PorQueDiferente />
         <Experiencia />
         <PruebaSocial />

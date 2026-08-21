@@ -32,10 +32,16 @@ const RUTAS_PUBLICAS = [
   '/api/auth',
   '/api/leads/b2b',
   '/api/moments/scan',
+  // Lo llama el comensal en la mesa, justo después de escanear: tiene el mismo
+  // perfil que /api/moments/scan y ninguna sesión que exigir.
+  '/api/challenges',
   // Público a propósito: comprobar la salud a través de la sesión no sirve
   // cuando lo roto ES la sesión. Fue el caso real —el Worker sin AUTH_SECRET— y
   // por eso este endpoint no puede depender de poder autenticarse.
   '/api/health',
+  // Lo llama Meta, no un usuario: no hay sesión que exigir. Su seguridad es la
+  // firma HMAC del cuerpo (X-Hub-Signature-256), que se comprueba en la ruta.
+  '/api/webhooks/whatsapp',
 ];
 
 /** Rutas de página que no requieren sesión. */
@@ -139,7 +145,12 @@ export async function middleware(request: NextRequest) {
     // Sin límite: /api/auth es el propio login, y /api/health debe responder
     // durante un incidente. Un endpoint de salud al que se puede acallar con
     // un 429 no sirve justo cuando hace falta, y su coste es un `SELECT 1`.
-    if (pathname.startsWith('/api/auth') || pathname === '/api/health') {
+    if (
+      pathname.startsWith('/api/auth') ||
+      pathname === '/api/health' ||
+      // Un 429 aquí hace que Meta reintente y acabe desactivando el webhook.
+      pathname === '/api/webhooks/whatsapp'
+    ) {
       return NextResponse.next();
     }
 

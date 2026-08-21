@@ -259,6 +259,35 @@ export const canalConsentimientoEnum = pgEnum('canal_consentimiento', [
   'datos',      // tratamiento general de datos personales
 ]);
 
+/** Quien lleva la conversacion ahora mismo. */
+export const chatEstadoEnum = pgEnum('chat_estado', [
+  'bot',        // la atiende el agente
+  'humano',     // un asesor la tomo
+  'cerrada',
+]);
+
+export const chatDireccionEnum = pgEnum('chat_direccion', ['entrante', 'saliente']);
+
+/** Ciclo de vida de un mensaje segun los webhooks de estado de Meta. */
+export const chatEstadoMensajeEnum = pgEnum('chat_estado_mensaje', [
+  'pendiente',   // aun no aceptado por Meta
+  'enviado',     // sent
+  'entregado',   // delivered
+  'leido',       // read
+  'fallido',     // failed
+]);
+
+export const chatTipoEnum = pgEnum('chat_tipo', [
+  'texto',
+  'imagen',
+  'audio',
+  'video',
+  'documento',
+  'ubicacion',
+  'plantilla',
+  'otro',
+]);
+
 /** Como se mantiene un segmento: a mano o por regla evaluada. */
 export const segmentoTipoEnum = pgEnum('segmento_tipo', ['dinamico', 'manual']);
 
@@ -718,6 +747,13 @@ export const automationSequences = pgTable('automation_sequences', {
   channel: automationChannelEnum('channel').notNull(),
   status: automationStatusEnum('status').default('draft'),
   template: text('template').notNull(),
+  // Plantilla aprobada en Meta. `template` (arriba) es el texto del CRM con
+  // {{nombre}}; esto es lo que Meta acepta de verdad fuera de la ventana de
+  // 24 h, con huecos posicionales. `metaTemplateVars` lleva las claves del CRM
+  // EN ORDEN, porque Meta numera los huecos ({{1}}, {{2}}…) en vez de nombrarlos.
+  metaTemplateName: varchar('meta_template_name', { length: 255 }),
+  metaTemplateLang: varchar('meta_template_lang', { length: 10 }),
+  metaTemplateVars: jsonb('meta_template_vars').$type<string[]>(),
   delayHours: integer('delay_hours').default(0),
   targetSegment: varchar('target_segment', { length: 100 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -2207,3 +2243,91 @@ export type Configuracion = typeof configuracion.$inferSelect;
 export type NewConfiguracion = typeof configuracion.$inferInsert;
 export type MensajeEntrante = typeof mensajesEntrantes.$inferSelect;
 export type NewMensajeEntrante = typeof mensajesEntrantes.$inferInsert;
+
+// =============================================================================
+// WHATSAPP: CONVERSACIONES Y MENSAJES
+// =============================================================================
+
+/**
+ * Hilo de conversacion con un numero.
+ *
+ * La clave es el telefono en E.164 y no el comensal: un mensaje puede llegar de
+ * alguien que todavia no esta registrado, y perderlo por no tener a quien
+ * asociarlo seria perder justo al lead que acaba de escribir.
+ */
+export const chatConversations = pgTable('chat_conversations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Telefono normalizado a E.164, sin '+'. Es como lo devuelve Meta. */
+  telefono: varchar('telefono', { length: 20 }).notNull().unique(),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'set null' }),
+  /** Nombre del perfil de WhatsApp, si Meta lo envia. */
+  nombrePerfil: varchar('nombre_perfil', { length: 150 }),
+  estado: chatEstadoEnum('estado').notNull().default('bot'),
+  /** Asesor que tomo el chat. */
+  asignadoA: uuid('asignado_a').references(() => staffUsers.id, { onDelete: 'set null' }),
+  /**
+   * Cuando caduca la ventana de servicio de 24 h de Meta.
+   *
+   * Fuera de ella NO se puede mandar texto libre: solo plantillas aprobadas.
+   * Se guarda calculado en lugar de derivarlo cada vez, para poder filtrar por
+   * el en la bandeja sin recorrer los mensajes.
+   */
+  ventanaExpiraEn: timestamp('ventana_expira_en', { withTimezone: true }),
+  ultimoMensajeEn: timestamp('ultimo_mensaje_en', { withTimezone: true }),
+  /** Mensajes entrantes sin leer por el equipo. */
+  sinLeer: integer('sin_leer').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_chat_conv_telefono').on(t.telefono),
+  index('idx_chat_conv_consumer').on(t.consumerId),
+  index('idx_chat_conv_estado').on(t.estado),
+  index('idx_chat_conv_ultimo').on(t.ultimoMensajeEn),
+]);
+
+/**
+ * Mensajes de una conversacion.
+ *
+ * `wamid` es el identificador de Meta y lleva indice unico: los webhooks se
+ * reintentan, y sin esa restriccion el mismo mensaje entrante se guardaria
+ * varias veces cada vez que Meta reintenta.
+ */
+export const chatMessages = pgTable('chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  conversationId: uuid('conversation_id').notNull()
+    .references(() => chatConversations.id, { onDelete: 'cascade' }),
+  /** Identificador de Meta (wamid.HBg...). NULL mientras no lo acepte. */
+  wamid: varchar('wamid', { length: 200 }),
+  direccion: chatDireccionEnum('direccion').notNull(),
+  tipo: chatTipoEnum('tipo').notNull().default('texto'),
+  texto: text('texto'),
+  /** Id del medio en Meta; hay que pedir la URL aparte y caduca. */
+  mediaId: varchar('media_id', { length: 200 }),
+  mediaMime: varchar('media_mime', { length: 100 }),
+  estado: chatEstadoMensajeEnum('estado').notNull().default('pendiente'),
+  /** Codigo y mensaje de error de Meta cuando falla el envio. */
+  errorCodigo: varchar('error_codigo', { length: 50 }),
+  errorMensaje: text('error_mensaje'),
+  /** Plantilla usada, si fue un envio HSM. */
+  plantilla: varchar('plantilla', { length: 100 }),
+  /** Quien lo envio: NULL si lo mando el bot. */
+  enviadoPor: uuid('enviado_por').references(() => staffUsers.id, { onDelete: 'set null' }),
+  /** Secuencia de automatizacion que lo origino. */
+  sequenceId: uuid('sequence_id').references(() => automationSequences.id, { onDelete: 'set null' }),
+  /** Marca de tiempo de Meta, que puede diferir de la nuestra. */
+  timestampMeta: timestamp('timestamp_meta', { withTimezone: true }),
+  entregadoEn: timestamp('entregado_en', { withTimezone: true }),
+  leidoEn: timestamp('leido_en', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_chat_msg_conv').on(t.conversationId),
+  index('idx_chat_msg_fecha').on(t.createdAt),
+  index('idx_chat_msg_estado').on(t.estado),
+  // Evita duplicar un mensaje cuando Meta reintenta el webhook.
+  uniqueIndex('uq_chat_msg_wamid').on(t.wamid),
+]);
+
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type NewChatConversation = typeof chatConversations.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;

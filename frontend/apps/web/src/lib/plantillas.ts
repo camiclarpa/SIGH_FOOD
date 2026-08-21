@@ -42,3 +42,50 @@ export function variablesDesconocidas(plantilla: string): string[] {
 export function rellenarPlantilla(plantilla: string, datos: Record<string, string>): string {
   return plantilla.replace(/\{\{(\w+)\}\}/g, (completo, clave) => datos[clave] ?? completo);
 }
+
+// -----------------------------------------------------------------------------
+// Plantillas aprobadas en Meta
+// -----------------------------------------------------------------------------
+//
+// Hay dos plantillas por secuencia y conviene no confundirlas:
+//
+//   · `template`  — el texto del CRM, con {{nombre}}. Es lo que se ve en la
+//     vista previa y lo que se envía DENTRO de la ventana de 24 h.
+//   · la de Meta  — aprobada de antemano, identificada por su nombre y con
+//     huecos NUMERADOS. Es lo único que WhatsApp entrega FUERA de esa ventana.
+//
+// Una secuencia de WhatsApp sin la segunda se puede guardar, pero no enviar.
+
+export interface SecuenciaEnviable {
+  channel: string | null;
+  metaTemplateName?: string | null;
+  metaTemplateVars?: string[] | null;
+}
+
+/**
+ * Por qué una secuencia no puede activarse, o null si sí puede.
+ *
+ * Devuelve el motivo en vez de un booleano para que la interfaz pueda decirlo
+ * antes de intentarlo: una campaña que se deja activar y luego no manda nada es
+ * el peor fallo posible, porque es silencioso.
+ *
+ * Vive aquí, y no dentro de la acción de servidor, para que el editor la use sin
+ * arrastrar el acceso a la base y para poder probarla sin sesión ni base.
+ */
+export function motivoNoEnviable(s: SecuenciaEnviable): string | null {
+  // Los demás canales no pasan por la pasarela de Meta y no les aplica.
+  if (s.channel !== 'whatsapp') return null;
+
+  if (!s.metaTemplateName?.trim()) {
+    return 'Falta el nombre de la plantilla aprobada en Meta. ' +
+      'Sin ella, WhatsApp no entrega nada fuera de la ventana de 24 h.';
+  }
+
+  const malas = (s.metaTemplateVars ?? []).filter((v) => !CLAVES.has(v));
+  if (malas.length > 0) {
+    return `Los huecos ${malas.join(', ')} no son variables del CRM: ` +
+      'llegarían al comensal como un guion.';
+  }
+
+  return null;
+}

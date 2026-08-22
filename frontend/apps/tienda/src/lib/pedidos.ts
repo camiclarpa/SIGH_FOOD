@@ -11,7 +11,7 @@
 // bastaría con abrir las herramientas de desarrollo para pedir cinco conos a
 // mil pesos — y no habría forma de notarlo hasta cuadrar la caja.
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   b2cConsumers,
   pedidoEventos,
@@ -19,9 +19,11 @@ import {
   pedidos,
   productoOpciones,
   productos,
+  qrCodes,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { ENVIO_COP } from '@/lib/envio';
+import { aPreferencias } from '@/lib/paladar';
 
 export interface LineaEntrante {
   slug: string;
@@ -34,7 +36,24 @@ export interface LineaEntrante {
 export interface DatosPedido {
   nombre: string;
   telefono: string;
-  tipoEntrega: 'domicilio' | 'recoger';
+  tipoEntrega: 'domicilio' | 'recoger' | 'mesa';
+  /**
+   * Token del QR de la mesa, cuando el pedido entra desde el local.
+   *
+   * Se manda el TOKEN y no el local ni el número de mesa: el servidor lo
+   * revalida contra la base. Si se confiara en lo que llega, cualquiera podría
+   * mandar un accountId inventado y colar una comanda en otro local.
+   */
+  qrToken?: string;
+  /**
+   * Perfil de paladar del cuestionario.
+   *
+   * Se guarda en el comensal con la MISMA forma que ya usaban los escaneos en
+   * mesa (flavorPreference: Record<linea, peso>), para que lo que dice que le
+   * gusta y lo que pide de verdad se sumen en el mismo sitio en vez de vivir en
+   * dos columnas que se contradicen.
+   */
+  paladar?: Record<string, string>;
   direccion?: string;
   indicaciones?: string;
   metodoPago: 'efectivo' | 'nequi' | 'daviplata' | 'tarjeta' | 'pse' | 'transferencia';
@@ -71,6 +90,8 @@ export type ResultadoPedido =
       totalCOP: number;
       /** Nombres reales, para el comprobante. El slug no se le enseña a nadie. */
       lineas: Array<{ cantidad: number; nombre: string }>;
+      /** Mesa asignada, si el pedido entró por un QR. */
+      mesa: string | null;
     }
   | { ok: false; error: string };
 
@@ -90,6 +111,10 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
 
   if (datos.tipoEntrega === 'domicilio' && !datos.direccion?.trim()) {
     return { ok: false, error: 'Falta la dirección de entrega' };
+  }
+
+  if (datos.tipoEntrega === 'mesa' && !datos.qrToken?.trim()) {
+    return { ok: false, error: 'Escanea el QR de tu mesa para pedir desde aquí' };
   }
 
   for (const l of datos.lineas) {
@@ -163,7 +188,30 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
       };
     });
 
+    // --- Mesa: el token se revalida, nunca se cree lo que llega ---
+    let accountId: string | null = null;
+    let mesa: string | null = null;
+
+    if (datos.tipoEntrega === 'mesa') {
+      const [qr] = await db
+        .select({ accountId: qrCodes.accountId, mesa: qrCodes.tableNumber })
+        .from(qrCodes)
+        .where(and(eq(qrCodes.qrToken, datos.qrToken!.trim()), eq(qrCodes.isActive, true)))
+        .limit(1);
+
+      if (!qr) {
+        return {
+          ok: false as const,
+          error: 'Ese código de mesa ya no vale. Vuelve a escanear el QR.',
+        };
+      }
+
+      accountId = qr.accountId;
+      mesa = qr.mesa;
+    }
+
     const subtotal = lineas.reduce((s, l) => s + l.subtotalCOP, 0);
+    // En mesa no hay envío: la persona ya está en el local.
     const envio = datos.tipoEntrega === 'domicilio' ? ENVIO_COP : 0;
     const total = subtotal + envio + propina;
 
@@ -198,6 +246,26 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
       }
     }
 
+    // --- Paladar ---
+    // Se fusiona con lo que ya hubiera en vez de sustituirlo: alguien que ya
+    // tenía preferencias por sus escaneos no debería perderlas por rellenar un
+    // cuestionario de tres preguntas.
+    if (consumerId && datos.paladar && Object.keys(datos.paladar).length > 0) {
+      try {
+        const preferencias = aPreferencias(datos.paladar);
+        if (Object.keys(preferencias).length > 0) {
+          await db
+            .update(b2cConsumers)
+            .set({
+              flavorPreference: sql`COALESCE(${b2cConsumers.flavorPreference}, '{}'::jsonb) || ${JSON.stringify(preferencias)}::jsonb`,
+            })
+            .where(eq(b2cConsumers.id, consumerId));
+        }
+      } catch {
+        // Un perfil que no se guarda no puede impedir un pedido: es un extra.
+      }
+    }
+
     // --- El pedido, entero o nada ---
     const codigo = await db.transaction(async (tx) => {
       // Se reintenta con un código nuevo si hubiera colisión. Con 30^6
@@ -224,6 +292,9 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
           tipoEntrega: datos.tipoEntrega,
           direccion: datos.direccion?.trim().slice(0, 255) || null,
           indicaciones: datos.indicaciones?.trim().slice(0, 255) || null,
+          accountId,
+          mesa,
+          qrToken: datos.qrToken?.trim().slice(0, 255) || null,
           metodoPago: datos.metodoPago,
           // Contra entrega el pago no existe todavía; con pasarela lo marcará
           // ella cuando confirme. En ningún caso se da por aprobado aquí.
@@ -256,6 +327,7 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
       codigo,
       totalCOP: total,
       lineas: lineas.map((l) => ({ cantidad: l.cantidad, nombre: l.nombreProducto })),
+      mesa,
     };
   });
 }

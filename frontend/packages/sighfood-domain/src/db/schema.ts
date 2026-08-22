@@ -440,7 +440,14 @@ export const estadoPedidoEnum = pgEnum('estado_pedido', [
   'cancelado'
 ]);
 
-export const tipoEntregaEnum = pgEnum('tipo_entrega', ['domicilio', 'recoger']);
+/**
+ * Cómo llega el pedido.
+ *
+ * 'mesa' es el caso phygital: alguien sentado en el local que pide desde el QR
+ * de su mesa. Los otros dos suponen que NO está allí, y ese es justo el caso
+ * más valioso — el antojo delante, sin levantarse ni hacer cola.
+ */
+export const tipoEntregaEnum = pgEnum('tipo_entrega', ['domicilio', 'recoger', 'mesa']);
 
 export const metodoPagoEnum = pgEnum('metodo_pago', [
   'efectivo',
@@ -2510,6 +2517,17 @@ export const pedidos = pgTable('pedidos', {
   direccion: varchar('direccion', { length: 255 }),
   indicaciones: varchar('indicaciones', { length: 255 }),
 
+  /** Local y mesa, cuando el pedido entra por el QR de una mesa. */
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  mesa: varchar('mesa', { length: 50 }),
+  /**
+   * Qué QR trajo el pedido.
+   *
+   * Convierte un lote de adhesivos impresos en una campaña medible, y si algo
+   * va mal permite saber de qué mesa salió aunque el número se haya borrado.
+   */
+  qrToken: varchar('qr_token', { length: 255 }),
+
   estado: estadoPedidoEnum('estado').notNull().default('recibido'),
   metodoPago: metodoPagoEnum('metodo_pago').notNull(),
   estadoPago: estadoPagoEnum('estado_pago').notNull().default('pendiente'),
@@ -2544,6 +2562,7 @@ export const pedidos = pgTable('pedidos', {
   index('idx_pedidos_consumer').on(t.consumerId),
   index('idx_pedidos_fecha').on(t.createdAt),
   index('idx_pedidos_telefono').on(t.telefono),
+  index('idx_pedidos_mesa').on(t.accountId, t.mesa),
 ]);
 
 /**
@@ -2685,10 +2704,13 @@ export const eventosEmbudo = pgTable('eventos_embudo', {
   pedidoId: uuid('pedido_id').references(() => pedidos.id, { onDelete: 'set null' }),
   /** Importe en juego, para poder medir el valor perdido en cada paso. */
   valorCOP: integer('valor_cop'),
+  /** QR de origen: mide qué adhesivo trae visitas y cuáles acaban en pedido. */
+  qrToken: varchar('qr_token', { length: 255 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 }, (t) => [
   index('idx_embudo_evento').on(t.evento, t.createdAt),
   index('idx_embudo_sesion').on(t.sesionAnonima),
+  index('idx_embudo_qr').on(t.qrToken),
 ]);
 
 /**

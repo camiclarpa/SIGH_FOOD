@@ -66,6 +66,9 @@ export interface PedidoComanda {
   indicaciones: string | null;
   totalCOP: number;
   notas: string | null;
+  /** Local y mesa, cuando el pedido entró por el QR de una mesa. */
+  local: string | null;
+  mesa: string | null;
   /** Minutos desde que entró, calculados en el servidor. */
   minutosInicial: number;
   items: Item[];
@@ -134,7 +137,11 @@ export default function Comanda({
           <p className="texto-suave text-xs">
             {ETIQUETAS[pedido.estado] ?? pedido.estado}
             {' · '}
-            {pedido.tipoEntrega === 'recoger' ? 'recoge' : 'domicilio'}
+            {pedido.tipoEntrega === 'mesa'
+              ? 'en mesa'
+              : pedido.tipoEntrega === 'recoger'
+                ? 'recoge'
+                : 'domicilio'}
           </p>
         </div>
 
@@ -145,6 +152,17 @@ export default function Comanda({
           <p className="cifras text-sm font-bold">{precio(pedido.totalCOP)}</p>
         </div>
       </div>
+
+      {/* La mesa va grande y arriba: en un pedido de local es el dato que
+          decide a dónde va la bandeja, y se lee de lejos. */}
+      {pedido.tipoEntrega === 'mesa' && pedido.mesa && (
+        <p className="mt-3 rounded-lg bg-orange-600/15 px-3 py-2 text-center">
+          <span className="font-display text-2xl font-bold text-orange-400">
+            Mesa {pedido.mesa}
+          </span>
+          {pedido.local && <span className="texto-suave block text-xs">{pedido.local}</span>}
+        </p>
+      )}
 
       {/* --- Lo que hay que preparar --- */}
       <ul className="mt-3 space-y-2 border-y borde-tema py-3">

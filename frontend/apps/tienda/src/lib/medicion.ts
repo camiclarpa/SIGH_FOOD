@@ -43,6 +43,7 @@ export async function registrar(datos: {
   productoId?: string;
   pedidoId?: string;
   valorCOP?: number;
+  qrToken?: string;
 }): Promise<void> {
   try {
     await conBaseDeDatos(async (db) => {
@@ -52,6 +53,7 @@ export async function registrar(datos: {
         productoId: datos.productoId ?? null,
         pedidoId: datos.pedidoId ?? null,
         valorCOP: datos.valorCOP ?? null,
+        qrToken: datos.qrToken ?? null,
       });
     });
   } catch {

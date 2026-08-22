@@ -19,6 +19,7 @@ const esquema = z.object({
   sesion: z.string().min(8).max(64),
   productoId: z.string().uuid().optional(),
   valorCOP: z.number().int().min(0).max(10_000_000).optional(),
+  qrToken: z.string().max(255).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       sesionAnonima: v.data.sesion,
       productoId: v.data.productoId,
       valorCOP: v.data.valorCOP,
+      qrToken: v.data.qrToken,
     });
   } catch {
     // Ver el comentario de arriba: la medición nunca molesta.

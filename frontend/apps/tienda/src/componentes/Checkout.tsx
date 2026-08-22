@@ -26,8 +26,10 @@ import { escribir, useAlmacen } from '@/lib/almacen';
 import { unitarioDe, useCarrito } from './Carrito';
 import { precio } from '@/lib/formato';
 import { ENVIO_COP, TIEMPOS } from '@/lib/envio';
+import { ALMACEN_PALADAR } from './Paladar';
+import type { Perfil } from '@/lib/paladar';
 
-type TipoEntrega = 'domicilio' | 'recoger';
+type TipoEntrega = 'domicilio' | 'recoger' | 'mesa';
 
 const PAGOS = [
   { id: 'efectivo', etiqueta: 'Efectivo', nota: 'Pagas al recibir' },
@@ -40,11 +42,24 @@ const PROPINAS = [0, 2_000, 3_000, 5_000];
 
 const ALMACEN_DATOS = 'bocazo:datos:v1';
 
-export default function Checkout() {
+export default function Checkout({
+  mesa,
+}: {
+  /** Contexto de mesa, si la persona llegó por el QR del local. */
+  mesa: { qrToken: string; mesa: string; local: string } | null;
+}) {
   const router = useRouter();
   const { lineas, subtotalCOP, cargado, vaciar } = useCarrito();
 
-  const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>('domicilio');
+  // Con contexto de mesa se arranca en 'mesa': es lo que casi siempre quiere
+  // quien está sentado en el local, y ahorra un toque en el paso donde menos
+  // conviene añadir fricción.
+  const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>(mesa ? 'mesa' : 'domicilio');
+
+  // El paladar se manda con el pedido, no antes: preguntarle el gusto a alguien
+  // y enviarlo a un servidor sin que haya comprado nada es recoger datos porque
+  // sí.
+  const paladar = useAlmacen<Perfil>(ALMACEN_PALADAR);
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -101,6 +116,8 @@ export default function Checkout() {
           tipoEntrega,
           direccion: tipoEntrega === 'domicilio' ? vDireccion.trim() : undefined,
           indicaciones: vIndicaciones.trim() || undefined,
+          ...(tipoEntrega === 'mesa' && mesa ? { qrToken: mesa.qrToken } : {}),
+          ...(paladar ? { paladar } : {}),
           metodoPago,
           propinaCOP: propina,
           notas: notas.trim() || undefined,
@@ -150,9 +167,12 @@ export default function Checkout() {
       {/* --- Entrega --- */}
       <fieldset className="mt-6">
         <legend className={etiqueta}>¿Cómo lo quieres?</legend>
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${mesa ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {(
             [
+              ...(mesa
+                ? ([{ id: 'mesa', titulo: 'A mi mesa', nota: `Mesa ${mesa.mesa}` }] as const)
+                : []),
               { id: 'domicilio', titulo: 'A domicilio', nota: TIEMPOS.domicilio },
               { id: 'recoger', titulo: 'Lo recojo', nota: TIEMPOS.recoger },
             ] as const
@@ -293,8 +313,14 @@ export default function Checkout() {
         ))}
 
         <div className="flex justify-between border-t border-white/10 pt-2 text-sm text-[#c9bfb2]">
-          <dt>Domicilio</dt>
-          <dd>{envio === 0 ? 'Recoges tú' : precio(envio)}</dd>
+          <dt>{tipoEntrega === 'mesa' ? 'Entrega' : 'Domicilio'}</dt>
+          <dd>
+            {tipoEntrega === 'mesa'
+              ? `Mesa ${mesa?.mesa ?? ''}`
+              : envio === 0
+                ? 'Recoges tú'
+                : precio(envio)}
+          </dd>
         </div>
 
         {propina > 0 && (

@@ -61,6 +61,8 @@ export default async function PaginaPedidos({
     totalCOP: c.totalCOP,
     notas: c.notas,
     minutosInicial: c.minutos,
+    local: c.local,
+    mesa: c.mesa,
     items: c.items.map((i) => ({
       nombreProducto: i.nombreProducto,
       cantidad: i.cantidad,

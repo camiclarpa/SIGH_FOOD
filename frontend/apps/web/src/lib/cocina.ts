@@ -5,8 +5,8 @@
 // Solo servidor: importa la base. La máquina de estados vive aparte, en
 // lib/estados-pedido.ts, porque la comparte el componente de cliente.
 
-import { desc, inArray, sql } from 'drizzle-orm';
-import { pedidoItems, pedidos } from '@sighfood/domain/db/schema';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { accounts, pedidoItems, pedidos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import type { EstadoPedido } from '@/lib/estados-pedido';
 
@@ -33,8 +33,12 @@ export async function colaDePedidos(incluirCerrados = false) {
         // created_at. Hacerlo con Date.now() en el render sería una llamada
         // impura y además compararía dos relojes distintos.
         minutos: sql<number>`GREATEST(0, EXTRACT(EPOCH FROM (now() - ${pedidos.createdAt})) / 60)::int`,
+        // Nombre del local, para cuando haya varios: una comanda que dice
+        // "mesa 4" sin decir de qué bar no sirve de nada.
+        local: sql<string | null>`COALESCE(${accounts.commercialName}, ${accounts.name})`,
       })
       .from(pedidos)
+      .leftJoin(accounts, eq(accounts.id, pedidos.accountId))
       .where(incluirCerrados ? undefined : inArray(pedidos.estado, vivos))
       .orderBy(incluirCerrados ? desc(pedidos.createdAt) : pedidos.createdAt)
       .limit(incluirCerrados ? 50 : 100);
@@ -55,6 +59,7 @@ export async function colaDePedidos(incluirCerrados = false) {
     return filas.map((f) => ({
       ...f.pedido,
       minutos: Number(f.minutos),
+      local: f.local,
       items: porPedido.get(f.pedido.id) ?? [],
     }));
   });

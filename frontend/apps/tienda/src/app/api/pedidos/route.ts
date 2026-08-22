@@ -34,7 +34,13 @@ const esquema = z.object({
     .string({ error: 'Falta tu teléfono' })
     .min(7, 'El teléfono es muy corto')
     .max(30, 'El teléfono es muy largo'),
-  tipoEntrega: z.enum(['domicilio', 'recoger'], { error: 'Elige cómo lo quieres recibir' }),
+  tipoEntrega: z.enum(['domicilio', 'recoger', 'mesa'], {
+    error: 'Elige cómo lo quieres recibir',
+  }),
+  /** Token del QR de la mesa. Se revalida en el servidor, nunca se cree. */
+  qrToken: z.string().max(255).optional(),
+  /** Perfil de paladar del cuestionario, si lo respondió. */
+  paladar: z.record(z.string().max(40), z.string().max(40)).optional(),
   direccion: z.string().max(255, 'La dirección es muy larga').optional(),
   indicaciones: z.string().max(255).optional(),
   metodoPago: z.enum(['efectivo', 'nequi', 'daviplata', 'tarjeta', 'pse', 'transferencia'], {

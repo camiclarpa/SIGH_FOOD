@@ -40,10 +40,13 @@ export default function Medir({
   evento,
   productoId,
   valorCOP,
+  qrToken,
 }: {
   evento: Evento;
   productoId?: string;
   valorCOP?: number;
+  /** QR de origen: convierte un lote de adhesivos en una campaña medible. */
+  qrToken?: string;
 }) {
   useEffect(() => {
     const cuerpo = JSON.stringify({
@@ -51,6 +54,7 @@ export default function Medir({
       sesion: sesionAnonima(),
       ...(productoId ? { productoId } : {}),
       ...(valorCOP ? { valorCOP } : {}),
+      ...(qrToken ? { qrToken } : {}),
     });
 
     try {
@@ -68,7 +72,7 @@ export default function Medir({
     } catch {
       // Medir nunca puede molestar: si falla, se pierde un dato y ya.
     }
-  }, [evento, productoId, valorCOP]);
+  }, [evento, productoId, valorCOP, qrToken]);
 
   return null;
 }

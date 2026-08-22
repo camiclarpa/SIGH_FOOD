@@ -18,6 +18,7 @@ import type { Metadata } from 'next';
 import { catalogo } from '@/lib/consultas';
 import TarjetaProducto from '@/componentes/TarjetaProducto';
 import FiltroFamilia from '@/componentes/FiltroFamilia';
+import Medir from '@/componentes/Medir';
 
 export const revalidate = 60;
 
@@ -34,6 +35,8 @@ export default async function Portada() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
+      <Medir evento="vio_catalogo" />
+
       <h1 className="font-display text-3xl font-bold leading-tight text-[#f5f1ea]">
         ¿Qué se te antoja hoy?
       </h1>

@@ -2134,6 +2134,14 @@ export const consumerReviews = pgTable('consumer_reviews', {
   consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
   accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
   momentId: uuid('moment_id').references(() => sensoryMoments.id, { onDelete: 'set null' }),
+  /**
+   * Pedido al que responde la reseña.
+   *
+   * Antes solo se podía reseñar un "momento" (un escaneo en mesa). Con la
+   * tienda hay una segunda vía —pedir a domicilio— que también merece opinión,
+   * y es justo donde más falta hace: nadie ve la cara del cliente.
+   */
+  pedidoId: uuid('pedido_id').references(() => pedidos.id, { onDelete: 'set null' }),
   productLine: momentProductLineEnum('product_line'),
   /** 1 a 5. */
   puntuacion: integer('puntuacion'),
@@ -2518,6 +2526,15 @@ export const pedidos = pgTable('pedidos', {
   notas: text('notas'),
   /** Programado para más tarde. Null = lo antes posible. */
   programadoPara: timestamp('programado_para', { withTimezone: true }),
+  /**
+   * Puntos ya otorgados por este pedido.
+   *
+   * Existe para que otorgarlos sea idempotente: la entrega puede marcarse dos
+   * veces —dos personas en la cocina, un reintento— y los puntos solo pueden
+   * darse una. Sin esta marca habría que deducirlo del historial, que es
+   * frágil y lento.
+   */
+  puntosOtorgados: integer('puntos_otorgados'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -2584,6 +2601,123 @@ export type NewChatConversation = typeof chatConversations.$inferInsert;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
 
+// =============================================================================
+// FASE 3 y 4 — identidad, fidelización, favoritos y medición
+// =============================================================================
+
+/**
+ * Sesiones de la tienda.
+ *
+ * Identidad LIVIANA: el teléfono es la cuenta. Sin contraseña, sin correo, sin
+ * registro previo — se pide un código por WhatsApp y listo. Cualquier cosa más
+ * pesada se paga en compras perdidas, y en B2C de comida la barrera de entrada
+ * importa más que el perfil completo.
+ *
+ * El código se guarda HASHEADO. Es de seis dígitos y vive diez minutos, pero
+ * quien pueda leer la base no debería poder entrar como otra persona; y si el
+ * mismo número pide varios códigos, solo el último vale.
+ */
+export const sesionesCliente = pgTable('sesiones_cliente', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  telefono: varchar('telefono', { length: 30 }).notNull(),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+
+  /** SHA-256 del código. Nunca el código en claro. */
+  codigoHash: varchar('codigo_hash', { length: 64 }),
+  codigoExpiraEn: timestamp('codigo_expira_en', { withTimezone: true }),
+  /** Intentos fallidos. A la quinta se invalida: si no, es fuerza bruta sobre 6 dígitos. */
+  intentos: integer('intentos').notNull().default(0),
+
+  /** Token de sesión, también hasheado. Va en una cookie httpOnly. */
+  tokenHash: varchar('token_hash', { length: 64 }),
+  expiraEn: timestamp('expira_en', { withTimezone: true }),
+
+  verificadoEn: timestamp('verificado_en', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_sesiones_telefono').on(t.telefono),
+  index('idx_sesiones_token').on(t.tokenHash),
+]);
+
+/**
+ * Favoritos.
+ *
+ * Guarda la CONFIGURACIÓN, no solo el producto: quien pide siempre el Volcano
+ * intenso con queso extra quiere volver a eso, no al Volcano genérico. Esa es
+ * la diferencia entre un favorito útil y un marcador.
+ */
+export const favoritos = pgTable('favoritos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id')
+    .notNull()
+    .references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  productoId: uuid('producto_id')
+    .notNull()
+    .references(() => productos.id, { onDelete: 'cascade' }),
+  /** Ids de producto_opciones, en orden estable. */
+  opcionIds: jsonb('opcion_ids').$type<string[]>().default([]),
+  /** Nombre que le pone la persona: "el mío", "para compartir". */
+  etiqueta: varchar('etiqueta', { length: 60 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_favoritos_consumer').on(t.consumerId),
+]);
+
+/**
+ * Embudo de conversión.
+ *
+ * Propio, sin píxel de terceros. Un negocio de comida en Colombia no necesita
+ * mandarle a Meta el recorrido de cada comensal para saber dónde pierde
+ * clientes, y hacerlo obliga a un banner de consentimiento que a su vez cuesta
+ * conversión. Con esto la respuesta sale de la misma base donde están los
+ * pedidos, sin pedirle permiso a nadie para observar el propio negocio.
+ *
+ * No guarda quién, guarda qué pasó: `sesionAnonima` es un identificador de
+ * navegador que se puede borrar y que no se cruza con el teléfono salvo que la
+ * persona pida.
+ */
+export const eventosEmbudo = pgTable('eventos_embudo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** vio_catalogo · vio_producto · anadio_carrito · inicio_checkout · pago */
+  evento: varchar('evento', { length: 40 }).notNull(),
+  sesionAnonima: varchar('sesion_anonima', { length: 64 }).notNull(),
+  productoId: uuid('producto_id').references(() => productos.id, { onDelete: 'set null' }),
+  pedidoId: uuid('pedido_id').references(() => pedidos.id, { onDelete: 'set null' }),
+  /** Importe en juego, para poder medir el valor perdido en cada paso. */
+  valorCOP: integer('valor_cop'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_embudo_evento').on(t.evento, t.createdAt),
+  index('idx_embudo_sesion').on(t.sesionAnonima),
+]);
+
+/**
+ * Zonas de cobertura.
+ *
+ * El coste del domicilio sale de aquí y no de una API de mapas. Un servicio de
+ * geocodificación cobra por consulta, exige una clave y añade una dependencia
+ * externa al camino crítico de la compra: si Google no responde, nadie puede
+ * pedir. Para un negocio con un local y cuatro barrios alrededor, una tabla de
+ * zonas es más barata, más rápida y no se cae.
+ *
+ * Cuando haya varios locales y decenas de zonas, entonces sí toca geocodificar
+ * — y el cálculo ya está aislado detrás de una sola función.
+ */
+export const zonasEnvio = pgTable('zonas_envio', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nombre: varchar('nombre', { length: 100 }).notNull().unique(),
+  costoCOP: integer('costo_cop').notNull(),
+  minutosEstimados: varchar('minutos_estimados', { length: 20 }),
+  /** Pedido mínimo para esta zona. */
+  minimoCOP: integer('minimo_cop').notNull().default(0),
+  /** Palabras que identifican la zona en una dirección escrita a mano. */
+  alias: jsonb('alias').$type<string[]>().default([]),
+  activa: boolean('activa').notNull().default(true),
+  orden: integer('orden').default(0),
+}, (t) => [
+  index('idx_zonas_activa').on(t.activa),
+]);
+
 export type Producto = typeof productos.$inferSelect;
 export type NewProducto = typeof productos.$inferInsert;
 export type ProductoOpcion = typeof productoOpciones.$inferSelect;
@@ -2592,3 +2726,8 @@ export type Pedido = typeof pedidos.$inferSelect;
 export type NewPedido = typeof pedidos.$inferInsert;
 export type PedidoItem = typeof pedidoItems.$inferSelect;
 export type PedidoEvento = typeof pedidoEventos.$inferSelect;
+
+export type SesionCliente = typeof sesionesCliente.$inferSelect;
+export type Favorito = typeof favoritos.$inferSelect;
+export type EventoEmbudo = typeof eventosEmbudo.$inferSelect;
+export type ZonaEnvio = typeof zonasEnvio.$inferSelect;

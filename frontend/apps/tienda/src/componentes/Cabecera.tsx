@@ -38,6 +38,15 @@ export default function Cabecera() {
           </button>
         )}
 
+        <div className="flex items-center gap-1">
+          <Link
+            href="/cuenta"
+            aria-label="Mi cuenta"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#f5f1ea]"
+          >
+            <span aria-hidden className="text-xl">👤</span>
+          </Link>
+
         <Link
           href="/carrito"
           aria-label={`Carrito, ${unidades} ${unidades === 1 ? 'producto' : 'productos'}`}
@@ -50,6 +59,7 @@ export default function Cabecera() {
             </span>
           )}
         </Link>
+        </div>
       </div>
     </header>
   );

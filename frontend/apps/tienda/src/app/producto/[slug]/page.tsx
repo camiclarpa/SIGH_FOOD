@@ -12,6 +12,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { producto, slugsPublicados } from '@/lib/consultas';
 import Personalizar from '@/componentes/Personalizar';
+import Medir from '@/componentes/Medir';
 
 export const revalidate = 60;
 
@@ -48,5 +49,10 @@ export default async function PaginaProducto({
 
   if (!datos) notFound();
 
-  return <Personalizar producto={datos.producto} opciones={datos.opciones} />;
+  return (
+    <>
+      <Medir evento="vio_producto" productoId={datos.producto.id} />
+      <Personalizar producto={datos.producto} opciones={datos.opciones} />
+    </>
+  );
 }

@@ -65,7 +65,13 @@ function generarCodigo(): string {
 }
 
 export type ResultadoPedido =
-  | { ok: true; codigo: string; totalCOP: number }
+  | {
+      ok: true;
+      codigo: string;
+      totalCOP: number;
+      /** Nombres reales, para el comprobante. El slug no se le enseña a nadie. */
+      lineas: Array<{ cantidad: number; nombre: string }>;
+    }
   | { ok: false; error: string };
 
 /**
@@ -245,7 +251,12 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
       return cabecera.codigo;
     });
 
-    return { ok: true as const, codigo, totalCOP: total };
+    return {
+      ok: true as const,
+      codigo,
+      totalCOP: total,
+      lineas: lineas.map((l) => ({ cantidad: l.cantidad, nombre: l.nombreProducto })),
+    };
   });
 }
 

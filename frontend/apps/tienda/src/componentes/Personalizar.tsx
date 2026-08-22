@@ -23,6 +23,7 @@ import { useMemo, useState } from 'react';
 import type { OpcionProducto, ProductoTienda } from '@/lib/consultas';
 import { useCarrito } from './Carrito';
 import { precio } from '@/lib/formato';
+import { medir } from '@/lib/medir-cliente';
 
 interface Grupo {
   nombre: string;
@@ -103,6 +104,10 @@ export default function Personalizar({
       },
       cantidad
     );
+
+    // La medición va aquí y no en el carrito: lo que interesa saber es qué
+    // producto se añadió, y en el carrito ya se ha perdido esa información.
+    medir('anadio_carrito', p.id, unitario * cantidad);
 
     // Confirmación breve antes de navegar: sin ella, el salto al carrito se
     // siente como si la app hubiera hecho algo que no pediste.

@@ -18,6 +18,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { crearPedido } from '@/lib/pedidos';
+import { enviarComprobante } from '@/lib/avisos';
+import { registrar } from '@/lib/medicion';
+import { contextoCloudflare } from '@/lib/cloudflare';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +81,29 @@ export async function POST(request: NextRequest) {
     // Los errores de crearPedido están escritos para leerse en el checkout
     // ("Spicy Volcano se acaba de agotar"), así que se devuelven tal cual.
     if (!r.ok) return NextResponse.json(r, { status: 409 });
+
+    // El comprobante y la medicion van DESPUES de responder, en waitUntil: el
+    // pedido ya esta guardado y hacer esperar a la persona por un mensaje de
+    // WhatsApp seria cobrarle latencia por una cortesia.
+    const base = new URL(request.url).origin;
+    const despues = Promise.allSettled([
+      enviarComprobante({
+        telefono: v.data.telefono,
+        codigo: r.codigo,
+        lineas: r.lineas,
+        totalCOP: r.totalCOP,
+        tipoEntrega: v.data.tipoEntrega,
+        url: `${base}/pedido/${r.codigo}`,
+      }),
+      registrar({
+        evento: 'pago',
+        sesionAnonima: request.headers.get('x-sesion-anonima') ?? 'sin-sesion',
+        valorCOP: r.totalCOP,
+      }),
+    ]);
+
+    const { ctx } = await contextoCloudflare();
+    if (ctx?.waitUntil) ctx.waitUntil(despues);
 
     return NextResponse.json(r, { status: 201 });
   } catch (e) {

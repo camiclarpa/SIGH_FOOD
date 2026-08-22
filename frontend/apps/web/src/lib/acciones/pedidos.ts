@@ -20,6 +20,8 @@ import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import { siguientesDe, type EstadoPedido } from '@/lib/estados-pedido';
+import { otorgarPuntosDePedido } from '@/lib/club-pedidos';
+import { avisarCambioDeEstado } from '@/lib/avisos-pedidos';
 
 export interface Resultado<T = undefined> {
   ok: boolean;
@@ -93,6 +95,41 @@ export async function avanzarPedido(datos: {
         ruta: '/acciones/pedidos',
         detalle: [actor.email, pedido.codigo],
       });
+
+      // Al entregar se otorgan los puntos del club. Va aqui y no en la tienda
+      // porque es el CRM quien sabe que se entrego de verdad.
+      //
+      // Envuelto: que falle el premio no puede impedir marcar una entrega que
+      // ya ocurrio fisicamente. Los puntos se recuperan reejecutando; una
+      // entrega sin registrar descuadra la cocina.
+      if (datos.estado === 'entregado') {
+        try {
+          const puntos = await otorgarPuntosDePedido(datos.id);
+          if (puntos > 0) {
+            log.info('Puntos del club otorgados', {
+              ruta: '/acciones/pedidos',
+              detalle: [pedido.codigo, `${puntos} puntos`],
+            });
+          }
+        } catch (e) {
+          log.error('No se pudieron otorgar los puntos del pedido', e, {
+            ruta: '/acciones/pedidos',
+            detalle: pedido.codigo,
+          });
+        }
+      }
+
+      // Y se avisa por WhatsApp. Mismo criterio: es cortesia, no puede tumbar
+      // la operacion.
+      try {
+        await avisarCambioDeEstado({
+          telefono: pedido.telefono,
+          codigo: pedido.codigo,
+          estado: datos.estado,
+        });
+      } catch {
+        // La pasarela ya registra el detalle.
+      }
 
       return undefined;
     });

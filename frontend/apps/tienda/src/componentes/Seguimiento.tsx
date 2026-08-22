@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { PedidoCompleto } from '@/lib/consultas';
 import { precio } from '@/lib/formato';
+import Resena from './Resena';
 
 const PASOS_DOMICILIO = [
   { id: 'recibido', etiqueta: 'Pedido recibido', nota: 'Lo tenemos' },
@@ -199,6 +200,9 @@ export default function Seguimiento({ pedido }: { pedido: PedidoCompleto }) {
           {pedido.estadoPago === 'aprobado' ? 'pagado' : 'pendiente de cobro'}
         </p>
       </section>
+
+      {/* --- Reseña, solo al entregar --- */}
+      {pedido.estado === 'entregado' && <Resena codigo={pedido.codigo} />}
 
       {/* --- Volver a pedir --- */}
       {terminado && !cancelado && (

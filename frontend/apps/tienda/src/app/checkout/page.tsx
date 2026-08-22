@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Checkout from '@/componentes/Checkout';
+import Medir from '@/componentes/Medir';
 
 export const metadata: Metadata = {
   title: 'Confirmar pedido · Bocazo',
@@ -9,5 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function PaginaCheckout() {
-  return <Checkout />;
+  return (
+    <>
+      <Medir evento="inicio_checkout" />
+      <Checkout />
+    </>
+  );
 }

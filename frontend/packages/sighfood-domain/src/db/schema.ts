@@ -417,6 +417,56 @@ export const agentHealthStatusEnum = pgEnum('agent_health_status', [
   'offline'
 ]);
 
+// -----------------------------------------------------------------------------
+// Tienda B2C
+// -----------------------------------------------------------------------------
+
+/**
+ * Estados de un pedido.
+ *
+ * El orden importa: es una maquina de estados que solo avanza, salvo por
+ * 'cancelado', al que se puede llegar desde cualquier punto anterior a la
+ * entrega. Retroceder no tiene sentido — un pedido entregado no vuelve a estar
+ * en preparacion — y permitirlo abriria la puerta a que la cocina "des-entregue"
+ * algo por error de clic.
+ */
+export const estadoPedidoEnum = pgEnum('estado_pedido', [
+  'recibido',
+  'confirmado',
+  'preparando',
+  'listo',
+  'en_camino',
+  'entregado',
+  'cancelado'
+]);
+
+export const tipoEntregaEnum = pgEnum('tipo_entrega', ['domicilio', 'recoger']);
+
+export const metodoPagoEnum = pgEnum('metodo_pago', [
+  'efectivo',
+  'nequi',
+  'daviplata',
+  'tarjeta',
+  'pse',
+  'transferencia'
+]);
+
+/**
+ * Estados del pago, separados del estado del pedido.
+ *
+ * Van aparte porque son ejes independientes: un pedido puede estar 'entregado'
+ * con el pago 'pendiente' (contra entrega), o 'recibido' con el pago 'aprobado'
+ * (pago anticipado). Mezclarlos en un solo campo obliga a inventar estados
+ * combinados y a duplicar la logica en cada consulta.
+ */
+export const estadoPagoEnum = pgEnum('estado_pago', [
+  'pendiente',
+  'procesando',
+  'aprobado',
+  'rechazado',
+  'reembolsado'
+]);
+
 
 // =============================================================================
 // NOTA SOBRE ÍNDICES
@@ -2327,7 +2377,218 @@ export const chatMessages = pgTable('chat_messages', {
   uniqueIndex('uq_chat_msg_wamid').on(t.wamid),
 ]);
 
+// =============================================================================
+// TIENDA B2C — catálogo, pedidos y seguimiento
+// =============================================================================
+//
+// La web app de pedidos. Separada del CRM (que es la herramienta interna) y de
+// la landing (que convence una vez): esto es lo que el comensal usa de forma
+// repetida para pedir.
+
+/**
+ * Catálogo.
+ *
+ * Los productos viven en la base y no en el código para que se puedan crear,
+ * editar, despublicar y quedarse sin existencias desde el CRM, sin desplegar.
+ * Un negocio de comida cambia la carta más a menudo de lo que despliega.
+ */
+export const productos = pgTable('productos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Identificador legible para las URLs: /producto/spicy-volcano. */
+  slug: varchar('slug', { length: 120 }).notNull().unique(),
+  nombre: varchar('nombre', { length: 150 }).notNull(),
+  /** Frase corta de venta. Lo primero que se lee en la tarjeta. */
+  gancho: varchar('gancho', { length: 200 }),
+  descripcion: text('descripcion'),
+  /** Lo que se nota al morder, en orden. */
+  notas: jsonb('notas').$type<string[]>().default([]),
+  ingredientes: jsonb('ingredientes').$type<string[]>().default([]),
+  maridaje: jsonb('maridaje').$type<string[]>().default([]),
+  /** En centavos NO: en pesos enteros. El peso colombiano no tiene decimales. */
+  precioCOP: integer('precio_cop').notNull(),
+  imagen: varchar('imagen', { length: 255 }),
+  /** Marcador borroso en base64 mientras carga la foto. */
+  marcador: text('marcador'),
+  familia: varchar('familia', { length: 40 }),
+  lineaProducto: momentProductLineEnum('linea_producto'),
+  /** 1 suave, 3 pica de verdad. */
+  intensidad: integer('intensidad').default(1),
+  pesoGramos: integer('peso_gramos'),
+  vegetariano: boolean('vegetariano').default(false),
+  /** Publicado en la tienda. Despublicar no borra el histórico de pedidos. */
+  activo: boolean('activo').notNull().default(true),
+  /** Sin existencias: se ve, pero no se puede pedir. Es mejor que desaparezca. */
+  disponible: boolean('disponible').notNull().default(true),
+  destacado: boolean('destacado').default(false),
+  orden: integer('orden').default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_productos_activo').on(t.activo, t.disponible),
+  index('idx_productos_orden').on(t.orden),
+]);
+
+/**
+ * Opciones de personalización de un producto.
+ *
+ * Un grupo es "Nivel de picante" o "Extras"; cada opción es "Suave", "Intenso",
+ * "Queso extra". El sobreprecio va en la opción porque es donde varía.
+ *
+ * `seleccionMultiple` distingue radio de checkbox: el picante es uno solo, los
+ * extras son varios. Sin esa distinción habría que adivinarla en la interfaz.
+ */
+export const productoOpciones = pgTable('producto_opciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productoId: uuid('producto_id')
+    .notNull()
+    .references(() => productos.id, { onDelete: 'cascade' }),
+  grupo: varchar('grupo', { length: 80 }).notNull(),
+  etiqueta: varchar('etiqueta', { length: 80 }).notNull(),
+  /** Sobreprecio en pesos. 0 si no cuesta más. */
+  sobreprecioCOP: integer('sobreprecio_cop').notNull().default(0),
+  seleccionMultiple: boolean('seleccion_multiple').notNull().default(false),
+  /** La que viene marcada de fábrica. Solo tiene sentido en grupos de una. */
+  porDefecto: boolean('por_defecto').default(false),
+  orden: integer('orden').default(0),
+  activo: boolean('activo').notNull().default(true),
+}, (t) => [
+  index('idx_opciones_producto').on(t.productoId),
+]);
+
+/**
+ * Direcciones guardadas.
+ *
+ * Sirven para que la segunda compra no vuelva a pedir lo mismo, que es donde se
+ * pierde la recompra: quien ya escribió su dirección una vez y tiene que
+ * repetirla, abandona.
+ */
+export const direcciones = pgTable('direcciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id')
+    .notNull()
+    .references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  /** "Casa", "Oficina". Lo pone la persona. */
+  etiqueta: varchar('etiqueta', { length: 40 }),
+  direccion: varchar('direccion', { length: 255 }).notNull(),
+  /** Piso, apartamento, portería: lo que el repartidor necesita y el mapa no da. */
+  indicaciones: varchar('indicaciones', { length: 255 }),
+  barrio: varchar('barrio', { length: 100 }),
+  ciudad: varchar('ciudad', { length: 100 }).default('Bogotá'),
+  esPredeterminada: boolean('es_predeterminada').default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_direcciones_consumer').on(t.consumerId),
+]);
+
+/**
+ * Pedidos.
+ *
+ * Los importes se congelan al crear el pedido en lugar de calcularse leyendo el
+ * producto: si mañana sube el precio, el pedido de ayer tiene que seguir
+ * diciendo lo que se cobró. Un total que cambia solo es un problema contable y
+ * una discusión con el cliente.
+ */
+export const pedidos = pgTable('pedidos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Código corto que se le dice a la persona: BZ-4F2A. */
+  codigo: varchar('codigo', { length: 12 }).notNull().unique(),
+
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'set null' }),
+  /** Se copian del formulario: el pedido debe poder leerse sin la ficha. */
+  nombre: varchar('nombre', { length: 150 }).notNull(),
+  telefono: varchar('telefono', { length: 30 }).notNull(),
+
+  tipoEntrega: tipoEntregaEnum('tipo_entrega').notNull().default('domicilio'),
+  direccion: varchar('direccion', { length: 255 }),
+  indicaciones: varchar('indicaciones', { length: 255 }),
+
+  estado: estadoPedidoEnum('estado').notNull().default('recibido'),
+  metodoPago: metodoPagoEnum('metodo_pago').notNull(),
+  estadoPago: estadoPagoEnum('estado_pago').notNull().default('pendiente'),
+  /** Referencia de la pasarela, cuando la haya. */
+  referenciaPago: varchar('referencia_pago', { length: 120 }),
+
+  subtotalCOP: integer('subtotal_cop').notNull(),
+  envioCOP: integer('envio_cop').notNull().default(0),
+  propinaCOP: integer('propina_cop').notNull().default(0),
+  descuentoCOP: integer('descuento_cop').notNull().default(0),
+  totalCOP: integer('total_cop').notNull(),
+
+  /** Para la cocina: alergias, "sin cebolla", lo que sea. */
+  notas: text('notas'),
+  /** Programado para más tarde. Null = lo antes posible. */
+  programadoPara: timestamp('programado_para', { withTimezone: true }),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  entregadoEn: timestamp('entregado_en', { withTimezone: true }),
+}, (t) => [
+  index('idx_pedidos_estado').on(t.estado),
+  index('idx_pedidos_consumer').on(t.consumerId),
+  index('idx_pedidos_fecha').on(t.createdAt),
+  index('idx_pedidos_telefono').on(t.telefono),
+]);
+
+/**
+ * Líneas del pedido.
+ *
+ * `nombreProducto` y `precioUnitarioCOP` se copian a propósito, aunque haya
+ * referencia al producto. Si el producto se renombra o se despublica, el pedido
+ * histórico tiene que seguir siendo legible: un recibo que dice "producto
+ * eliminado" no sirve ni para el cliente ni para la contabilidad.
+ */
+export const pedidoItems = pgTable('pedido_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pedidoId: uuid('pedido_id')
+    .notNull()
+    .references(() => pedidos.id, { onDelete: 'cascade' }),
+  productoId: uuid('producto_id').references(() => productos.id, { onDelete: 'set null' }),
+
+  nombreProducto: varchar('nombre_producto', { length: 150 }).notNull(),
+  cantidad: integer('cantidad').notNull().default(1),
+  precioUnitarioCOP: integer('precio_unitario_cop').notNull(),
+  /** Opciones elegidas, congeladas: [{ grupo, etiqueta, sobreprecio }]. */
+  opciones: jsonb('opciones')
+    .$type<Array<{ grupo: string; etiqueta: string; sobreprecio: number }>>()
+    .default([]),
+  /** Unitario + sobreprecios, por la cantidad. */
+  subtotalCOP: integer('subtotal_cop').notNull(),
+  notas: varchar('notas', { length: 255 }),
+}, (t) => [
+  index('idx_pedido_items_pedido').on(t.pedidoId),
+]);
+
+/**
+ * Historial de estados.
+ *
+ * Es lo que alimenta el seguimiento que ve el cliente, y también la única forma
+ * de saber después dónde se atascó un pedido. Guardar solo el estado actual en
+ * `pedidos` deja sin respuesta la pregunta más útil: cuánto tardó cada paso.
+ */
+export const pedidoEventos = pgTable('pedido_eventos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pedidoId: uuid('pedido_id')
+    .notNull()
+    .references(() => pedidos.id, { onDelete: 'cascade' }),
+  estado: estadoPedidoEnum('estado').notNull(),
+  /** Quién lo cambió. Null si lo hizo el sistema. */
+  staffUserId: uuid('staff_user_id').references(() => staffUsers.id, { onDelete: 'set null' }),
+  nota: varchar('nota', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_pedido_eventos_pedido').on(t.pedidoId, t.createdAt),
+]);
+
 export type ChatConversation = typeof chatConversations.$inferSelect;
 export type NewChatConversation = typeof chatConversations.$inferInsert;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
+
+export type Producto = typeof productos.$inferSelect;
+export type NewProducto = typeof productos.$inferInsert;
+export type ProductoOpcion = typeof productoOpciones.$inferSelect;
+export type Direccion = typeof direcciones.$inferSelect;
+export type Pedido = typeof pedidos.$inferSelect;
+export type NewPedido = typeof pedidos.$inferInsert;
+export type PedidoItem = typeof pedidoItems.$inferSelect;
+export type PedidoEvento = typeof pedidoEventos.$inferSelect;

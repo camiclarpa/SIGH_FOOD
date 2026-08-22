@@ -28,6 +28,10 @@ export type Permiso =
   | 'campanas.editar'
   | 'campanas.activar'
   | 'campanas.probar'
+  // Pedidos de la tienda
+  | 'pedidos.ver'
+  | 'pedidos.avanzar'
+  | 'productos.gestionar'
   // QR
   | 'qr.gestionar'
   | 'qr.redirigir'
@@ -51,6 +55,7 @@ export type Permiso =
  */
 const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
   admin: [
+    'pedidos.ver', 'pedidos.avanzar', 'productos.gestionar',
     'premios.gestionar', 'canjes.emitir', 'canjes.entregar', 'canjes.anular',
     'puntos.ajustar', 'desafios.gestionar',
     'comensales.editar', 'consentimientos.revocar', 'resenas.moderar',
@@ -60,6 +65,7 @@ const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'datos.exportar', 'usuarios.gestionar',
   ],
   comercial: [
+    'pedidos.ver', 'pedidos.avanzar',
     'canjes.emitir', 'canjes.entregar',
     'comensales.editar', 'consentimientos.revocar', 'resenas.moderar',
     'campanas.editar', 'campanas.probar',

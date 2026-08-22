@@ -18,6 +18,7 @@ const GRUPOS = [
     titulo: null,
     enlaces: [
       { href: '/panel', texto: 'Panel', icono: '◱' },
+  { href: '/pedidos', etiqueta: 'Pedidos' },
       { href: '/comensales', texto: 'Comensales', icono: '☺' },
       { href: '/momentos', texto: 'Momentos', icono: '◉' },
       { href: '/fidelizacion', texto: 'Fidelización', icono: '★' },

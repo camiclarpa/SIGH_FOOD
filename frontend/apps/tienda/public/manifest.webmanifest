@@ -1,0 +1,14 @@
+{
+  "name": "Bocazo",
+  "short_name": "Bocazo",
+  "description": "Pide tus conos Bocazo. Cinco sabores, preparados al momento.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12100e",
+  "theme_color": "#12100e",
+  "orientation": "portrait",
+  "lang": "es-CO",
+  "icons": [
+    { "src": "/conos/spicy-volcano-480.webp", "sizes": "480x600", "type": "image/webp", "purpose": "any" }
+  ]
+}

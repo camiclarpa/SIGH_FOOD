@@ -1,0 +1,67 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+
+  // Worker propio de la tienda, separado de la landing (sigh-bocazo) y del CRM
+  // (sighbocazo-crm). Son tres cosas distintas:
+  //
+  //   · sigh-bocazo      convence una vez. Estática, sin base de datos.
+  //   · bocazo-tienda    esto. El comensal pide, y vuelve a pedir.
+  //   · sighbocazo-crm   herramienta interna, detrás de sesión.
+  //
+  // Va aparte y no dentro de la landing porque la landing NO tiene binding de
+  // Hyperdrive, y se lo quitaron a propósito: rompía su despliegue en CI. Meter
+  // la tienda ahí obligaría a devolverlo y a reabrir ese problema.
+  "name": "bocazo-tienda",
+
+  // Cuenta: Camiloriverac0@gmail.com's Account
+  "account_id": "5e153923b7c5fdd9468c9b184cee5866",
+
+  // Salida de @opennextjs/cloudflare (no es un entrypoint propio: lo genera el build).
+  "main": ".open-next/worker.js",
+
+  // OpenNext exige 2024-09-23 o posterior + nodejs_compat.
+  "compatibility_date": "2026-08-07",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Hyperdrive: agrupa las conexiones a Neon para que el Worker no abra una
+  // conexión nueva por isolate. Misma configuración que el CRM, misma base.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "be704b244ff041d0b3200284bff8c965",
+
+      // Marcador de posición, NO una credencial. Wrangler lo exige para emular
+      // Hyperdrive en local, y sin él `opennextjs-cloudflare deploy` falla con
+      // "no local hyperdrive connection string" aunque esté publicando a
+      // producción. Este archivo está en git: la cadena real de Neon no va aquí.
+      //
+      // Para desarrollo local contra la base real se usa
+      // WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE en .env.local,
+      // que sí está ignorado por git.
+      "localConnectionString": "postgresql://usuario:contrasena@localhost:5432/sighfood_local"
+    }
+  ],
+
+  // Rate limiting en el borde. La tienda es pública y su endpoint de creación
+  // de pedidos escribe en la base: sin límite, cualquiera puede llenarla.
+  //
+  // `period` solo admite 10 o 60. El namespace_id es distinto al del CRM para
+  // que los contadores no se mezclen entre las dos aplicaciones.
+  "ratelimits": [
+    {
+      "name": "LIMITADOR_PUBLICO",
+      "namespace_id": "1002",
+      "simple": { "limit": 30, "period": 60 }
+    }
+  ],
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

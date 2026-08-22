@@ -26,7 +26,19 @@ import { fileURLToPath } from 'node:url';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ_APP = path.resolve(AQUI, '..');
-const ENV_LOCAL = path.join(RAIZ_APP, '.env.local');
+/**
+ * `.env.development.local` y NO `.env.local`.
+ *
+ * Next lee `.env.local` TAMBIEN al compilar para produccion, y
+ * opennextjs-cloudflare serializa todo process.env dentro del bundle del
+ * Worker. Cualquier credencial en `.env.local` acaba en texto plano en el
+ * paquete desplegado — paso en este proyecto con la contrasena de Neon, el
+ * AUTH_SECRET y el token de Meta.
+ *
+ * `.env.development.local` solo se lee con NODE_ENV=development, asi que sirve
+ * para el servidor de desarrollo y no contamina la compilacion.
+ */
+const ENV_DEV = path.join(RAIZ_APP, '.env.development.local');
 const PRODUCCION = process.argv.includes('--produccion');
 
 /**
@@ -100,8 +112,8 @@ async function preguntar(texto, oculto = false) {
 // ---------------------------------------------------------------------------
 
 function leerEnv() {
-  if (!fs.existsSync(ENV_LOCAL)) return '';
-  return fs.readFileSync(ENV_LOCAL, 'utf8');
+  if (!fs.existsSync(ENV_DEV)) return '';
+  return fs.readFileSync(ENV_DEV, 'utf8');
 }
 
 function valorDe(contenido, clave) {
@@ -201,8 +213,8 @@ async function principal() {
   for (const [clave, valor] of Object.entries(valores)) {
     contenido = fijarEnEnv(contenido, clave, valor);
   }
-  fs.writeFileSync(ENV_LOCAL, contenido, 'utf8');
-  console.log(`  Guardado en ${path.relative(process.cwd(), ENV_LOCAL)}\n`);
+  fs.writeFileSync(ENV_DEV, contenido, 'utf8');
+  console.log(`  Guardado en ${path.relative(process.cwd(), ENV_DEV)}\n`);
 
   // --- Aviso de entorno ---
   const esPruebas = valores.WOMPI_PUBLIC_KEY.includes('_test_');

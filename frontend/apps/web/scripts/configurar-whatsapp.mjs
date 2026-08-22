@@ -28,7 +28,19 @@ import { fileURLToPath } from 'node:url';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ_APP = path.resolve(AQUI, '..');
-const ENV_LOCAL = path.join(RAIZ_APP, '.env.local');
+/**
+ * `.env.development.local` y NO `.env.local`.
+ *
+ * Next lee `.env.local` TAMBIEN al compilar para produccion, y
+ * opennextjs-cloudflare serializa todo process.env dentro del bundle del
+ * Worker. Cualquier credencial en `.env.local` acaba en texto plano en el
+ * paquete desplegado — paso en este proyecto con la contrasena de Neon, el
+ * AUTH_SECRET y el token de Meta.
+ *
+ * `.env.development.local` solo se lee con NODE_ENV=development, asi que sirve
+ * para el servidor de desarrollo y no contamina la compilacion.
+ */
+const ENV_DEV = path.join(RAIZ_APP, '.env.development.local');
 const PRODUCCION = process.argv.includes('--produccion');
 
 // -----------------------------------------------------------------------------
@@ -194,12 +206,12 @@ async function principal() {
   console.log('  Los tres secretos no se muestran al teclearlos ni se imprimen después.');
   console.log('  Deja una respuesta en blanco para conservar el valor que ya hubiera.\n');
 
-  if (!fs.existsSync(ENV_LOCAL)) {
-    console.error(`  No existe ${ENV_LOCAL}. Créalo antes (necesita al menos DATABASE_URL).\n`);
+  if (!fs.existsSync(ENV_DEV)) {
+    console.error(`  No existe ${ENV_DEV}. Créalo antes (necesita al menos DATABASE_URL).\n`);
     process.exit(1);
   }
 
-  let contenido = fs.readFileSync(ENV_LOCAL, 'utf8');
+  let contenido = fs.readFileSync(ENV_DEV, 'utf8');
   const valores = {};
   const cambiadas = [];
 
@@ -225,8 +237,8 @@ async function principal() {
 
   rl.close();
 
-  fs.writeFileSync(ENV_LOCAL, contenido, 'utf8');
-  console.log(`  Guardado en ${path.relative(process.cwd(), ENV_LOCAL)} (ignorado por git).\n`);
+  fs.writeFileSync(ENV_DEV, contenido, 'utf8');
+  console.log(`  Guardado en ${path.relative(process.cwd(), ENV_DEV)} (ignorado por git).\n`);
 
   // --- Comprobación real ---
   console.log('  Comprobando contra la Graph API de Meta…');

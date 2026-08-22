@@ -1,25 +1,30 @@
 /**
  * Ficha de producto.
  *
- * Se prerenderiza cada slug publicado: el catálogo son cinco productos y
- * cambian poco, así que generar las cinco páginas en el build sale gratis y las
- * sirve el borde sin tocar la base.
+ * NO se prerenderiza en el build, y es deliberado.
  *
- * La revalidación corta cubre lo que sí cambia a menudo: la disponibilidad.
+ * Generar las cinco páginas al compilar exige credenciales de base de datos
+ * DURANTE el build, y ahí está el problema: opennextjs-cloudflare serializa
+ * todo process.env dentro del bundle del Worker. Cualquier credencial que exista
+ * en el momento de compilar acaba en texto plano en el paquete desplegado —
+ * DATABASE_URL, AUTH_SECRET, tokens de terceros, todo.
+ *
+ * Se descubrió con este proyecto: los tres Workers llevaban el juego completo
+ * de secretos horneado dentro, lo que hacía decorativo todo el `wrangler secret
+ * put` que se había hecho.
+ *
+ * Con ISR bajo demanda, la primera visita a cada producto genera la página y el
+ * resto se sirven del caché durante el tiempo de revalidación. Se pierde una
+ * optimización de arranque; se gana no publicar las llaves de la casa.
  */
 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { producto, slugsPublicados } from '@/lib/consultas';
+import { producto } from '@/lib/consultas';
 import Personalizar from '@/componentes/Personalizar';
 import Medir from '@/componentes/Medir';
 
 export const revalidate = 60;
-
-export async function generateStaticParams() {
-  const slugs = await slugsPublicados();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({
   params,

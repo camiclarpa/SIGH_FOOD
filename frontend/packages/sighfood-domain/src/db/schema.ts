@@ -2740,6 +2740,51 @@ export const zonasEnvio = pgTable('zonas_envio', {
   index('idx_zonas_activa').on(t.activa),
 ]);
 
+/**
+ * Transacciones de la pasarela.
+ *
+ * `pedidos.estadoPago` dice CÓMO ESTÁ el pago; esto dice QUÉ PASÓ. Hacen falta
+ * las dos cosas: un pago declinado y reintentado son dos transacciones sobre el
+ * mismo pedido, y con un solo campo el segundo intento borra el rastro del
+ * primero — justo lo que se necesita para explicarle a alguien por qué le
+ * falló.
+ */
+export const pagos = pgTable('pagos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pedidoId: uuid('pedido_id')
+    .notNull()
+    .references(() => pedidos.id, { onDelete: 'cascade' }),
+
+  /**
+   * Referencia que se le manda a Wompi. Única por INTENTO, no por pedido:
+   * Wompi rechaza una referencia repetida, así que reintentar exige otra.
+   */
+  referencia: varchar('referencia', { length: 120 }).notNull().unique(),
+  transaccionId: varchar('transaccion_id', { length: 120 }),
+
+  estado: estadoPagoEnum('estado').notNull().default('pendiente'),
+  metodo: metodoPagoEnum('metodo').notNull(),
+
+  /** En CENTAVOS, como los maneja Wompi. Se guarda sin convertir. */
+  montoCentavos: integer('monto_centavos').notNull(),
+  moneda: varchar('moneda', { length: 3 }).notNull().default('COP'),
+
+  /** Lo que dijo la pasarela al fallar, para explicarlo sin abrir su panel. */
+  mensaje: varchar('mensaje', { length: 500 }),
+  cargaUtil: jsonb('carga_util'),
+
+  creadoEn: timestamp('creado_en', { withTimezone: true }).defaultNow(),
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).defaultNow(),
+  aprobadoEn: timestamp('aprobado_en', { withTimezone: true }),
+}, (t) => [
+  index('idx_pagos_pedido').on(t.pedidoId),
+  index('idx_pagos_transaccion').on(t.transaccionId),
+  index('idx_pagos_estado').on(t.estado, t.creadoEn),
+  // El indice unico PARCIAL que impide dos cobros aprobados sobre el mismo
+  // pedido se declara en la migracion 0012: Drizzle no expresa WHERE en
+  // uniqueIndex, y ponerlo solo en codigo no aguantaria dos webhooks a la vez.
+]);
+
 export type Producto = typeof productos.$inferSelect;
 export type NewProducto = typeof productos.$inferInsert;
 export type ProductoOpcion = typeof productoOpciones.$inferSelect;
@@ -2753,3 +2798,6 @@ export type SesionCliente = typeof sesionesCliente.$inferSelect;
 export type Favorito = typeof favoritos.$inferSelect;
 export type EventoEmbudo = typeof eventosEmbudo.$inferSelect;
 export type ZonaEnvio = typeof zonasEnvio.$inferSelect;
+
+export type Pago = typeof pagos.$inferSelect;
+export type NewPago = typeof pagos.$inferInsert;

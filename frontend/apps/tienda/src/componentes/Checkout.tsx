@@ -31,12 +31,27 @@ import type { Perfil } from '@/lib/paladar';
 
 type TipoEntrega = 'domicilio' | 'recoger' | 'mesa';
 
+/**
+ * Medios de pago.
+ *
+ * Los marcados `enLinea` cobran de verdad a través de Wompi: al confirmar, la
+ * persona va al checkout de la pasarela y vuelve. Los demás se acuerdan por
+ * WhatsApp y se cobran en mano.
+ *
+ * El orden importa: primero lo que cobra solo. Cada pedido contra entrega es un
+ * cobro que alguien tiene que perseguir, y un porcentaje que no se cobra nunca.
+ */
 const PAGOS = [
-  { id: 'efectivo', etiqueta: 'Efectivo', nota: 'Pagas al recibir' },
-  { id: 'nequi', etiqueta: 'Nequi', nota: 'Te pasamos el número' },
-  { id: 'daviplata', etiqueta: 'Daviplata', nota: 'Te pasamos el número' },
-  { id: 'transferencia', etiqueta: 'Transferencia', nota: 'Te pasamos los datos' },
+  { id: 'tarjeta', etiqueta: 'Tarjeta', nota: 'Débito o crédito', enLinea: true },
+  { id: 'nequi', etiqueta: 'Nequi', nota: 'Pagas ahora', enLinea: true },
+  { id: 'pse', etiqueta: 'PSE', nota: 'Desde tu banco', enLinea: true },
+  { id: 'efectivo', etiqueta: 'Efectivo', nota: 'Pagas al recibir', enLinea: false },
 ] as const;
+
+/** Si el método cobra en línea, hay que pasar por la pasarela antes de acabar. */
+function cobraEnLinea(id: string): boolean {
+  return PAGOS.find((p) => p.id === id)?.enLinea ?? false;
+}
 
 const PROPINAS = [0, 2_000, 3_000, 5_000];
 
@@ -64,7 +79,7 @@ export default function Checkout({
   const [telefono, setTelefono] = useState('');
   const [direccion, setDireccion] = useState('');
   const [indicaciones, setIndicaciones] = useState('');
-  const [metodoPago, setMetodoPago] = useState<string>('efectivo');
+  const [metodoPago, setMetodoPago] = useState<string>('tarjeta');
   const [propina, setPropina] = useState(0);
   const [notas, setNotas] = useState('');
 
@@ -148,7 +163,41 @@ export default function Checkout({
 
       // El carrito se vacía DESPUÉS de que el servidor confirme. Vaciarlo antes
       // dejaría a la persona sin pedido y sin carrito si algo falla.
+      // El carrito se vacía DESPUÉS de que el servidor confirme el pedido.
+      // Vaciarlo antes dejaría a la persona sin pedido y sin carrito si algo
+      // fallara.
       vaciar();
+
+      // --- Cobro en línea ---
+      // Con tarjeta, PSE o Nequi hay que pasar por Wompi. El pedido YA existe
+      // en la base con el pago pendiente, así que si el cobro se cae por el
+      // camino no se pierde: queda con un botón de reintentar en su
+      // seguimiento.
+      if (cobraEnLinea(metodoPago)) {
+        try {
+          const rp = await fetch('/api/pagar', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ codigo: d.codigo }),
+          });
+          const dp = await rp.json();
+
+          if (dp.ok && dp.url) {
+            // Se sale de la aplicación hacia el checkout de Wompi. La tarjeta
+            // nunca pasa por nuestro servidor, que es lo que mantiene esto
+            // fuera del alcance de PCI-DSS.
+            window.location.href = dp.url;
+            return;
+          }
+
+          // Si no se pudo abrir el cobro, el pedido existe igualmente: se lleva
+          // al seguimiento, donde hay un botón para reintentar el pago.
+        } catch {
+          // Mismo caso: el pedido está guardado, el cobro se reintenta desde el
+          // seguimiento.
+        }
+      }
+
       router.replace(`/pedido/${d.codigo}`);
     } catch {
       setError('Sin conexión. Comprueba tu internet e inténtalo otra vez.');
@@ -262,12 +311,13 @@ export default function Checkout({
             </button>
           ))}
         </div>
-        {/* Se dice claramente que aquí no se cobra. Un checkout que parece
-            cobrar y no cobra deja a la gente preguntándose si se pasó el pago,
-            que es la peor sensación posible después de pulsar. */}
+        {/* Se dice EXACTAMENTE qué va a pasar al pulsar. La duda "¿me van a
+            cobrar ahora o después?" es la que más frena en el último paso, y
+            responderla cuesta una línea. */}
         <p className="mt-3 text-xs leading-relaxed text-[#8f8479]">
-          No se cobra nada ahora. Confirmamos tu pedido por WhatsApp y ahí acordamos el
-          pago.
+          {cobraEnLinea(metodoPago)
+            ? 'Al confirmar te llevamos a la pasarela segura de Wompi. Tus datos de pago no pasan por nosotros.'
+            : 'No se cobra nada ahora. Confirmamos por WhatsApp y pagas al recibir.'}
         </p>
       </fieldset>
 
@@ -350,7 +400,13 @@ export default function Checkout({
         disabled={enviando}
         className="mt-6 flex min-h-14 w-full items-center justify-center rounded-full bg-[#d97325] px-8 text-lg font-semibold text-[#12100e] transition-transform active:scale-[0.99] disabled:opacity-70"
       >
-        {enviando ? 'Enviando…' : `Confirmar pedido · ${precio(total)}`}
+        {enviando
+          ? cobraEnLinea(metodoPago)
+            ? 'Llevándote al pago…'
+            : 'Enviando…'
+          : cobraEnLinea(metodoPago)
+            ? `Pagar ${precio(total)}`
+            : `Confirmar pedido · ${precio(total)}`}
       </button>
     </form>
   );

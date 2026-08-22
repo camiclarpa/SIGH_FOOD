@@ -12,6 +12,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { pedidoPorCodigo } from '@/lib/consultas';
+import { ultimoPago } from '@/lib/cobros';
+import { pasaPorWompi } from '@/lib/wompi';
 import Seguimiento from '@/componentes/Seguimiento';
 
 export const dynamic = 'force-dynamic';
@@ -31,5 +33,17 @@ export default async function PaginaPedido({
 
   if (!pedido) notFound();
 
-  return <Seguimiento pedido={pedido} />;
+  // El ultimo intento de pago, para poder explicar por que fallo y ofrecer
+  // reintentar sin rehacer el pedido.
+  const pago = await ultimoPago(codigo);
+
+  return (
+    <Seguimiento
+      pedido={pedido}
+      pago={{
+        mensajeFallo: pago?.mensaje ?? null,
+        enLinea: pasaPorWompi(pedido.metodoPago),
+      }}
+    />
+  );
 }

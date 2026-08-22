@@ -24,6 +24,7 @@ import { useEffect, useState } from 'react';
 import type { PedidoCompleto } from '@/lib/consultas';
 import { precio } from '@/lib/formato';
 import Resena from './Resena';
+import EstadoPago from './EstadoPago';
 
 const PASOS_DOMICILIO = [
   { id: 'recibido', etiqueta: 'Pedido recibido', nota: 'Lo tenemos' },
@@ -48,7 +49,13 @@ const TITULARES: Record<string, string> = {
   cancelado: 'Pedido cancelado',
 };
 
-export default function Seguimiento({ pedido }: { pedido: PedidoCompleto }) {
+export default function Seguimiento({
+  pedido,
+  pago,
+}: {
+  pedido: PedidoCompleto;
+  pago: { mensajeFallo: string | null; enLinea: boolean };
+}) {
   const router = useRouter();
 
   const terminado = pedido.estado === 'entregado' || pedido.estado === 'cancelado';
@@ -88,6 +95,17 @@ export default function Seguimiento({ pedido }: { pedido: PedidoCompleto }) {
           </p>
         )}
       </div>
+
+      {/* El estado del pago va ANTES que el del pedido: quien acaba de pulsar
+          pagar quiere saber si se cobró, no en qué paso de la cocina está. */}
+      <EstadoPago
+        codigo={pedido.codigo}
+        estadoPago={pedido.estadoPago}
+        metodoPago={pedido.metodoPago}
+        totalCOP={pedido.totalCOP}
+        mensajeFallo={pago.mensajeFallo}
+        enLinea={pago.enLinea}
+      />
 
       {/* --- Estados --- */}
       {cancelado ? (
@@ -193,12 +211,7 @@ export default function Seguimiento({ pedido }: { pedido: PedidoCompleto }) {
             : 'Para recoger en el local'}
         </p>
 
-        {/* El estado del pago se dice explícitamente: la duda "¿se cobró o no?"
-            es la que más consultas genera después de pedir. */}
-        <p className="mt-1 text-xs text-[#8f8479]">
-          Pago con {pedido.metodoPago} ·{' '}
-          {pedido.estadoPago === 'aprobado' ? 'pagado' : 'pendiente de cobro'}
-        </p>
+
       </section>
 
       {/* --- Reseña, solo al entregar --- */}

@@ -254,21 +254,47 @@ export function urlCheckout(datos: {
   telefono?: string;
   nombre?: string;
 }): string {
-  const p = new URLSearchParams({
-    'public-key': datos.config.llavePublica,
-    currency: 'COP',
-    'amount-in-cents': String(datos.montoCentavos),
-    reference: datos.referencia,
-    'signature:integrity': datos.firma,
-    'redirect-url': datos.urlRetorno,
-  });
+  const parametros: Array<[string, string]> = [
+    ['public-key', datos.config.llavePublica],
+    ['currency', 'COP'],
+    ['amount-in-cents', String(datos.montoCentavos)],
+    ['reference', datos.referencia],
+    ['signature:integrity', datos.firma],
+    ['redirect-url', datos.urlRetorno],
+  ];
 
   // Prerellenar ahorra teclear en el móvil, que es donde se abandona.
-  if (datos.nombre) p.set('customer-data:full-name', datos.nombre);
+  if (datos.nombre) parametros.push(['customer-data:full-name', datos.nombre]);
   if (datos.telefono) {
-    p.set('customer-data:phone-number', datos.telefono.replace(/^57/, ''));
-    p.set('customer-data:phone-number-prefix', '+57');
+    parametros.push(['customer-data:phone-number', datos.telefono.replace(/^57/, '')]);
+    parametros.push(['customer-data:phone-number-prefix', '+57']);
   }
 
-  return `${datos.config.urlCheckout}?${p}`;
+  /*
+    La cadena se arma A MANO en lugar de con URLSearchParams, y no es
+    preferencia de estilo.
+
+    URLSearchParams codifica los dos puntos del NOMBRE del parámetro:
+    `signature:integrity` sale como `signature%3Aintegrity`. Wompi lee la cadena
+    de consulta en crudo y busca el nombre con los dos puntos literales, así que
+    con la versión codificada NO RECONOCE NINGUNO DE LOS DOS.
+
+    Lo que pasa entonces es peor que un error: el checkout carga igual, pero sin
+    firma reconocida ignora también el importe y presenta un campo de monto
+    EDITABLE. Es decir, cualquiera podría haber pagado mil pesos por un pedido
+    de treinta y dos mil, y el webhook lo habría rechazado después por
+    descuadre — dejando un cobro real sin pedido que entregar.
+
+    Se comprobó abriendo las dos URLs en un navegador contra la cuenta real:
+      · con %3A  → campo de importe vacío y editable
+      · con  :   → "$32.000", en solo lectura
+
+    Los VALORES sí se codifican: la URL de retorno lleva ':' y '/' propios, y el
+    prefijo telefónico un '+' que sin codificar Wompi leería como un espacio.
+  */
+  const cadena = parametros
+    .map(([clave, valor]) => `${clave}=${encodeURIComponent(valor)}`)
+    .join('&');
+
+  return `${datos.config.urlCheckout}?${cadena}`;
 }

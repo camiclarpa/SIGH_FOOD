@@ -10,7 +10,7 @@
 
 import { useState, useTransition } from 'react';
 import { simularAgente } from '@/lib/acciones/agente';
-import { LINEAS_PRODUCTO } from '@/lib/fidelizacion';
+import { LINEAS_PRODUCTO } from '@/lib/catalogo-b2c';
 
 /** Situaciones que conviene probar antes de soltar al agente. */
 const ESCENARIOS = [

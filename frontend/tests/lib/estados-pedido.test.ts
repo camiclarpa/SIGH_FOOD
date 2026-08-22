@@ -12,7 +12,7 @@
 // puede fallar es peor que no tener test: da confianza sin darla.
 
 import { describe, it, expect } from 'vitest';
-import { siguientesDe, type EstadoPedido } from '../../apps/web/src/lib/cocina';
+import { siguientesDe, type EstadoPedido } from '../../apps/web/src/lib/estados-pedido';
 
 describe('siguientesDe', () => {
   it('avanza un paso cada vez, en domicilio', () => {

@@ -19,7 +19,7 @@ import { pedidoEventos, pedidos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
-import { siguientesDe, type EstadoPedido } from '@/lib/cocina';
+import { siguientesDe, type EstadoPedido } from '@/lib/estados-pedido';
 
 export interface Resultado<T = undefined> {
   ok: boolean;

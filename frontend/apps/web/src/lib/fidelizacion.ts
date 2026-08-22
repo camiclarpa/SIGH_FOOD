@@ -22,39 +22,28 @@ import {
 } from '@sighfood/domain/db/schema';
 import type { Database } from '@sighfood/domain/db';
 
-/** Puntos que otorga un escaneo. */
-export const PUNTOS_POR_ESCANEO = 10;
+// Los niveles y las líneas viven en lib/catalogo-b2c.ts, sin imports de base de
+// datos: los editores del CRM son componentes de cliente y necesitan esas
+// listas. Se reexportan aquí para no romper lo que ya las importaba de este
+// módulo.
+export {
+  PUNTOS_POR_ESCANEO,
+  NIVELES,
+  nivelDeComensal,
+  progresoNivel,
+  etiquetaNivel,
+  LINEAS_PRODUCTO,
+  etiquetaLinea,
+  type NivelComensal,
+} from '@/lib/catalogo-b2c';
 
-/**
- * Niveles del pasaporte sensorial, por número de escaneos.
- *
- * De menor a mayor: el cálculo recorre la lista al revés y se queda con el
- * primero que alcance.
- */
-export const NIVELES = [
-  { nivel: 'explorador' as const, desde: 0, etiqueta: 'Explorador' },
-  { nivel: 'aficionado' as const, desde: 5, etiqueta: 'Aficionado' },
-  { nivel: 'catador_leyenda' as const, desde: 20, etiqueta: 'Catador Leyenda' },
-];
-
-export type NivelComensal = (typeof NIVELES)[number]['nivel'];
-
-export function nivelDeComensal(escaneos: number): NivelComensal {
-  for (let i = NIVELES.length - 1; i >= 0; i--) {
-    if (escaneos >= NIVELES[i].desde) return NIVELES[i].nivel;
-  }
-  return 'explorador';
-}
-
-/** Cuántos escaneos faltan para el siguiente nivel, o null si ya es el último. */
-export function progresoNivel(escaneos: number): { siguiente: string; faltan: number } | null {
-  const siguiente = NIVELES.find((n) => escaneos < n.desde);
-  return siguiente ? { siguiente: siguiente.etiqueta, faltan: siguiente.desde - escaneos } : null;
-}
-
-export function etiquetaNivel(nivel: string | null): string {
-  return NIVELES.find((n) => n.nivel === nivel)?.etiqueta ?? nivel ?? 'Explorador';
-}
+import {
+  LINEAS_PRODUCTO,
+  NIVELES,
+  PUNTOS_POR_ESCANEO,
+  nivelDeComensal,
+  type NivelComensal,
+} from '@/lib/catalogo-b2c';
 
 // -----------------------------------------------------------------------------
 // Billetera de puntos
@@ -362,18 +351,6 @@ export async function procesarEscaneo(
 // -----------------------------------------------------------------------------
 // Perfil de paladar
 // -----------------------------------------------------------------------------
-
-export const LINEAS_PRODUCTO = [
-  { codigo: 'flavor_switch', etiqueta: 'Flavor Switch' },
-  { codigo: 'taste_shock', etiqueta: 'Taste Shock' },
-  { codigo: 'spicy_volcano', etiqueta: 'Spicy Volcano' },
-  { codigo: 'umami_boost', etiqueta: 'Umami Boost' },
-  { codigo: 'sweet_craft', etiqueta: 'Sweet Craft' },
-] as const;
-
-export function etiquetaLinea(codigo: string | null): string {
-  return LINEAS_PRODUCTO.find((l) => l.codigo === codigo)?.etiqueta ?? codigo ?? 'Sin definir';
-}
 
 /**
  * Convierte el recuento por línea en porcentajes.

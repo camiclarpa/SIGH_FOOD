@@ -25,7 +25,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { avanzarPedido, marcarPagado } from '@/lib/acciones/pedidos';
-import { siguientesDe, type EstadoPedido } from '@/lib/cocina';
+import { siguientesDe, type EstadoPedido } from '@/lib/estados-pedido';
 
 const ETIQUETAS: Record<string, string> = {
   recibido: 'Recibido',

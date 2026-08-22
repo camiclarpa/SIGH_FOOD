@@ -1,55 +1,14 @@
 // =============================================================================
-// Pedidos: reglas y lecturas
+// Pedidos: lecturas para la cocina
 // =============================================================================
 //
-// Vive fuera de acciones/pedidos.ts porque aquel lleva 'use server', y ahí Next
-// exige que TODO lo exportado sea una función async. `siguientesDe` es síncrona
-// y rompería el build con "Server Actions must be async functions", señalando
-// además la línea del export y no la causa.
-//
-// Separarlo tiene otra ventaja: las lecturas dejan de ser acciones invocables
-// desde el navegador solo por estar exportadas junto a las escrituras.
+// Solo servidor: importa la base. La máquina de estados vive aparte, en
+// lib/estados-pedido.ts, porque la comparte el componente de cliente.
 
 import { desc, inArray, sql } from 'drizzle-orm';
 import { pedidoItems, pedidos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
-
-export type EstadoPedido =
-  | 'recibido'
-  | 'confirmado'
-  | 'preparando'
-  | 'listo'
-  | 'en_camino'
-  | 'entregado'
-  | 'cancelado';
-
-/** Orden real del flujo. El índice ES la regla de avance. */
-const FLUJO: EstadoPedido[] = [
-  'recibido',
-  'confirmado',
-  'preparando',
-  'listo',
-  'en_camino',
-  'entregado',
-];
-
-/**
- * A qué estados se puede pasar desde uno dado.
- *
- * Vive aquí y no en la interfaz para que la regla no dependa de qué botones se
- * pintaron: la pantalla puede quedarse desactualizada en una pestaña abierta
- * desde hace media hora, el servidor no.
- */
-export function siguientesDe(estado: EstadoPedido, tipoEntrega: string): EstadoPedido[] {
-  if (estado === 'entregado' || estado === 'cancelado') return [];
-
-  const flujo = tipoEntrega === 'recoger' ? FLUJO.filter((e) => e !== 'en_camino') : FLUJO;
-  const i = flujo.indexOf(estado);
-  const siguiente = i >= 0 && i < flujo.length - 1 ? [flujo[i + 1]] : [];
-
-  return [...siguiente, 'cancelado'];
-}
-
+import type { EstadoPedido } from '@/lib/estados-pedido';
 
 // -----------------------------------------------------------------------------
 // Lecturas

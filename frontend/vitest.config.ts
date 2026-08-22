@@ -38,6 +38,8 @@ export default defineConfig({
       // Mismo caso que cloudflare: lo importan módulos del CRM entre sí, y la
       // landing no tiene ningún `src/lib/fidelizacion` con el que chocar.
       '@/lib/fidelizacion': fileURLToPath(new URL('./apps/web/src/lib/fidelizacion.ts', import.meta.url)),
+      '@/lib/catalogo-b2c': fileURLToPath(new URL('./apps/web/src/lib/catalogo-b2c.ts', import.meta.url)),
+      '@/lib/estados-pedido': fileURLToPath(new URL('./apps/web/src/lib/estados-pedido.ts', import.meta.url)),
       '@crm': fileURLToPath(new URL('./apps/web/src', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       // A `src`, igual que el tsconfig del CRM. Antes apuntaba a la raíz del

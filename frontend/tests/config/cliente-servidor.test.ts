@@ -34,16 +34,75 @@ function archivos(dir: string, extensiones: string[]): string[] {
 const todos = archivos(WEB, ['.ts', '.tsx']);
 const relativo = (f: string) => path.relative(RAIZ, f);
 
-/** Módulos que solo pueden vivir en el servidor, y por qué. */
-const SOLO_SERVIDOR: Record<string, string> = {
+/**
+ * Raíces que arrastran la base de datos por sí solas.
+ *
+ * A partir de aquí la lista se DEDUCE: cualquier módulo de @/lib que importe
+ * una de estas —o algo que las importe— queda marcado también.
+ *
+ * Antes esta lista se escribía a mano, y por eso se coló @/lib/cocina: nadie se
+ * acordó de añadirlo, el guard pasó, y el fallo apareció al compilar el Worker
+ * con un "Module not found" que señalaba al componente, no al módulo del medio.
+ */
+const RAICES: Record<string, string> = {
   '@/auth': 'arrastra postgres.js',
-  '@/lib/permisos': 'importa @/auth, que arrastra postgres.js — usa @/lib/roles',
   '@/lib/cloudflare': 'abre la conexión a la base',
-  '@/lib/consultas': 'consulta la base',
-  '@/lib/consultas-b2c': 'consulta la base',
-  '@/lib/configuracion': 'consulta la base',
   '@sighfood/domain/db': 'es el cliente de Postgres',
+  '@sighfood/domain/db/schema': 'define las tablas y trae drizzle',
 };
+
+/** Importaciones de valor de un archivo. `import type` se borra al compilar. */
+function importaciones(contenido: string): string[] {
+  return [...contenido.matchAll(/^import\s+(?!type\s)[^;]*?from\s+['"]([^'"]+)['"]/gm)].map(
+    (m) => m[1]
+  );
+}
+
+
+/**
+ * Cierre transitivo: qué módulos acaban trayendo la base.
+ *
+ * Se recorre hasta que deja de crecer, así que da igual cuántos saltos haya
+ * entre el componente y postgres.
+ */
+function calcularSoloServidor(): Record<string, string> {
+  const marcados: Record<string, string> = { ...RAICES };
+
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+
+    for (const archivo of todos) {
+      const contenido = readFileSync(archivo, 'utf8');
+      // Un componente de cliente nunca es "solo servidor": es justo lo que se
+      // está comprobando que no importe cosas del servidor.
+      if (/^\s*['"]use client['"]/.test(contenido)) continue;
+
+      // Un archivo 'use server' TAMPOCO cuenta, aunque toque la base. Es
+      // exactamente lo contrario: una Server Action está hecha para importarse
+      // desde el cliente. Next sustituye la implementación por una referencia
+      // de red, así que postgres nunca cruza. Sin esta excepción el guard
+      // marcaría como error el patrón que la aplicación entera usa.
+      if (/^\s*['"]use server['"]/.test(contenido)) continue;
+
+      // En Windows path.relative devuelve barras invertidas; los imports usan
+      // barras normales.
+      const rel = path.relative(WEB, archivo).split(path.sep).join('/').replace(/\.tsx?$/, '');
+      const nombre = `@/${rel}`;
+      if (marcados[nombre]) continue;
+
+      const culpable = importaciones(contenido).find((m) => marcados[m]);
+      if (culpable) {
+        marcados[nombre] = `importa ${culpable}, que ${marcados[culpable]}`;
+        cambio = true;
+      }
+    }
+  }
+
+  return marcados;
+}
+
+const SOLO_SERVIDOR = calcularSoloServidor();
 
 describe("componentes 'use client'", () => {
   const clientes = todos.filter((f) => {
@@ -54,6 +113,12 @@ describe("componentes 'use client'", () => {
 
   it('hay componentes cliente que comprobar', () => {
     expect(clientes.length).toBeGreaterThan(0);
+  });
+
+  it('la lista de módulos de servidor se deduce, no se escribe a mano', () => {
+    // Si esto baja al número de raíces, el cierre transitivo dejó de funcionar
+    // y el guard volvería a depender de que alguien se acuerde de la lista.
+    expect(Object.keys(SOLO_SERVIDOR).length).toBeGreaterThan(Object.keys(RAICES).length);
   });
 
   it.each(clientes.map((f) => [path.basename(f), f]))(

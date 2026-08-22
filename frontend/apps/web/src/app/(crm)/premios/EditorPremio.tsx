@@ -10,7 +10,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { guardarPremio } from '@/lib/acciones/canjes';
-import { NIVELES } from '@/lib/fidelizacion';
+import { NIVELES } from '@/lib/catalogo-b2c';
 
 interface Premio {
   id: string;

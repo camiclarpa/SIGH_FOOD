@@ -19,6 +19,7 @@
 
 import { useEffect } from 'react';
 import type { Evento } from '@/lib/medicion-tipos';
+import { recordarOrigen } from '@/lib/atribucion';
 
 const CLAVE = 'bocazo:sesion-anon';
 
@@ -49,12 +50,22 @@ export default function Medir({
   qrToken?: string;
 }) {
   useEffect(() => {
+    // Se registra el origen ANTES de mandar el evento. Medir se monta en la
+    // primera pantalla que ve la persona, así que esta es la única ocasión en
+    // que los parámetros de la campaña siguen en la URL: para cuando llegue al
+    // checkout ya habrá navegado y se habrán perdido.
+    const origen = recordarOrigen(window.location.search);
+
     const cuerpo = JSON.stringify({
       evento,
       sesion: sesionAnonima(),
       ...(productoId ? { productoId } : {}),
       ...(valorCOP ? { valorCOP } : {}),
       ...(qrToken ? { qrToken } : {}),
+      // Permite comparar cuántos llegaron por un canal contra cuántos
+      // compraron, que es lo que decide dónde invertir. Sin esto solo se ve la
+      // conversión del total.
+      ...(origen.utmSource ? { utmSource: origen.utmSource } : {}),
     });
 
     try {

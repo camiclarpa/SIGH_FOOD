@@ -54,6 +54,19 @@ export interface DatosPedido {
    * dos columnas que se contradicen.
    */
   paladar?: Record<string, string>;
+  /**
+   * De dónde vino la visita: primer toque, ya saneado por lib/atribucion.
+   *
+   * Se guarda con el pedido y no en una tabla aparte porque lo que hace falta
+   * responder es «cuánto vendió este canal», y eso es un GROUP BY sobre la
+   * misma fila que lleva el importe.
+   */
+  origen?: {
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    referidoPor?: string;
+  };
   direccion?: string;
   indicaciones?: string;
   metodoPago: 'efectivo' | 'nequi' | 'daviplata' | 'tarjeta' | 'pse' | 'transferencia';
@@ -304,6 +317,14 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
           propinaCOP: propina,
           totalCOP: total,
           notas: datos.notas?.trim().slice(0, 1000) || null,
+          // El origen se pega al pedido en el mismo INSERT: es el único momento
+          // en que existe. Vive en sessionStorage del navegador y desaparece al
+          // cerrar la pestaña, así que si no se escribe aquí no lo recupera
+          // nadie — ni ahora ni dentro de un año.
+          utmSource: datos.origen?.utmSource?.slice(0, 80) || null,
+          utmMedium: datos.origen?.utmMedium?.slice(0, 80) || null,
+          utmCampaign: datos.origen?.utmCampaign?.slice(0, 120) || null,
+          referidoPor: datos.origen?.referidoPor?.slice(0, 120) || null,
         })
         .returning({ id: pedidos.id, codigo: pedidos.codigo });
 

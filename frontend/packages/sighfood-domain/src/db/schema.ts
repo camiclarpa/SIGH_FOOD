@@ -2549,6 +2549,20 @@ export const pedidos = pgTable('pedidos', {
   descuentoCOP: integer('descuento_cop').notNull().default(0),
   totalCOP: integer('total_cop').notNull(),
 
+  /*
+    De donde vino el pedido. Es el PRIMER toque de la visita, no el ultimo:
+    quien llega por un reel y luego vuelve escribiendo la direccion a mano fue
+    traido por el reel, y contarlo como "directo" premia al canal equivocado.
+
+    Es el unico dato del CRM que no se puede reconstruir despues. Ver migracion
+    0015.
+  */
+  utmSource: varchar('utm_source', { length: 80 }),
+  utmMedium: varchar('utm_medium', { length: 80 }),
+  utmCampaign: varchar('utm_campaign', { length: 120 }),
+  /** El `ref` del enlace que comparte un comensal. */
+  referidoPor: varchar('referido_por', { length: 120 }),
+
   /** Para la cocina: alergias, "sin cebolla", lo que sea. */
   notas: text('notas'),
   /** Programado para más tarde. Null = lo antes posible. */
@@ -2715,6 +2729,13 @@ export const eventosEmbudo = pgTable('eventos_embudo', {
   valorCOP: integer('valor_cop'),
   /** QR de origen: mide qué adhesivo trae visitas y cuáles acaban en pedido. */
   qrToken: varchar('qr_token', { length: 255 }),
+  /*
+    Canal de origen, el mismo que acaba en el pedido. Aqui sirve para comparar
+    cuantos LLEGARON por un canal contra cuantos COMPRARON: sin esto solo se
+    puede medir la conversion del total, que esconde justo lo que hay que
+    decidir — que canal trae gente que compra y cual trae gente que solo mira.
+  */
+  utmSource: varchar('utm_source', { length: 80 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 }, (t) => [
   index('idx_embudo_evento').on(t.evento, t.createdAt),

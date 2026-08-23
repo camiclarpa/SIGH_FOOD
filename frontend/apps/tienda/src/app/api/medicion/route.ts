@@ -20,6 +20,9 @@ const esquema = z.object({
   productoId: z.string().uuid().optional(),
   valorCOP: z.number().int().min(0).max(10_000_000).optional(),
   qrToken: z.string().max(255).optional(),
+  // Ya viene saneado del cliente, pero se vuelve a acotar aquí: la cadena de
+  // consulta la escribe cualquiera y este endpoint es público.
+  utmSource: z.string().max(80).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
       productoId: v.data.productoId,
       valorCOP: v.data.valorCOP,
       qrToken: v.data.qrToken,
+      utmSource: v.data.utmSource,
     });
   } catch {
     // Ver el comentario de arriba: la medición nunca molesta.

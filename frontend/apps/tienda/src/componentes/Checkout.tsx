@@ -28,6 +28,7 @@ import { precio } from '@/lib/formato';
 import { ENVIO_COP, TIEMPOS } from '@/lib/envio';
 import { ALMACEN_PALADAR } from './Paladar';
 import type { Perfil } from '@/lib/paladar';
+import { origenDeLaVisita } from '@/lib/atribucion';
 
 type TipoEntrega = 'domicilio' | 'recoger' | 'mesa';
 
@@ -133,6 +134,11 @@ export default function Checkout({
           indicaciones: vIndicaciones.trim() || undefined,
           ...(tipoEntrega === 'mesa' && mesa ? { qrToken: mesa.qrToken } : {}),
           ...(paladar ? { paladar } : {}),
+          // De dónde vino la visita. Se lee aquí, en el último paso, porque el
+          // origen se fijó al entrar y este es el único momento en que se puede
+          // pegar a algo permanente: si no viaja con el pedido, se pierde al
+          // cerrar la pestaña y ya no lo recupera nadie.
+          origen: origenDeLaVisita(),
           metodoPago,
           propinaCOP: propina,
           notas: notas.trim() || undefined,

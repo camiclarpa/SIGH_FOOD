@@ -44,6 +44,8 @@ export async function registrar(datos: {
   pedidoId?: string;
   valorCOP?: number;
   qrToken?: string;
+  /** Canal de origen de la visita, para medir la conversión por canal. */
+  utmSource?: string;
 }): Promise<void> {
   try {
     await conBaseDeDatos(async (db) => {
@@ -54,6 +56,7 @@ export async function registrar(datos: {
         pedidoId: datos.pedidoId ?? null,
         valorCOP: datos.valorCOP ?? null,
         qrToken: datos.qrToken ?? null,
+        utmSource: datos.utmSource?.slice(0, 80) ?? null,
       });
     });
   } catch {

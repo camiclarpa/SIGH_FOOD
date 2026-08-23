@@ -41,6 +41,23 @@ const esquema = z.object({
   qrToken: z.string().max(255).optional(),
   /** Perfil de paladar del cuestionario, si lo respondió. */
   paladar: z.record(z.string().max(40), z.string().max(40)).optional(),
+  /*
+    De dónde vino la visita. Lo manda el navegador y se acota aquí de nuevo:
+    viene de la cadena de consulta, que la escribe cualquiera.
+
+    Que sea manipulable no importa mucho —lo peor que consigue alguien es
+    atribuirse un pedido propio a un canal falso—, pero sí importa que no pueda
+    meter basura de longitud arbitraria en una columna que después se agrupa y
+    se pinta en un informe.
+  */
+  origen: z
+    .object({
+      utmSource: z.string().max(80).optional(),
+      utmMedium: z.string().max(80).optional(),
+      utmCampaign: z.string().max(120).optional(),
+      referidoPor: z.string().max(120).optional(),
+    })
+    .optional(),
   direccion: z.string().max(255, 'La dirección es muy larga').optional(),
   indicaciones: z.string().max(255).optional(),
   metodoPago: z.enum(['efectivo', 'nequi', 'daviplata', 'tarjeta', 'pse', 'transferencia'], {

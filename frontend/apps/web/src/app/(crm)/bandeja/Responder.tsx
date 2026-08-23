@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { responderChat, tomarChat } from '@/lib/acciones/whatsapp';
+import { sugerirRespuesta } from '@/lib/acciones/agente';
 
 export function Responder({
   conversationId,
@@ -28,6 +29,37 @@ export function Responder({
   const [texto, setTexto] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
+
+  /*
+    Borrador de la IA.
+
+    Se escribe en el MISMO campo de texto en lugar de en un panel aparte con un
+    botón de "usar". Es deliberado: en un panel aparte lo normal es aceptarlo
+    tal cual, y el borrador puede traer un hueco entre corchetes o un dato que
+    haya que corregir. Cayendo en el campo, editarlo es el camino natural y
+    enviarlo requiere el mismo gesto de siempre.
+  */
+  const [pensando, setPensando] = useState(false);
+  const [origenBorrador, setOrigenBorrador] = useState<string[] | null>(null);
+
+  function pedirBorrador() {
+    setPensando(true);
+    setError(null);
+    setOrigenBorrador(null);
+
+    // Fuera de useTransition: esto tarda segundos y necesita su propio
+    // indicador, no el mismo que bloquea el botón de enviar.
+    void sugerirRespuesta(conversationId)
+      .then((r) => {
+        if (r.ok && r.datos) {
+          setTexto(r.datos.texto);
+          setOrigenBorrador(r.datos.contexto);
+        } else {
+          setError(r.error ?? 'No se pudo redactar el borrador');
+        }
+      })
+      .finally(() => setPensando(false));
+  }
 
   /**
    * Horas que quedan de ventana, o null si está cerrada.
@@ -102,22 +134,50 @@ export function Responder({
       </div>
 
       {abierta ? (
-        <form onSubmit={enviar} className="flex gap-2">
-          <input
-            value={texto}
-            onChange={(e) => { setTexto(e.target.value); setError(null); }}
-            placeholder="Escribe tu respuesta"
-            maxLength={4096}
-            className="superficie min-w-0 flex-1 rounded-md border borde-tema px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={enCurso || !texto.trim()}
-            className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
-          >
-            {enCurso ? 'Enviando…' : 'Enviar'}
-          </button>
-        </form>
+        <>
+          <form onSubmit={enviar} className="flex gap-2">
+            <input
+              value={texto}
+              onChange={(e) => { setTexto(e.target.value); setError(null); }}
+              placeholder="Escribe tu respuesta"
+              maxLength={4096}
+              className="superficie min-w-0 flex-1 rounded-md border borde-tema px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={pedirBorrador}
+              disabled={pensando || enCurso}
+              title="Redacta un borrador con el historial del cliente. No envía nada."
+              className="shrink-0 rounded-md border borde-tema px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-800"
+            >
+              {pensando ? 'Redactando…' : 'Sugerir'}
+            </button>
+            <button
+              type="submit"
+              disabled={enCurso || pensando || !texto.trim()}
+              className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+            >
+              {enCurso ? 'Enviando…' : 'Enviar'}
+            </button>
+          </form>
+
+          {/*
+            Con qué información se redactó.
+
+            Se enseña porque un borrador que cita el último pedido es útil solo
+            si ese pedido es el correcto: sin ver el contexto, quien revisa no
+            puede distinguir un dato bueno de uno viejo.
+          */}
+          {origenBorrador && (
+            <div className="texto-suave mt-2 space-y-0.5 text-xs">
+              <p className="font-medium">Borrador redactado con:</p>
+              {origenBorrador.map((linea) => (
+                <p key={linea} className="cifras truncate">· {linea}</p>
+              ))}
+              <p className="italic">Revísalo antes de enviar: no se manda nada hasta que pulses Enviar.</p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="rounded-md border border-amber-700/50 bg-amber-950/20 px-3 py-2.5 text-xs text-amber-200">
           <strong className="font-semibold">No se puede escribir texto libre.</strong>{' '}

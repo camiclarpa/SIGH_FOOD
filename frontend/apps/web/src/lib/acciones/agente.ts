@@ -14,6 +14,7 @@ import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import { UMBRALES, type ClaveUmbral } from '@/lib/umbrales';
+import { borradorDeRespuesta } from '@/lib/ai/bandeja';
 
 export interface Resultado<T = undefined> {
   ok: boolean;
@@ -293,5 +294,41 @@ Responde SOLO en JSON:
     // Se devuelve también el prompt: media hora de "el agente responde raro" se
     // resuelve viendo exactamente qué se le mandó.
     return { respuesta, prompt: `${sistema}\n\n---\n\n${usuario}` };
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Asistencia real: borrador de respuesta para la bandeja
+// -----------------------------------------------------------------------------
+
+/**
+ * Redacta un borrador de respuesta para un hilo de WhatsApp.
+ *
+ * Es lo único de todo el módulo de IA que produce valor desde el primer
+ * cliente: las funciones de predicción necesitan volumen que todavía no existe,
+ * y un borrador ahorra tiempo con el primer mensaje que entre.
+ *
+ * NO ENVÍA. Devuelve texto para que una persona lo lea, lo corrija y decida. Un
+ * agente que conteste solo puede inventarse un tiempo de entrega, y quien paga
+ * ese error es el negocio.
+ *
+ * Exige el mismo permiso que responder: quien no puede escribir en la bandeja
+ * tampoco necesita que se le redacte nada, y sin esta comprobación cualquiera
+ * con sesión podría gastar la cuota del proveedor de IA.
+ */
+export async function sugerirRespuesta(
+  conversationId: string
+): Promise<Resultado<{ texto: string; proveedor: string; contexto: string[] }>> {
+  return ejecutar('sugerirRespuesta', async () => {
+    const actor = await exigir('campanas.probar');
+
+    const borrador = await borradorDeRespuesta(conversationId);
+
+    log.info('Borrador de respuesta generado', {
+      ruta: '/acciones/agente',
+      detalle: [actor.email, conversationId, borrador.proveedor],
+    });
+
+    return borrador;
   });
 }

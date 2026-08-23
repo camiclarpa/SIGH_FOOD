@@ -1,261 +1,242 @@
-import { conBaseDeDatos } from '@/lib/cloudflare';
-import {
-  crmAgentHealth,
-  crmAgentMetrics,
-  crmLearningEpisodes,
-  crmPatterns,
-  multivariatePredictions,
-  approvalRequests,
-  agentSecurityLog,
-  cotExecutions,
-  kgCrmNodes,
-  kgCrmEdges,
-  embeddingIndex,
-  crmProcedures,
-} from '@sighfood/domain/db/schema';
-import { count, desc, eq } from 'drizzle-orm';
-import { configuracion } from '@sighfood/domain/db/schema';
-import { puede, rolActual } from '@/lib/permisos';
-import { valoresPorDefecto } from '@/lib/umbrales';
-import { TarjetaDecision } from './TarjetaDecision';
-import { Umbrales } from './Umbrales';
-import { Sandbox } from './Sandbox';
-import {
-  Etiqueta,
-  Metrica,
-  Tarjeta,
-  Titulo,
-  Vacio,
-  desde,
-  numero,
-  porcentaje,
-} from '@/components/ui';
+import Link from 'next/link';
+import { and, count, desc, eq, gte } from 'drizzle-orm';
+import { chatConversations, consumerReviews } from '@sighfood/domain/db/schema';
+import { conBaseDeDatos, variableDeEntorno } from '@/lib/cloudflare';
+import { Etiqueta, Metrica, Tarjeta, Titulo, Vacio, numero } from '@/components/ui';
 
 export const metadata = { title: 'Agente IA · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
-/** Las 14 arquitecturas y la tabla por la que se sabe si están produciendo. */
-const ARQUITECTURAS = [
-  { id: 'A1', nombre: 'Análisis estructural', ruta: '/api/ai/architectures/ast' },
-  { id: 'A2', nombre: 'Motor de embeddings', ruta: '/api/ai/architectures/embedding' },
-  { id: 'A3', nombre: 'Motor de aprendizaje', ruta: '/api/ai/architectures/learning' },
-  { id: 'A4', nombre: 'Memoria de trabajo', ruta: '/api/ai/architectures/working-memory' },
-  { id: 'A5', nombre: 'Memoria de tres capas', ruta: '/api/ai/architectures/memory' },
-  { id: 'A6', nombre: 'Curva de olvido', ruta: '/api/ai/architectures/forgetting' },
-  { id: 'A7', nombre: 'Cadena de razonamiento', ruta: '/api/ai/architectures/reasoning' },
-  { id: 'A8', nombre: 'Predicción multivariada', ruta: '/api/ai/architectures/prediction' },
-  { id: 'A9', nombre: 'Grafo de conocimiento', ruta: '/api/ai/architectures/kg' },
-  { id: 'A10', nombre: 'Explicabilidad (XAI)', ruta: '/api/ai/architectures/xai' },
-  { id: 'A11', nombre: 'Sandbox de validación', ruta: '/api/ai/architectures/sandbox' },
-  { id: 'A12', nombre: 'Matriz de autonomía', ruta: '/api/ai/architectures/autonomy' },
-  { id: 'A13', nombre: 'Seguridad del agente', ruta: '/api/ai/architectures/security' },
-  { id: 'A14', nombre: 'Observabilidad', ruta: '/api/ai/architectures/observability' },
-];
+/*
+  ============================================================================
+  Agente IA — lo que produce
+  ============================================================================
+
+  Esta pantalla enseñaba el estado interno de catorce arquitecturas: episodios
+  aprendidos, patrones consolidados, nodos del grafo de conocimiento. Todas sus
+  tablas están vacías, ninguna se invoca desde ninguna pantalla y no hay ningún
+  proceso que las ejecute. Era un tablero que vigilaba una máquina que nadie
+  enciende, ocupando la sección más visible del CRM.
+
+  El código NO se ha borrado: sigue entero, con sus endpoints, y su tablero vive
+  ahora en /agente/diagnostico. El día que haya volumen para que esas funciones
+  signifiquen algo, están.
+
+  Lo que queda aquí es lo que ayuda a vender hoy. Y hay una razón por la que son
+  estas tres y no las otras catorce:
+
+    · Las funciones de PREDICCIÓN valen según cuántos datos haya. Con veinte
+      pedidos no predicen, adivinan con buena presentación.
+
+    · Las de REDACCIÓN valen según cuánto tiempo ahorran, y eso no depende del
+      volumen. Funcionan con el primer cliente que escriba.
+
+  Con un negocio que arranca, solo las segundas producen algo.
+*/
+
+/** Días hacia atrás para las cifras de uso. */
+const VENTANA_DIAS = 30;
 
 async function cargar() {
-  return conBaseDeDatos(async (db) => {
-    const [
-      salud, metricas, episodios, patrones, procedimientos,
-      predicciones, aprobaciones, config, seguridad, razonamientos,
-      nodos, aristas, embeddings,
-    ] = await Promise.all([
-      db.select().from(crmAgentHealth).orderBy(desc(crmAgentHealth.checkedAt)).limit(5),
-      db.select().from(crmAgentMetrics).orderBy(desc(crmAgentMetrics.recordedAt)).limit(8),
-      db.select({ resultado: crmLearningEpisodes.outcome, total: count(crmLearningEpisodes.id) })
-        .from(crmLearningEpisodes).groupBy(crmLearningEpisodes.outcome),
-      db.select({ estado: crmPatterns.consolidation, total: count(crmPatterns.id) })
-        .from(crmPatterns).groupBy(crmPatterns.consolidation),
-      db.select({ total: count(crmProcedures.id) }).from(crmProcedures),
-      db.select({ tipo: multivariatePredictions.predictionType, total: count(multivariatePredictions.id) })
-        .from(multivariatePredictions).groupBy(multivariatePredictions.predictionType),
-      db.select().from(approvalRequests).where(eq(approvalRequests.status, 'pending'))
-        .orderBy(desc(approvalRequests.createdAt)).limit(10),
+  const desde = new Date(Date.now() - VENTANA_DIAS * 24 * 3_600_000);
 
-      // Los umbrales calibrados. Lo que no esté guardado usa el valor de diseño.
-      db.select().from(configuracion),
-      db.select({ severidad: agentSecurityLog.severity, total: count(agentSecurityLog.id) })
-        .from(agentSecurityLog).groupBy(agentSecurityLog.severity),
-      db.select({ decision: cotExecutions.finalDecision, total: count(cotExecutions.id) })
-        .from(cotExecutions).groupBy(cotExecutions.finalDecision),
-      db.select({ total: count(kgCrmNodes.id) }).from(kgCrmNodes),
-      db.select({ total: count(kgCrmEdges.id) }).from(kgCrmEdges),
-      db.select({ total: count(embeddingIndex.id) }).from(embeddingIndex),
-    ]);
+  const [clave, datos] = await Promise.all([
+    // Sin proveedor configurado nada de esto funciona, y conviene decirlo aquí
+    // en vez de que se descubra al pulsar el botón.
+    variableDeEntorno('GROQ_API_KEY'),
+    conBaseDeDatos(async (db) => {
+      const [abiertas, hilos, resenas, alertas, ultimas] = await Promise.all([
+        // Conversaciones con la ventana de 24 h todavía abierta: son las que
+        // se pueden responder con texto libre, o sea donde sirve el borrador.
+        db
+          .select({ total: count(chatConversations.id) })
+          .from(chatConversations)
+          .where(gte(chatConversations.ventanaExpiraEn, new Date())),
 
-    // Lo guardado pisa al valor de diseño; lo que no esté, se queda con el suyo.
-    const umbrales = { ...valoresPorDefecto() };
-    for (const fila of config) {
-      const v = Number(fila.valor);
-      if (Number.isFinite(v)) umbrales[fila.clave] = v;
-    }
+        db
+          .select({ total: count(chatConversations.id) })
+          .from(chatConversations),
 
-    return {
-      salud, metricas, episodios, patrones, predicciones, aprobaciones, umbrales,
-      seguridad, razonamientos,
-      procedimientos: procedimientos[0]?.total ?? 0,
-      nodos: nodos[0]?.total ?? 0,
-      aristas: aristas[0]?.total ?? 0,
-      embeddings: embeddings[0]?.total ?? 0,
-    };
-  });
+        db
+          .select({ total: count(consumerReviews.id) })
+          .from(consumerReviews)
+          .where(gte(consumerReviews.createdAt, desde)),
+
+        db
+          .select({ total: count(consumerReviews.id) })
+          .from(consumerReviews)
+          .where(and(gte(consumerReviews.createdAt, desde), eq(consumerReviews.alertaCalidad, true))),
+
+        db
+          .select({
+            id: chatConversations.id,
+            telefono: chatConversations.telefono,
+            ultimo: chatConversations.ultimoMensajeEn,
+          })
+          .from(chatConversations)
+          .where(gte(chatConversations.ventanaExpiraEn, new Date()))
+          .orderBy(desc(chatConversations.ultimoMensajeEn))
+          .limit(5),
+      ]);
+
+      return {
+        abiertas: abiertas[0]?.total ?? 0,
+        hilos: hilos[0]?.total ?? 0,
+        resenas: resenas[0]?.total ?? 0,
+        alertas: alertas[0]?.total ?? 0,
+        ultimas,
+      };
+    }),
+  ]);
+
+  return { configurado: Boolean(clave?.trim()), ...datos };
 }
 
 export default async function PaginaAgente() {
-  const [d, rol] = await Promise.all([cargar(), rolActual()]);
-
-  const puedeAprobar = puede(rol, 'agente.aprobar');
-  const puedeCalibrar = puede(rol, 'agente.calibrar');
-  const puedeProbar = puede(rol, 'agente.sandbox');
-
-  const totalEpisodios = d.episodios.reduce((s, e) => s + e.total, 0);
-  const exitos = d.episodios.find((e) => e.resultado === 'SUCCESS')?.total ?? 0;
-  const totalPatrones = d.patrones.reduce((s, p) => s + p.total, 0);
-  const totalPredicciones = d.predicciones.reduce((s, p) => s + p.total, 0);
-  const ultimaSalud = d.salud[0];
+  const d = await cargar();
 
   return (
     <>
       <Titulo>Agente IA</Titulo>
 
+      <p className="texto-suave mb-4 max-w-3xl text-sm">
+        Lo que la IA hace hoy por el negocio. El estado interno de las catorce arquitecturas
+        está en{' '}
+        <Link href="/agente/diagnostico" className="text-orange-600 hover:underline dark:text-orange-400">
+          Diagnóstico
+        </Link>
+        : son endpoints que responden si se les llama, pero nada del producto los usa todavía.
+      </p>
+
+      {!d.configurado && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-amber-700/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-200"
+        >
+          <strong className="font-semibold">Sin proveedor de IA configurado.</strong>{' '}
+          Falta <code className="cifras">GROQ_API_KEY</code> como secreto del Worker. Hasta que
+          esté, el botón de sugerir respuesta va a fallar al pulsarlo. Se sube con{' '}
+          <code className="cifras">node scripts/configurar-ia.mjs</code>.
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metrica
-          etiqueta="Episodios aprendidos"
-          valor={numero(totalEpisodios)}
-          detalle={totalEpisodios === 0 ? 'sin datos' : `${Math.round((exitos / totalEpisodios) * 100)}% resueltos con éxito`}
+          etiqueta="Conversaciones abiertas"
+          valor={numero(d.abiertas)}
+          detalle="con ventana de 24 h · donde sirve el borrador"
+          tono={d.abiertas > 0 ? 'marca' : 'neutro'}
         />
-        <Metrica etiqueta="Patrones" valor={numero(totalPatrones)} detalle={`${numero(d.procedimientos)} procedimientos validados`} />
-        <Metrica etiqueta="Predicciones" valor={numero(totalPredicciones)} />
+        <Metrica etiqueta="Hilos en total" valor={numero(d.hilos)} detalle="histórico de la bandeja" />
         <Metrica
-          etiqueta="Aprobaciones pendientes"
-          valor={numero(d.aprobaciones.length)}
-          tono={d.aprobaciones.length > 0 ? 'aviso' : 'neutro'}
+          etiqueta={`Reseñas (${VENTANA_DIAS} días)`}
+          valor={numero(d.resenas)}
+          detalle="analizadas al llegar"
+        />
+        <Metrica
+          etiqueta="Alertas de calidad"
+          valor={numero(d.alertas)}
+          detalle="fallos de producción detectados"
+          tono={d.alertas > 0 ? 'riesgo' : 'exito'}
         />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <Tarjeta className="lg:col-span-2">
-          <h2 className="mb-1 font-semibold">Las 14 arquitecturas</h2>
-          <p className="texto-suave mb-4 text-sm">Todas expuestas por HTTP y respondiendo.</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {ARQUITECTURAS.map((a) => (
-              <div key={a.id} className="superficie flex items-center gap-3 rounded-lg border px-3 py-2">
-                <span className="texto-suave cifras w-8 shrink-0 text-xs font-medium">{a.id}</span>
-                <span className="min-w-0 flex-1 truncate text-sm" title={a.nombre}>{a.nombre}</span>
-                <Etiqueta tono="exito">activa</Etiqueta>
-              </div>
-            ))}
+        <Tarjeta>
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <h2 className="font-semibold">Borrador de respuesta</h2>
+            <Etiqueta tono={d.configurado ? 'exito' : 'aviso'}>
+              {d.configurado ? 'listo' : 'sin llave'}
+            </Etiqueta>
           </div>
+          <p className="texto-suave text-sm">
+            En cada conversación de la Bandeja hay un botón <strong>Sugerir</strong>. Redacta una
+            respuesta usando el nivel del cliente, sus puntos y el estado de su último pedido, y la
+            escribe en el campo para que la corrijas.
+          </p>
+          <p className="texto-suave mt-2 text-sm">
+            No envía nada. Si le falta un dato lo deja entre corchetes en vez de inventarlo.
+          </p>
+          <Link
+            href="/bandeja"
+            className="mt-3 inline-block text-sm text-orange-600 hover:underline dark:text-orange-400"
+          >
+            Ir a la Bandeja
+          </Link>
         </Tarjeta>
 
-        <div className="space-y-4">
-          <Tarjeta>
-            <h2 className="mb-3 font-semibold">Salud</h2>
-            {!ultimaSalud ? (
-              <Vacio>Sin registros de salud.</Vacio>
-            ) : (
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="texto-suave">Estado</dt>
-                  <dd><Etiqueta tono={ultimaSalud.healthStatus === 'healthy' ? 'exito' : 'aviso'}>{ultimaSalud.healthStatus}</Etiqueta></dd>
-                </div>
-                {[
-                  ['Inteligencia', ultimaSalud.intelligenceScore],
-                  ['Deriva', ultimaSalud.driftScore],
-                  ['Falsos positivos', ultimaSalud.fpRate],
-                  ['Aceptación', ultimaSalud.acceptanceRate],
-                ].map(([k, v]) => (
-                  <div key={String(k)} className="flex justify-between gap-3">
-                    <dt className="texto-suave">{k}</dt>
-                    <dd className="cifras font-medium">{porcentaje(v as string)}</dd>
-                  </div>
-                ))}
-                <div className="flex justify-between gap-3">
-                  <dt className="texto-suave">Revisado</dt>
-                  <dd className="text-xs">{desde(ultimaSalud.checkedAt)}</dd>
-                </div>
-              </dl>
-            )}
-          </Tarjeta>
+        <Tarjeta>
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <h2 className="font-semibold">Maridaje en la mesa</h2>
+            <Etiqueta tono={d.configurado ? 'exito' : 'aviso'}>
+              {d.configurado ? 'listo' : 'sin llave'}
+            </Etiqueta>
+          </div>
+          <p className="texto-suave text-sm">
+            Quien escanea el QR de la mesa recibe una sugerencia de bebida para lo que está
+            comiendo, según su perfil de paladar. Es venta añadida en el momento exacto del
+            consumo.
+          </p>
+          <Link
+            href="/qr"
+            className="mt-3 inline-block text-sm text-orange-600 hover:underline dark:text-orange-400"
+          >
+            Ver los códigos QR
+          </Link>
+        </Tarjeta>
 
-          <Tarjeta>
-            <h2 className="mb-3 font-semibold">Grafo y búsqueda</h2>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="texto-suave">Nodos del grafo</dt>
-                <dd className="cifras font-medium">{numero(d.nodos)}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="texto-suave">Relaciones</dt>
-                <dd className="cifras font-medium">{numero(d.aristas)}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="texto-suave">Entidades indexadas</dt>
-                <dd className="cifras font-medium">{numero(d.embeddings)}</dd>
-              </div>
-            </dl>
-          </Tarjeta>
-        </div>
+        <Tarjeta>
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <h2 className="font-semibold">Alerta de calidad</h2>
+            <Etiqueta tono={d.configurado ? 'exito' : 'aviso'}>
+              {d.configurado ? 'listo' : 'sin llave'}
+            </Etiqueta>
+          </div>
+          <p className="texto-suave text-sm">
+            Cada reseña que entra se lee buscando señales de un fallo de producción —un lote
+            salado, una textura rara— y no solo una nota baja. Una queja repetida sobre lo mismo
+            es un problema de cocina, no de servicio.
+          </p>
+          <Link
+            href="/resenas"
+            className="mt-3 inline-block text-sm text-orange-600 hover:underline dark:text-orange-400"
+          >
+            Ver reseñas
+          </Link>
+        </Tarjeta>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Tarjeta>
-          <h2 className="mb-3 font-semibold">Aprobaciones pendientes</h2>
-          {d.aprobaciones.length === 0 ? (
-            <Vacio>Nada esperando aprobación humana.</Vacio>
+      <div className="mt-6">
+        <Tarjeta
+          titulo="Conversaciones donde puedes usarlo ahora"
+          accion={
+            <Link href="/bandeja" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+              Abrir bandeja
+            </Link>
+          }
+        >
+          {d.ultimas.length === 0 ? (
+            <Vacio>
+              No hay ninguna conversación con la ventana de 24 h abierta. El borrador solo sirve
+              cuando el cliente ha escrito hace menos de un día: fuera de esa ventana, Meta obliga
+              a usar una plantilla aprobada y el texto libre se rechaza.
+            </Vacio>
           ) : (
-            <ul className="space-y-3">
-              {d.aprobaciones.map((a) => (
-                <TarjetaDecision
-                  key={a.id}
-                  puedeAprobar={puedeAprobar}
-                  solicitud={{
-                    id: a.id,
-                    accion: a.actionType ?? 'acción sin nombre',
-                    datos: (a.approvalData ?? null) as Record<string, unknown> | null,
-                    creada: desde(a.createdAt),
-                    expira: a.expiresAt ? new Date(a.expiresAt).toISOString() : null,
-                  }}
-                />
-              ))}
-            </ul>
-          )}
-        </Tarjeta>
-
-        <Tarjeta>
-          <h2 className="mb-3 font-semibold">Últimas métricas</h2>
-          {d.metricas.length === 0 ? (
-            <Vacio>El agente todavía no ha registrado métricas.</Vacio>
-          ) : (
-            <ul className="divide-y borde-tema text-sm">
-              {d.metricas.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <span className="truncate" title={m.metricName}>{m.metricName}</span>
-                  <span className="cifras shrink-0 font-medium">{numero(m.metricValue)}</span>
+            <ul className="divide-y borde-tema">
+              {d.ultimas.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <Link href="/bandeja" className="cifras truncate text-sm hover:underline">
+                    {c.telefono}
+                  </Link>
+                  <span className="texto-suave shrink-0 text-xs">
+                    {c.ultimo ? new Date(c.ultimo).toLocaleString('es-CO') : '—'}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
         </Tarjeta>
       </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Tarjeta titulo="Calibración del agente">
-          <p className="texto-suave mb-4 text-xs">
-            Estos números deciden a quién se persigue y a quién se da por perdido. Estaban
-            fijos en el código: cambiarlos exigía un despliegue.
-          </p>
-          <Umbrales valores={d.umbrales} puedeCalibrar={puedeCalibrar} />
-        </Tarjeta>
-
-        <Tarjeta titulo="Sandbox">
-          <p className="texto-suave mb-4 text-xs">
-            Prueba cómo reaccionaría el agente ante un comensal inventado. Nada de lo que
-            ocurra aquí se guarda ni se envía a nadie.
-          </p>
-          <Sandbox puedeProbar={puedeProbar} />
-        </Tarjeta>
-      </div>
-
     </>
   );
 }

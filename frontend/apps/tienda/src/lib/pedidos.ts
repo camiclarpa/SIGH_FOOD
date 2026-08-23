@@ -11,7 +11,7 @@
 // bastaría con abrir las herramientas de desarrollo para pedir cinco conos a
 // mil pesos — y no habría forma de notarlo hasta cuadrar la caja.
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql, notInArray } from 'drizzle-orm';
 import {
   b2cConsumers,
   pedidoEventos,
@@ -106,7 +106,20 @@ export type ResultadoPedido =
       /** Mesa asignada, si el pedido entró por un QR. */
       mesa: string | null;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /*
+        Qué se agotó y con qué se puede cambiar.
+
+        Van aparte del mensaje para que la tienda pueda pintar un botón "cámbialo
+        por X" en vez de obligar a volver al catálogo y rehacer el carrito. Quien
+        llega al checkout ya decidió comprar: devolverle el trabajo es donde más
+        gente se pierde.
+      */
+      agotado?: { slug: string; nombre: string };
+      sustituto?: { slug: string; nombre: string; precio: number } | null;
+    };
 
 /**
  * Crea el pedido.
@@ -151,15 +164,58 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
 
     const porSlug = new Map(encontrados.map((p) => [p.slug, p]));
 
-    for (const slug of slugs) {
-      const p = porSlug.get(slug);
-      if (!p) return { ok: false as const, error: 'Uno de los productos ya no está disponible' };
-      // Se comprueba al crear y no solo al pintar el catálogo: entre que alguien
-      // añade algo al carrito y paga pueden pasar horas, y la cocina puede
-      // haberse quedado sin ese sabor mientras tanto.
-      if (!p.disponible) {
-        return { ok: false as const, error: `${p.nombre} se acaba de agotar. Quítalo del carrito para seguir.` };
-      }
+    /*
+      Disponibilidad.
+
+      Se comprueba al crear y no solo al pintar el catálogo: entre que alguien
+      añade algo al carrito y paga pueden pasar horas, y la cocina puede haberse
+      quedado sin ese sabor mientras tanto.
+
+      Cuando algo se agota NO basta con dar el error. Quien llega hasta aquí ya
+      decidió comprar, ya tecleó su teléfono y su dirección: es el punto del
+      embudo donde más caro sale perder a alguien. Decirle "quítalo del carrito"
+      le devuelve el trabajo a él y muchos abandonan ahí.
+
+      Así que se le ofrece un sustituto concreto y se deja que decida. El
+      servidor NO cambia el pedido por su cuenta: sustituir un sabor sin
+      preguntar entrega algo que nadie pidió, y eso es peor que perder la venta.
+    */
+    const agotados = slugs.map((s) => porSlug.get(s)).filter((p) => p && !p.disponible);
+    const inexistentes = slugs.filter((s) => !porSlug.has(s));
+
+    if (inexistentes.length > 0) {
+      return { ok: false as const, error: 'Uno de los productos ya no está disponible' };
+    }
+
+    if (agotados.length > 0) {
+      const falta = agotados[0]!;
+
+      // Un sustituto del mismo precio, disponible, que no esté ya en el
+      // carrito. Del mismo precio para que la sugerencia no obligue a recalcular
+      // ni sorprenda con un cobro distinto.
+      const [sustituto] = await db
+        .select({ slug: productos.slug, nombre: productos.nombre, precio: productos.precioCOP })
+        .from(productos)
+        .where(
+          and(
+            eq(productos.activo, true),
+            eq(productos.disponible, true),
+            eq(productos.precioCOP, falta.precioCOP),
+            notInArray(productos.slug, slugs)
+          )
+        )
+        .limit(1);
+
+      return {
+        ok: false as const,
+        error: sustituto
+          ? `${falta.nombre} se acaba de agotar. ¿Te sirve ${sustituto.nombre}? Cuesta lo mismo.`
+          : `${falta.nombre} se acaba de agotar. Quítalo del carrito para seguir con el resto.`,
+        // La tienda usa esto para ofrecer el cambio con un botón, en vez de
+        // obligar a volver al catálogo y rehacer el carrito a mano.
+        agotado: { slug: falta.slug, nombre: falta.nombre },
+        sustituto: sustituto ?? null,
+      };
     }
 
     // Las opciones también: su sobreprecio sale de la base.

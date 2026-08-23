@@ -3,6 +3,14 @@ import { listarComensales, zonasConMomentos, DIAS_RIESGO, type CampoOrdenComensa
 import { LINEAS_PRODUCTO, NIVELES, etiquetaNivel, lineaDominante } from '@/lib/fidelizacion';
 import { Exportar } from '@/components/Exportar';
 import { puede, rolActual } from '@/lib/permisos';
+import { conBaseDeDatos } from '@/lib/cloudflare';
+import {
+  tablaRFM,
+  repartoPorSegmento,
+  ETIQUETAS_SEGMENTO,
+  type FilaRFM,
+  type SegmentoRFM,
+} from '@/lib/rfm';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -34,7 +42,7 @@ export default async function PaginaComensales({
   const orden = ORDENES.includes(p.orden as CampoOrdenComensal) ? (p.orden as CampoOrdenComensal) : 'reciente';
   const pagina = Math.max(1, Number(p.pagina) || 1);
 
-  const [comensales, listaZonas, rol] = await Promise.all([
+  const [comensales, listaZonas, rol, rfm] = await Promise.all([
     listarComensales({
       pagina,
       limite: 25,
@@ -47,7 +55,16 @@ export default async function PaginaComensales({
     }),
     zonasConMomentos(),
     rolActual(),
+    // RFM calculado, no adivinado. Ver lib/rfm.ts: el riesgo es "lleva más de
+    // vez y media SU intervalo habitual sin pedir", no un número que devuelve
+    // un modelo de lenguaje.
+    conBaseDeDatos((db) => tablaRFM(db)).catch(() => [] as FilaRFM[]),
   ]);
+
+  const reparto = repartoPorSegmento(rfm);
+  // Los que más urgen arriba: primero por lo que gastaban, porque perder a
+  // quien deja doscientos mil cuesta más que perder a quien deja treinta.
+  const urgentes = rfm.filter((f) => f.enRiesgo).sort((a, b) => b.monetario - a.monetario).slice(0, 6);
 
   const { filas, paginacion } = comensales.datos;
   const zonas = listaZonas.datos;
@@ -70,8 +87,76 @@ export default async function PaginaComensales({
         Comensales
       </Titulo>
       <p className="texto-suave -mt-2 mb-4 text-sm">
-        {numero(paginacion.total)} personas registradas desde el QR de mesa.
+        {numero(paginacion.total)} personas registradas, por el QR de la mesa o al pedir en la tienda.
       </p>
+
+      {/*
+        Quién vale y quién se está yendo, antes de la lista.
+
+        La tabla de abajo sirve para buscar a alguien concreto; esto sirve para
+        decidir a quién escribirle hoy, que es lo que hace que esta pantalla
+        ayude a vender en vez de solo consultar.
+      */}
+      {rfm.length > 0 && (
+        <div className="mb-4 grid gap-4 lg:grid-cols-3">
+          <Tarjeta className="lg:col-span-1">
+            <h2 className="mb-3 font-semibold">Cómo está la cartera</h2>
+            <ul className="space-y-2 text-sm">
+              {(Object.keys(ETIQUETAS_SEGMENTO) as SegmentoRFM[])
+                .filter((s) => reparto[s] > 0)
+                .map((s) => (
+                  <li key={s} className="flex items-baseline justify-between gap-3">
+                    <span className="flex items-center gap-2">
+                      <Etiqueta tono={s === 'campeon' ? 'exito' : s === 'en_riesgo' || s === 'dormido' ? 'riesgo' : 'info'}>
+                        {ETIQUETAS_SEGMENTO[s]}
+                      </Etiqueta>
+                    </span>
+                    <span className="cifras font-medium">{numero(reparto[s])}</span>
+                  </li>
+                ))}
+            </ul>
+          </Tarjeta>
+
+          <Tarjeta className="lg:col-span-2">
+            <h2 className="mb-1 font-semibold">A quién llamar hoy</h2>
+            <p className="texto-suave mb-3 text-sm">
+              Llevan más de vez y media su intervalo habitual sin pedir. Ordenados por lo que
+              gastaban: perder a quien deja doscientos mil cuesta más que perder a quien deja treinta.
+            </p>
+            {urgentes.length === 0 ? (
+              <Vacio>
+                Nadie en riesgo ahora mismo. Hace falta al menos tres pedidos por persona para saber
+                cada cuánto viene; con menos, decir que alguien «está en riesgo» sería inventarlo.
+              </Vacio>
+            ) : (
+              <ul className="divide-y borde-tema">
+                {urgentes.map((f) => (
+                  <li key={f.consumerId} className="flex items-center justify-between gap-3 py-2">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/comensales/${f.consumerId}`}
+                        className="block truncate text-sm font-medium hover:underline"
+                      >
+                        {f.nombre ?? 'Sin nombre'}
+                      </Link>
+                      <p className="texto-suave cifras truncate text-xs">
+                        {f.frecuencia} pedidos · suele venir cada {f.intervaloHabitual} días ·
+                        lleva {f.recencia} sin pedir
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="cifras text-xs font-medium">
+                        ${numero(f.monetario)}
+                      </span>
+                      <Etiqueta tono="riesgo">{f.retraso}× tarde</Etiqueta>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Tarjeta>
+        </div>
+      )}
 
       {/*
         Formulario GET y no estado de cliente: así los filtros viven en la URL y

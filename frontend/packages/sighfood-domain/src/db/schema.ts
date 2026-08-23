@@ -241,6 +241,32 @@ export const motivoPuntosEnum = pgEnum('motivo_puntos', [
 
 export const desafioEstadoEnum = pgEnum('desafio_estado', ['borrador', 'activo', 'pausado', 'finalizado']);
 
+// --- Contenido, activaciones y embajadores (herramienta 4 B2C) ---
+// Los enums van todos aqui arriba por convencion del archivo, comprobada
+// por tests/config/schema-integridad.test.ts.
+
+export const contenidoTipoEnum = pgEnum('contenido_tipo', [
+  'guia', 'video', 'reto', 'storytelling', 'receta', 'ugc'
+]);
+
+export const contenidoCanalEnum = pgEnum('contenido_canal', [
+  'instagram', 'tiktok', 'whatsapp', 'vip', 'web', 'otro'
+]);
+
+export const contenidoEstadoEnum = pgEnum('contenido_estado', [
+  'idea', 'produccion', 'listo', 'publicado', 'archivado'
+]);
+
+export const activacionTipoEnum = pgEnum('activacion_tipo', [
+  'evento', 'popup', 'degustacion', 'feria', 'alianza'
+]);
+
+export const activacionEstadoEnum = pgEnum('activacion_estado', [
+  'planificada', 'confirmada', 'realizada', 'cancelada'
+]);
+
+export const embajadorEstadoEnum = pgEnum('embajador_estado', ['activo', 'pausado', 'retirado']);
+
 /** Sentimiento detectado en una resena. */
 export const sentimientoEnum = pgEnum('sentimiento', ['positivo', 'neutro', 'negativo']);
 
@@ -505,8 +531,6 @@ export const estadoPagoEnum = pgEnum('estado_pago', [
 // =============================================================================
 
 
-
-
 // =============================================================================
 // 1. ACCOUNTS (Cuentas B2B - Restaurantes/Chefs)
 // =============================================================================
@@ -764,25 +788,9 @@ export type NewDataConsent = typeof dataConsents.$inferInsert;
 // =============================================================================
 
 
-
-
-
-
-
 // =============================================================================
 // ENUMS MODULOS CRM FALTANTES
 // =============================================================================
-
-
-
-
-
-
-
-
-
-
-
 
 
 // =============================================================================
@@ -1898,28 +1906,9 @@ export type NewB2cTransaction = typeof b2cTransactions.$inferInsert;
 // =============================================================================
 
 
-
-
-
-
-
-
-
-
-
-
 // =============================================================================
 // ENUMS - 14 ARQUITECTURAS TRANSVERSALES (CRM SIGH_FOOD)
 // =============================================================================
-
-
-
-
-
-
-
-
-
 
 
 // =============================================================================
@@ -2831,3 +2820,123 @@ export type ZonaEnvio = typeof zonasEnvio.$inferSelect;
 
 export type Pago = typeof pagos.$inferSelect;
 export type NewPago = typeof pagos.$inferInsert;
+
+// =============================================================================
+// CONTENIDO, ACTIVACIONES Y EMBAJADORES (herramienta 4 del plan B2C)
+// =============================================================================
+//
+// No se reusan activations / pop_materials / demonstrations, que existen y estan
+// vacias, porque las tres cuelgan de `account_id NOT NULL`: son del canal B2B
+// —material POP instalado en un bar, demostraciones al dueno—. Un pop-up en un
+// centro comercial no ocurre en ningun bar, y forzar un account_id obligaria a
+// inventarse cuentas falsas que corromperian la tabla que el canal B2B va a
+// usar cuando se reactive. Ver migracion 0016.
+
+
+/** Biblioteca de contenido sensorial: lo que se publica para vender. */
+export const contenidos = pgTable('contenidos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  titulo: varchar('titulo', { length: 200 }).notNull(),
+  tipo: contenidoTipoEnum('tipo').notNull(),
+  canal: contenidoCanalEnum('canal').notNull(),
+  /** Que linea sensorial trabaja. Null = transversal a la marca. */
+  lineaProducto: momentProductLineEnum('linea_producto'),
+  estado: contenidoEstadoEnum('estado').notNull().default('idea'),
+  /** La frase con la que entra. Es lo que decide si alguien para de deslizar. */
+  gancho: text('gancho'),
+  notas: text('notas'),
+  /** Solo el enlace: alojar video en el CRM no aporta y complica los respaldos. */
+  url: varchar('url', { length: 500 }),
+  publicadoEn: timestamp('publicado_en', { withTimezone: true }),
+  /*
+    Resultado real, tecleado a mano despues de publicar.
+
+    No se sincroniza con ninguna API a proposito: prometer metricas automaticas
+    de Instagram obliga a mantener una integracion que se rompe cada vez que
+    Meta cambia algo, y una cifra que dejo de actualizarse hace meses es peor
+    que una casilla vacia.
+  */
+  alcance: integer('alcance'),
+  interacciones: integer('interacciones'),
+  creadoPor: uuid('creado_por').references(() => staffUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_contenidos_estado').on(t.estado),
+  index('idx_contenidos_canal').on(t.canal),
+  index('idx_contenidos_publicado').on(t.publicadoEn),
+]);
+
+
+/** Activaciones presenciales B2C: donde la gente prueba el producto en vivo. */
+export const activaciones = pgTable('activaciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nombre: varchar('nombre', { length: 200 }).notNull(),
+  tipo: activacionTipoEnum('tipo').notNull(),
+  estado: activacionEstadoEnum('estado').notNull().default('planificada'),
+  lugar: varchar('lugar', { length: 200 }).notNull(),
+  direccion: varchar('direccion', { length: 255 }),
+  fecha: timestamp('fecha', { withTimezone: true }).notNull(),
+  /** El bar, si ocurre dentro de uno. Nullable: un pop-up no tiene cuenta B2B. */
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  /*
+    QR propio de la activacion.
+
+    Es lo que la convierte en algo medible: quien escanea ahi queda atribuido, y
+    despues se puede responder "cuantos de los que vinieron acabaron pidiendo".
+    Sin esto, decidir si repetir un evento es una corazonada.
+  */
+  qrCodeId: uuid('qr_code_id').references(() => qrCodes.id, { onDelete: 'set null' }),
+  aforoEstimado: integer('aforo_estimado'),
+  asistentes: integer('asistentes'),
+  /** Lo que de verdad importa: cuanta gente nueva entro a la base por aqui. */
+  comensalesNuevos: integer('comensales_nuevos'),
+  ventasCOP: integer('ventas_cop'),
+  costeCOP: integer('coste_cop'),
+  notas: text('notas'),
+  creadoPor: uuid('creado_por').references(() => staffUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_activaciones_fecha').on(t.fecha),
+  index('idx_activaciones_estado').on(t.estado),
+]);
+
+
+/**
+ * Programa de embajadores.
+ *
+ * Un embajador ES un comensal, no una persona aparte: si fuera independiente
+ * habria dos fichas de la misma persona que se contradicen, y lo que se le
+ * premia —puntos, canjes— vive en el comensal.
+ *
+ * Sus ventas NO se guardan aqui. Se calculan cruzando `codigo` con
+ * `pedidos.referido_por`: un contador acumulado se desincroniza en cuanto se
+ * cancela un pedido, y entonces nadie sabe cual de las dos cifras es la buena.
+ */
+export const embajadores = pgTable('embajadores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().unique().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  /** Como se le llama publicamente: @arepamica. */
+  alias: varchar('alias', { length: 80 }),
+  /** El codigo de su enlace: bocazo.co/?ref=camilo */
+  codigo: varchar('codigo', { length: 60 }).notNull().unique(),
+  estado: embajadorEstadoEnum('estado').notNull().default('activo'),
+  /** Puntos que se le abonan por cada pedido traido. 0 = solo visibilidad. */
+  puntosPorPedido: integer('puntos_por_pedido').notNull().default(0),
+  seguidores: integer('seguidores'),
+  notas: text('notas'),
+  alta: timestamp('alta', { withTimezone: true }).defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_embajadores_estado').on(t.estado),
+  index('idx_embajadores_codigo').on(t.codigo),
+]);
+
+export type Contenido = typeof contenidos.$inferSelect;
+export type NewContenido = typeof contenidos.$inferInsert;
+export type Activacion = typeof activaciones.$inferSelect;
+export type NewActivacion = typeof activaciones.$inferInsert;
+export type Embajador = typeof embajadores.$inferSelect;
+export type NewEmbajador = typeof embajadores.$inferInsert;

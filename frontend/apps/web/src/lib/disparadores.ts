@@ -43,6 +43,7 @@ import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { despacharPlantilla, ACTOR_SISTEMA } from '@/lib/whatsapp/despacho';
 import { tablaRFM } from '@/lib/rfm';
+import { comensalesDelSegmentoPorNombre } from '@/lib/segmentacion';
 
 /** Disparadores que este evaluador sabe resolver. */
 export const DISPARADORES_SOPORTADOS = [
@@ -241,8 +242,35 @@ export async function ejecutarSecuencias(): Promise<ResultadoSecuencia[]> {
           horasDeEspera: secuencia.delayHours ?? 0,
         });
 
+        /*
+          Segmento objetivo.
+
+          El campo existía y no lo miraba nadie, así que una campaña dirigida a
+          "En riesgo de olvido" salía a todo el que cumpliera el disparador. Es
+          la diferencia entre segmentar y decir que se segmenta.
+
+          Si el segmento no tiene a nadie, no se manda: es preferible una
+          campaña que no sale a una que sale a quien no debía. Y se dice por qué,
+          porque el síntoma —"activé la campaña y no pasó nada"— no apunta solo.
+        */
+        let dirigidos = candidatos;
+        if (secuencia.targetSegment?.trim()) {
+          const delSegmento = new Set(
+            await comensalesDelSegmentoPorNombre(db, secuencia.targetSegment.trim())
+          );
+          dirigidos = candidatos.filter((id) => delSegmento.has(id));
+
+          if (delSegmento.size === 0) {
+            resultados.push({
+              ...base,
+              motivo: `el segmento "${secuencia.targetSegment}" no tiene a nadie hoy`,
+            });
+            continue;
+          }
+        }
+
         const recibidos = new Set(await yaRecibieron(db, secuencia.id));
-        const pendientes = candidatos.filter((id) => !recibidos.has(id));
+        const pendientes = dirigidos.filter((id) => !recibidos.has(id));
         base.elegibles = pendientes.length;
 
         for (const consumerId of pendientes) {

@@ -35,6 +35,10 @@ export type Permiso =
   // QR
   | 'qr.gestionar'
   | 'qr.redirigir'
+  // Contenido, activaciones y embajadores
+  | 'contenido.gestionar'
+  | 'activaciones.gestionar'
+  | 'embajadores.gestionar'
   // Agente IA
   | 'agente.aprobar'
   | 'agente.calibrar'
@@ -50,6 +54,11 @@ export type Permiso =
  * los usuarios: calibrar un umbral o activar una campaña cambia el
  * comportamiento del sistema para todos, no solo para un comensal.
  *
+ * Tampoco da de alta embajadores, aunque sí publica contenido y monta
+ * activaciones. La diferencia es económica: dar de alta a un embajador fija una
+ * recompensa que se paga en cada pedido que traiga, indefinidamente. Publicar
+ * un reel no compromete dinero futuro.
+ *
  * `lectura` no escribe nada. Ni siquiera exporta: un CSV con los WhatsApp de
  * todos los comensales es exactamente el dato que no debe salir sin control.
  */
@@ -61,6 +70,7 @@ const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'comensales.editar', 'consentimientos.revocar', 'resenas.moderar',
     'campanas.editar', 'campanas.activar', 'campanas.probar',
     'qr.gestionar', 'qr.redirigir',
+    'contenido.gestionar', 'activaciones.gestionar', 'embajadores.gestionar',
     'agente.aprobar', 'agente.calibrar', 'agente.sandbox',
     'datos.exportar', 'usuarios.gestionar',
   ],
@@ -70,6 +80,7 @@ const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'comensales.editar', 'consentimientos.revocar', 'resenas.moderar',
     'campanas.editar', 'campanas.probar',
     'qr.gestionar',
+    'contenido.gestionar', 'activaciones.gestionar',
     'datos.exportar',
   ],
   lectura: [],

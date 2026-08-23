@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ejecutarSecuencias } from '@/lib/disparadores';
+import { recalcularSegmentos } from '@/lib/segmentacion';
 import { variableDeEntorno } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 
@@ -66,6 +67,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    /*
+      Los segmentos PRIMERO, y las secuencias después.
+
+      Si se hiciera al revés, una campaña dirigida a "En riesgo de olvido"
+      saldría con el reparto de ayer: incluiría a quien ya volvió a pedir esta
+      mañana y dejaría fuera a quien acaba de entrar en riesgo.
+    */
+    const segmentos = await recalcularSegmentos();
     const resultados = await ejecutarSecuencias();
 
     const enviados = resultados.reduce((n, r) => n + r.enviados, 0);
@@ -79,10 +88,18 @@ export async function POST(request: NextRequest) {
         `${enviados} enviados`,
         `${frenados} frenados por el tope`,
         `${fallidos} fallidos`,
+        `${segmentos.length} segmentos recalculados`,
       ],
     });
 
-    return NextResponse.json({ ok: true, enviados, frenados, fallidos, detalle: resultados });
+    return NextResponse.json({
+      ok: true,
+      enviados,
+      frenados,
+      fallidos,
+      segmentos,
+      detalle: resultados,
+    });
   } catch (e) {
     log.error('El cron de secuencias falló entero', e, { ruta: '/api/cron/secuencias' });
     // 500 a propósito: Cloudflare lo marca como ejecución fallida y queda

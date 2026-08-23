@@ -18,7 +18,11 @@ const GRUPOS = [
     titulo: null,
     enlaces: [
       { href: '/panel', texto: 'Panel', icono: '◱' },
-  { href: '/pedidos', etiqueta: 'Pedidos' },
+      // Va segundo, justo debajo del panel: es la pantalla que se mira cada pocos
+      // minutos con el local abierto. Estuvo escrita con la clave `etiqueta` en
+      // vez de `texto` y sin icono, así que el menú pintaba un enlace en blanco y
+      // la cola de cocina quedaba inalcanzable con pedidos ya pagados dentro.
+      { href: '/pedidos', texto: 'Pedidos', icono: '▤' },
       { href: '/comensales', texto: 'Comensales', icono: '☺' },
       { href: '/momentos', texto: 'Momentos', icono: '◉' },
       { href: '/fidelizacion', texto: 'Fidelización', icono: '★' },
@@ -26,6 +30,10 @@ const GRUPOS = [
       { href: '/resenas', texto: 'Reseñas', icono: '✎' },
       { href: '/segmentos', texto: 'Segmentos', icono: '◒' },
       { href: '/qr', texto: 'Códigos QR', icono: '⊞' },
+      // Contenido y embajadores van juntos y antes de la mensajería: son lo que
+      // trae gente nueva, y la mensajería es lo que se hace con la que ya está.
+      { href: '/contenido', texto: 'Contenido', icono: '▦' },
+      { href: '/embajadores', texto: 'Embajadores', icono: '✦' },
       { href: '/bandeja', texto: 'Bandeja', icono: '✉' },
       { href: '/mensajeria', texto: 'Mensajería', icono: '✈' },
       { href: '/agente', texto: 'Agente IA', icono: '◈' },

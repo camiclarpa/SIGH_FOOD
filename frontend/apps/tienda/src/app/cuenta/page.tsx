@@ -12,6 +12,7 @@ import { cookies } from 'next/headers';
 import { COOKIE_SESION, identidadDe } from '@/lib/sesion';
 import { estadoClub, favoritosDe, historial } from '@/lib/club';
 import VistaCuenta from '@/componentes/VistaCuenta';
+import { AvisosPush } from '@/componentes/AvisosPush';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,5 +31,16 @@ export default async function PaginaCuenta() {
     favoritosDe(yo.consumerId),
   ]);
 
-  return <VistaCuenta identidad={yo} club={club} pedidos={pedidos} favoritos={favoritos} />;
+  return (
+    <>
+      <VistaCuenta identidad={yo} club={club} pedidos={pedidos} favoritos={favoritos} />
+
+      {/*
+        El segundo momento bueno: acaba de mirar sus puntos, asi que le importa
+        el programa. "Te avisamos cuando subas de nivel" encaja con lo que tiene
+        delante.
+      */}
+      <AvisosPush motivo="puntos" claveVapid={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''} />
+    </>
+  );
 }

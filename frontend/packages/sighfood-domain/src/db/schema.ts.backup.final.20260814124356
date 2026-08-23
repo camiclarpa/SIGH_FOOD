@@ -1,0 +1,511 @@
+// =============================================================================
+// SIGH_FOOD - Database Schema (Drizzle ORM)
+// Fase 2: DefiniciÃƒÂ³n del esquema de base de datos
+// =============================================================================
+
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  integer,
+  numeric,
+  jsonb,
+  boolean,
+  pgEnum,
+  index
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+
+// =============================================================================
+// NOTA SOBRE ÃƒÂNDICES
+// =============================================================================
+//
+// Los ÃƒÂ­ndices se declaran aquÃƒÂ­, no solo en la base. Estaban creados a mano en
+// Neon pero ausentes del schema, asÃƒÂ­ que cualquier entorno levantado desde este
+// archivo Ã¢â‚¬â€staging, recuperaciÃƒÂ³n ante desastre, un `drizzle-kit push` limpioÃ¢â‚¬â€
+// nacÃƒÂ­a sin uno solo y nadie lo notaba hasta que la aplicaciÃƒÂ³n iba lenta.
+//
+// Los nombres coinciden con los que ya existen en producciÃƒÂ³n para que Drizzle
+// los reconozca en lugar de intentar duplicarlos.
+//
+// Medido con 500.000 momentos sensoriales (el volumen de 1000 clientes):
+//   Ã‚Â· filtrar momentos por cuenta:      50 ms  ->  0,87 ms
+//   Ã‚Â· momentos de los ÃƒÂºltimos 7 dÃƒÂ­as:  110 ms  ->  10,9 ms
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+export const b2bPipelineStageEnum = pgEnum('b2b_pipeline_stage', [
+  'lead_landing',
+  'lemon_test_pending',
+  'lemon_test_passed',
+  'consignation_active',
+  'recurring_client',
+  'saas_converted',
+  'churned'
+]);
+
+export const momentProductLineEnum = pgEnum('moment_product_line', [
+  'flavor_switch',
+  'taste_shock',
+  'spicy_volcano',
+  'umami_boost',
+  'sweet_craft'
+]);
+
+export const settlementStatusEnum = pgEnum('settlement_status', [
+  'pending',
+  'reconciled',
+  'invoiced',
+  'cancelled'
+]);
+
+// =============================================================================
+// 1. ACCOUNTS (Cuentas B2B - Restaurantes/Chefs)
+// =============================================================================
+
+export const accounts = pgTable('accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  commercialName: varchar('commercial_name', { length: 255 }),
+  zone: varchar('zone', { length: 100 }).notNull(),
+  address: text('address').notNull(),
+  decisionMakerName: varchar('decision_maker_name', { length: 150 }).notNull(),
+  decisionMakerRole: varchar('decision_maker_role', { length: 100 }),
+  assignedTo: uuid('assigned_to').references(() => staffUsers.id),
+  salesRep: varchar('sales_rep', { length: 150 }),
+  phone: varchar('phone', { length: 50 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  pipelineStage: b2bPipelineStageEnum('pipeline_stage').default('lead_landing'),
+  currentConsignationStock: integer('current_consignation_stock').default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  churnScore: numeric('churn_score', { precision: 5, scale: 2 }).default('0.00'),
+  lastActivity: timestamp('last_activity', { withTimezone: true }),
+  churnedAt: timestamp('churned_at', { withTimezone: true }),
+  leadScore: leadScoreEnum('lead_score').default('cold'),
+  conversionProb: numeric('conversion_prob', { precision: 5, scale: 2 }).default('0.00'),
+  engagementScore: numeric('engagement_score', { precision: 5, scale: 2 }).default('0.00'),
+  avgConsumptionDays: integer('avg_consumption_days').default(30),
+  lastPurchaseDate: timestamp('last_purchase_date', { withTimezone: true }),
+  reorderAlertThreshold: integer('reorder_alert_threshold').default(5)
+}, (t) => [
+  index('idx_accounts_email').on(t.email),
+  index('idx_accounts_stage').on(t.pipelineStage),
+]);
+
+// =============================================================================
+// 2. B2C_CONSUMERS (Comensales - First-Party Data)
+// =============================================================================
+
+export const b2cConsumers = pgTable('b2c_consumers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  whatsappPhone: varchar('whatsapp_phone', { length: 50 }).notNull().unique(),
+  fullName: varchar('full_name', { length: 150 }),
+  email: varchar('email', { length: 255 }),
+  // Mapa "lÃƒÂ­nea de producto" -> nÃ‚Âº de escaneos. Sin $type<> Drizzle lo infiere
+  // como `{}` y cualquier indexado desde el cÃƒÂ³digo no compila.
+  flavorPreference: jsonb('flavor_preference')
+    .$type<Record<string, number>>()
+    .default({}),
+  isVipWhatsapp: boolean('is_vip_whatsapp').default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+}, (t) => [
+  index('idx_b2c_whatsapp').on(t.whatsappPhone),
+]);
+
+// =============================================================================
+// 3. SENSORY_MOMENTS (Momentos Sensoriales - North Star Metric)
+// =============================================================================
+
+export const sensoryMoments = pgTable('sensory_moments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  productLine: momentProductLineEnum('product_line').notNull(),
+  scannedAt: timestamp('scanned_at', { withTimezone: true }).defaultNow(),
+  deviceInfo: jsonb('device_info').$type<{ userAgent?: string; platform?: string }>()
+}, (t) => [
+  index('idx_sensory_moments_account').on(t.accountId),
+  index('idx_sensory_moments_consumer').on(t.consumerId),
+  index('idx_sensory_moments_scanned').on(t.scannedAt),
+]);
+
+// =============================================================================
+// 4. CONSIGNATION_LOGS (Control de Inventario en ConsignaciÃƒÂ³n)
+// =============================================================================
+
+export const consignationLogs = pgTable('consignation_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  unitsDelivered: integer('units_delivered').notNull(),
+  unitsSold: integer('units_sold').default(0),
+  unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).default('21000.00'),
+    batchNumber: varchar('batch_number', { length: 100 }),
+    expiryDate: timestamp('expiry_date', { withTimezone: true }),
+  settlementStatus: settlementStatusEnum('settlement_status').default('pending'),
+  dispatchedAt: timestamp('dispatched_at', { withTimezone: true }).defaultNow(),
+  settledAt: timestamp('settled_at', { withTimezone: true })
+}, (t) => [
+  index('idx_consignation_account').on(t.accountId),
+  index('idx_consignation_status').on(t.settlementStatus),
+]);
+
+// =============================================================================
+// 5. QR_CODES (GestiÃƒÂ³n de CÃƒÂ³digos QR por Mesa)
+// =============================================================================
+
+export const qrCodes = pgTable('qr_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  tableNumber: varchar('table_number', { length: 50 }).notNull(),
+  qrToken: varchar('qr_token', { length: 255 }).notNull().unique(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+}, (t) => [
+  index('idx_qr_codes_account').on(t.accountId),
+  index('idx_qr_codes_token').on(t.qrToken),
+]);
+
+// =============================================================================
+// 6. DATA_CONSENTS (AuditorÃƒÂ­a de Consentimiento - Habeas Data)
+// =============================================================================
+
+export const dataConsents = pgTable('data_consents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  consentType: varchar('consent_type', { length: 50 }).notNull(),
+  ipAddress: varchar('ip_address', { length: 50 }),
+  userAgent: text('user_agent'),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow()
+}, (t) => [
+  index('idx_data_consents_consumer').on(t.consumerId),
+]);
+
+// =============================================================================
+// 7. STAFF_USERS (Usuarios internos del CRM)
+// =============================================================================
+//
+// El CRM lo usa solo el equipo de SIGH_FOOD: los 1000 gastrobares son registros
+// de `accounts`, no usuarios que inicien sesiÃƒÂ³n. Por eso aquÃƒÂ­ no hay tenencia
+// por cliente, solo roles internos.
+
+export const staffRoleEnum = pgEnum('staff_role', [
+  'admin',      // todo, incluida la gestiÃƒÂ³n de usuarios
+  'comercial',  // opera cuentas, consignaciÃƒÂ³n y QR
+  'lectura',    // solo consulta de mÃƒÂ©tricas
+]);
+
+export const staffUsers = pgTable('staff_users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  fullName: varchar('full_name', { length: 150 }).notNull(),
+  /** PBKDF2-SHA256 en formato `iteraciones:salt:hash` (ver lib/password.ts). */
+  passwordHash: text('password_hash').notNull(),
+  role: staffRoleEnum('role').notNull().default('lectura'),
+  isActive: boolean('is_active').notNull().default(true),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_staff_users_email').on(t.email),
+]);
+
+// =============================================================================
+// RELATIONS (Relaciones entre tablas)
+// =============================================================================
+
+export const accountsRelations = relations(accounts, ({ many }) => ({
+  sensoryMoments: many(sensoryMoments),
+  consignationLogs: many(consignationLogs),
+  qrCodes: many(qrCodes)
+}));
+
+export const b2cConsumersRelations = relations(b2cConsumers, ({ many }) => ({
+  sensoryMoments: many(sensoryMoments),
+  dataConsents: many(dataConsents)
+}));
+
+export const sensoryMomentsRelations = relations(sensoryMoments, ({ one }) => ({
+  account: one(accounts, {
+    fields: [sensoryMoments.accountId],
+    references: [accounts.id]
+  }),
+  consumer: one(b2cConsumers, {
+    fields: [sensoryMoments.consumerId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+export const consignationLogsRelations = relations(consignationLogs, ({ one }) => ({
+  account: one(accounts, {
+    fields: [consignationLogs.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const qrCodesRelations = relations(qrCodes, ({ one }) => ({
+  account: one(accounts, {
+    fields: [qrCodes.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const dataConsentsRelations = relations(dataConsents, ({ one }) => ({
+  consumer: one(b2cConsumers, {
+    fields: [dataConsents.consumerId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+// =============================================================================
+// TYPE EXPORTS (Tipos TypeScript inferidos del schema)
+// =============================================================================
+
+export type Account = typeof accounts.$inferSelect;
+export type NewAccount = typeof accounts.$inferInsert;
+
+export type B2cConsumer = typeof b2cConsumers.$inferSelect;
+export type NewB2cConsumer = typeof b2cConsumers.$inferInsert;
+
+export type SensoryMoment = typeof sensoryMoments.$inferSelect;
+export type NewSensoryMoment = typeof sensoryMoments.$inferInsert;
+
+export type ConsignationLog = typeof consignationLogs.$inferSelect;
+export type NewConsignationLog = typeof consignationLogs.$inferInsert;
+
+export type QrCode = typeof qrCodes.$inferSelect;
+export type NewQrCode = typeof qrCodes.$inferInsert;
+
+export type DataConsent = typeof dataConsents.$inferSelect;
+export type NewDataConsent = typeof dataConsents.$inferInsert;
+// =============================================================================
+// ENUMS FASE 3 - ANALITICA PREDICTIVA Y AUTOMATIZACION
+// =============================================================================
+
+export const churnRiskEnum = pgEnum('churn_risk', ['low', 'medium', 'high', 'critical']);
+
+export const leadScoreEnum = pgEnum('lead_score', ['cold', 'warm', 'hot', 'qualified']);
+
+export const automationTriggerEnum = pgEnum('automation_trigger', [
+  'signup',
+  'first_purchase',
+  'abandoned_cart',
+  'birthday',
+  'inactive_30_days',
+  'churn_risk',
+  'referral_conversion'
+]);
+
+export const automationChannelEnum = pgEnum('automation_channel', ['email', 'whatsapp', 'sms', 'push']);
+
+export const automationStatusEnum = pgEnum('automation_status', ['draft', 'active', 'paused', 'completed']);
+
+export const referralStatusEnum = pgEnum('referral_status', ['pending', 'converted', 'expired', 'cancelled']);
+export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['percentage', 'fixed', 'free_shipping']);
+
+export const forecastPeriodEnum = pgEnum('forecast_period', ['weekly', 'monthly', 'quarterly', 'yearly']);
+// =============================================================================
+// 11. PRODUCT_RECOMMENDATIONS (Cross-Selling y Recomendaciones IA)
+// =============================================================================
+
+export const productRecommendations = pgTable('product_recommendations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  recommendedProductLine: varchar('recommended_product_line', { length: 50 }).notNull(),
+  confidenceScore: numeric('confidence_score', { precision: 5, scale: 2 }).notNull(),
+  reason: varchar('reason', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+}, (t) => [
+  index('idx_recommendations_consumer').on(t.consumerId),
+  index('idx_recommendations_product').on(t.recommendedProductLine),
+]);
+
+// =============================================================================
+// 12. AUTOMATION_SEQUENCES (Secuencias de Marketing Automatizado)
+// =============================================================================
+
+export const automationSequences = pgTable('automation_sequences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  trigger: automationTriggerEnum('trigger').notNull(),
+  channel: automationChannelEnum('channel').notNull(),
+  status: automationStatusEnum('status').default('draft'),
+  template: text('template').notNull(),
+  delayHours: integer('delay_hours').default(0),
+  targetSegment: varchar('target_segment', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  churnScore: numeric('churn_score', { precision: 5, scale: 2 }).default('0.00'),
+  lastActivity: timestamp('last_activity', { withTimezone: true }),
+  churnedAt: timestamp('churned_at', { withTimezone: true }),
+  leadScore: leadScoreEnum('lead_score').default('cold'),
+  conversionProb: numeric('conversion_prob', { precision: 5, scale: 2 }).default('0.00'),
+  engagementScore: numeric('engagement_score', { precision: 5, scale: 2 }).default('0.00'),
+  avgConsumptionDays: integer('avg_consumption_days').default(30),
+  lastPurchaseDate: timestamp('last_purchase_date', { withTimezone: true }),
+  reorderAlertThreshold: integer('reorder_alert_threshold').default(5),
+}, (t) => [
+  index('idx_automation_trigger').on(t.trigger),
+  index('idx_automation_status').on(t.status),
+]);
+
+// =============================================================================
+// 13. AUTOMATION_LOGS (Registro de Ejecuciones de Automatización)
+// =============================================================================
+
+export const automationLogs = pgTable('automation_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sequenceId: uuid('sequence_id').notNull().references(() => automationSequences.id, { onDelete: 'cascade' }),
+  consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 50 }).notNull(),
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow(),
+  openedAt: timestamp('opened_at', { withTimezone: true }),
+  clickedAt: timestamp('clicked_at', { withTimezone: true }),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+  errorMessage: text('error_message'),
+}, (t) => [
+  index('idx_automation_logs_sequence').on(t.sequenceId),
+  index('idx_automation_logs_consumer').on(t.consumerId),
+]);
+
+// =============================================================================
+// 14. REFERRALS (Programa de Referidos B2C)
+// =============================================================================
+
+export const referrals = pgTable('referrals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  referrerId: uuid('referrer_id').notNull().references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  referredId: uuid('referred_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+  referralCode: varchar('referral_code', { length: 50 }).notNull().unique(),
+  status: referralStatusEnum('status').default('pending'),
+  rewardAmount: numeric('reward_amount', { precision: 10, scale: 2 }).default('0.00'),
+  rewardType: varchar('reward_type', { length: 50 }).default('points'),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_referrals_referrer').on(t.referrerId),
+  index('idx_referrals_code').on(t.referralCode),
+  index('idx_referrals_status').on(t.status),
+]);
+
+// =============================================================================
+// 15. REVENUE_FORECASTS (Proyección de Ingresos)
+// =============================================================================
+
+export const revenueForecasts = pgTable('revenue_forecasts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+  period: forecastPeriodEnum('period').notNull(),
+  periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+  periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+  projectedRevenue: numeric('projected_revenue', { precision: 12, scale: 2 }).notNull(),
+  actualRevenue: numeric('actual_revenue', { precision: 12, scale: 2 }),
+  pipelineValue: numeric('pipeline_value', { precision: 12, scale: 2 }).default('0.00'),
+  closeProbability: numeric('close_probability', { precision: 5, scale: 2 }).default('0.00'),
+  confidence: numeric('confidence', { precision: 5, scale: 2 }).default('0.00'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_forecasts_account').on(t.accountId),
+  index('idx_forecasts_period').on(t.period),
+]);
+
+// =============================================================================
+// 16. CHANNEL_METRICS (Métricas por Canal de Adquisición - ROAS/CAC)
+// =============================================================================
+
+export const channelMetrics = pgTable('channel_metrics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  channel: varchar('channel', { length: 100 }).notNull(),
+  campaign: varchar('campaign', { length: 255 }),
+  period: forecastPeriodEnum('period').notNull(),
+  periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+  periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+  spend: numeric('spend', { precision: 12, scale: 2 }).notNull(),
+  impressions: integer('impressions').default(0),
+  clicks: integer('clicks').default(0),
+  conversions: integer('conversions').default(0),
+  revenue: numeric('revenue', { precision: 12, scale: 2 }).default('0.00'),
+  cac: numeric('cac', { precision: 10, scale: 2 }),
+  roas: numeric('roas', { precision: 10, scale: 2 }),
+  ltv: numeric('ltv', { precision: 10, scale: 2 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_channel_metrics_channel').on(t.channel),
+  index('idx_channel_metrics_period').on(t.period),
+]);
+
+// =============================================================================
+// RELATIONS FASE 3
+// =============================================================================
+
+export const productRecommendationsRelations = relations(productRecommendations, ({ one }) => ({
+  consumer: one(b2cConsumers, {
+    fields: [productRecommendations.consumerId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+export const automationSequencesRelations = relations(automationSequences, ({ many }) => ({
+  logs: many(automationLogs)
+}));
+
+export const automationLogsRelations = relations(automationLogs, ({ one }) => ({
+  sequence: one(automationSequences, {
+    fields: [automationLogs.sequenceId],
+    references: [automationSequences.id]
+  }),
+  consumer: one(b2cConsumers, {
+    fields: [automationLogs.consumerId],
+    references: [b2cConsumers.id]
+  }),
+  account: one(accounts, {
+    fields: [automationLogs.accountId],
+    references: [accounts.id]
+  })
+}));
+
+export const referralsRelations = relations(referrals, ({ one }) => ({
+  referrer: one(b2cConsumers, {
+    fields: [referrals.referrerId],
+    references: [b2cConsumers.id]
+  }),
+  referred: one(b2cConsumers, {
+    fields: [referrals.referredId],
+    references: [b2cConsumers.id]
+  })
+}));
+
+export const revenueForecastsRelations = relations(revenueForecasts, ({ one }) => ({
+  account: one(accounts, {
+    fields: [revenueForecasts.accountId],
+    references: [accounts.id]
+  })
+}));
+
+// =============================================================================
+// TYPE EXPORTS FASE 3
+// =============================================================================
+
+export type ProductRecommendation = typeof productRecommendations.$inferSelect;
+export type NewProductRecommendation = typeof productRecommendations.$inferInsert;
+
+export type AutomationSequence = typeof automationSequences.$inferSelect;
+export type NewAutomationSequence = typeof automationSequences.$inferInsert;
+
+export type AutomationLog = typeof automationLogs.$inferSelect;
+export type NewAutomationLog = typeof automationLogs.$inferInsert;
+
+export type Referral = typeof referrals.$inferSelect;
+export type NewReferral = typeof referrals.$inferInsert;
+
+export type RevenueForecast = typeof revenueForecasts.$inferSelect;
+export type NewRevenueForecast = typeof revenueForecasts.$inferInsert;
+
+export type ChannelMetric = typeof channelMetrics.$inferSelect;
+export type NewChannelMetric = typeof channelMetrics.$inferInsert;

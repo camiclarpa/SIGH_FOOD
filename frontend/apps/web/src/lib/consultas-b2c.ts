@@ -11,6 +11,7 @@ import { and, asc, count, countDistinct, desc, eq, ilike, or, sql, type SQL } fr
 import {
   accounts,
   b2cConsumers,
+  pushSuscripciones,
   badges,
   challenges,
   challengeResponses,
@@ -743,6 +744,23 @@ export async function resumenMensajeria() {
           abiertos: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.openedAt} IS NOT NULL)::int`,
           convertidos: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.convertedAt} IS NOT NULL)::int`,
           errores: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.errorMessage} IS NOT NULL)::int`,
+          /*
+            El desglose por canal, que es lo que hace visible el ahorro.
+
+            Solo cuenta lo ENTREGADO ('sent'). Un fallo no se reparte por canal
+            porque no llegó a nadie, y sumarlo haría creer que el push entrega
+            más de lo que entrega.
+
+            'omitidos' son los que no se intentaron por no haber canal gratuito:
+            ni ventana abierta, ni notificaciones activadas, y la plantilla es de
+            marketing. No es un error del sistema — es la cuenta de a cuánta
+            gente no se puede llegar sin pagar, que es justo lo que hay que
+            mirar para decidir si conviene empujar las notificaciones.
+          */
+          porPush: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'push' AND ${automationLogs.status} = 'sent')::int`,
+          porTextoLibre: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'whatsapp_texto' AND ${automationLogs.status} = 'sent')::int`,
+          porPlantilla: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'whatsapp_plantilla' AND ${automationLogs.status} = 'sent')::int`,
+          omitidos: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.status} = 'skipped')::int`,
         })
         .from(automationLogs),
 
@@ -755,7 +773,10 @@ export async function resumenMensajeria() {
           convertido: automationLogs.convertedAt,
           error: automationLogs.errorMessage,
           secuencia: automationSequences.name,
-          canal: automationSequences.channel,
+          // El canal REAL por el que salió, no el declarado en la secuencia.
+          // Son cosas distintas desde que el canal se decide comensal a
+          // comensal: la misma campaña puede salir por push y por texto libre.
+          canal: automationLogs.canal,
           comensal: b2cConsumers.fullName,
           comensalId: b2cConsumers.id,
         })
@@ -766,14 +787,28 @@ export async function resumenMensajeria() {
         .limit(25),
     ]);
 
+    // Cuántos dispositivos hay alcanzables. Sin esto, "0 enviados por push" es
+    // ambiguo: no se sabe si el canal falla o si es que no hay nadie suscrito.
+    const [push] = await db
+      .select({
+        dispositivos: sql<number>`COUNT(*) FILTER (WHERE ${pushSuscripciones.activa})::int`,
+        comensales: sql<number>`COUNT(DISTINCT ${pushSuscripciones.consumerId}) FILTER (WHERE ${pushSuscripciones.activa})::int`,
+        bajas: sql<number>`COUNT(*) FILTER (WHERE NOT ${pushSuscripciones.activa})::int`,
+      })
+      .from(pushSuscripciones);
+
     const porId = new Map(porSecuencia.map((s) => [s.sequenceId, s]));
 
     return {
+      push: push ?? { dispositivos: 0, comensales: 0, bajas: 0 },
       secuencias: secuencias.map((s) => ({
         ...s,
         metricas: porId.get(s.id) ?? { enviados: 0, abiertos: 0, clicados: 0, convertidos: 0, errores: 0 },
       })),
-      totales: totales[0] ?? { enviados: 0, abiertos: 0, convertidos: 0, errores: 0 },
+      totales: totales[0] ?? {
+        enviados: 0, abiertos: 0, convertidos: 0, errores: 0,
+        porPush: 0, porTextoLibre: 0, porPlantilla: 0, omitidos: 0,
+      },
       ultimos,
     };
   }));

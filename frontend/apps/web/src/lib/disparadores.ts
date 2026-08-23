@@ -41,7 +41,8 @@ import {
 import type { Database } from '@sighfood/domain/db';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
-import { despacharPlantilla, ACTOR_SISTEMA } from '@/lib/whatsapp/despacho';
+import { despacharPorMejorCanal, variablesDe, ACTOR_SISTEMA } from '@/lib/whatsapp/despacho';
+import { rellenarPlantilla } from '@/lib/plantillas';
 import { tablaRFM } from '@/lib/rfm';
 import { comensalesDelSegmentoPorNombre } from '@/lib/segmentacion';
 
@@ -259,14 +260,32 @@ export async function ejecutarSecuencias(): Promise<ResultadoSecuencia[]> {
         fallidos: 0,
       };
 
-      // Sin plantilla aprobada en Meta no hay nada que mandar fuera de la
-      // ventana de 24 h, que es donde vive una campaña.
-      if (secuencia.channel !== 'whatsapp') {
-        resultados.push({ ...base, motivo: `canal ${secuencia.channel}: solo se envía WhatsApp` });
+      /*
+        Antes aquí se exigían dos cosas: canal 'whatsapp' y una plantilla
+        aprobada en Meta. Las dos han dejado de tener sentido.
+
+        Una secuencia ya no tiene UN canal fijo: lo elige lib/canal.ts en el
+        momento del envío, comensal por comensal. La misma campaña puede salir
+        por texto libre para quien escribió esta mañana y por Web Push para quien
+        no. Fijarlo por adelantado era decidir con información de ayer.
+
+        Y la plantilla de Meta ha pasado de obligatoria a opcional: Web Push no
+        la necesita. Exigirla dejaba fuera justo el contenido que Meta no deja
+        mandar —bienvenidas, encuestas, reactivaciones—, que es el que ahora
+        tiene camino.
+
+        Lo único imprescindible es el texto del CRM: es lo que se lee en la
+        notificación y en el mensaje libre.
+      */
+      if (secuencia.channel !== 'whatsapp' && secuencia.channel !== 'push') {
+        resultados.push({
+          ...base,
+          motivo: `canal ${secuencia.channel}: solo se envían WhatsApp y notificaciones`,
+        });
         continue;
       }
-      if (!secuencia.metaTemplateName?.trim()) {
-        resultados.push({ ...base, motivo: 'sin plantilla de Meta configurada' });
+      if (!secuencia.template?.trim()) {
+        resultados.push({ ...base, motivo: 'la secuencia no tiene texto que enviar' });
         continue;
       }
 
@@ -312,13 +331,31 @@ export async function ejecutarSecuencias(): Promise<ResultadoSecuencia[]> {
             break;
           }
 
-          const r = await despacharPlantilla(
+          /*
+            El texto se resuelve AQUÍ, no dentro del despachador.
+
+            Para la plantilla de Meta las variables las sustituye Meta con sus
+            huecos numerados. Para Web Push y para el texto libre las tenemos que
+            poner nosotros, y lo que se manda es el texto del CRM con sus
+            {{nombre}} ya rellenos.
+          */
+          const valores = await variablesDe(consumerId);
+          const texto = rellenarPlantilla(secuencia.template, valores);
+
+          const r = await despacharPorMejorCanal(
             {
               consumerId,
-              templateName: secuencia.metaTemplateName.trim(),
-              languageCode: secuencia.metaTemplateLang ?? 'es',
-              variables: secuencia.metaTemplateVars ?? [],
               sequenceId: secuencia.id,
+              texto,
+              // El título de la notificación es el nombre de la secuencia: es lo
+              // que se lee en grande en la pantalla bloqueada, y "Reactivación
+              // 15 días" no dice nada a quien lo recibe. Se usa la marca.
+              titulo: 'Bocazo',
+              url: '/',
+              templateName: secuencia.metaTemplateName,
+              languageCode: secuencia.metaTemplateLang,
+              variables: secuencia.metaTemplateVars ?? [],
+              categoria: secuencia.categoriaMeta,
             },
             ACTOR_SISTEMA
           );

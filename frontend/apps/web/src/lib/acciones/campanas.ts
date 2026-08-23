@@ -18,7 +18,7 @@ import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import { etiquetaNivel } from '@/lib/fidelizacion';
 import { VARIABLES, variablesDesconocidas, rellenarPlantilla, motivoNoEnviable } from '@/lib/plantillas';
-import { enviarPlantilla } from '@/lib/acciones/whatsapp';
+import { despacharPorMejorCanal, variablesDe } from '@/lib/whatsapp/despacho';
 
 export interface Resultado<T = undefined> {
   ok: boolean;
@@ -255,12 +255,17 @@ export async function previsualizar(datos: {
 // -----------------------------------------------------------------------------
 
 /**
- * Envía una secuencia a un comensal, por la plantilla aprobada en Meta.
+ * Envía una secuencia a un comensal por el mejor canal disponible.
  *
- * Es el puente entre el constructor de campañas y la pasarela: la secuencia
- * aporta QUÉ plantilla y en qué orden van sus huecos, y enviarPlantilla() se
- * ocupa del resto (normalizar el teléfono, resolver las variables del comensal,
- * llamar a la Cloud API y dejar el mensaje en el hilo de la bandeja).
+ * Antes esto exigía canal 'whatsapp' y plantilla de Meta, y fallaba si no había
+ * ninguna de las dos. Ahora decide igual que el cron: si la ventana de 24 h está
+ * abierta va por texto libre, si no por Web Push, y la plantilla de Meta queda
+ * como último recurso y solo si es de utilidad.
+ *
+ * Que el envío manual y el automático compartan despachador no es elegancia: es
+ * que probar una campaña desde el editor tiene que enseñar lo que va a pasar de
+ * verdad. Con dos caminos distintos, la prueba pasaría por WhatsApp y la campaña
+ * saldría por push — o al revés.
  *
  * No comprueba el estado de la secuencia: se usa tanto desde una campaña activa
  * como desde el editor para probar con un comensal real, y exigir 'active' haría
@@ -269,9 +274,9 @@ export async function previsualizar(datos: {
 export async function enviarSecuencia(datos: {
   sequenceId: string;
   consumerId: string;
-}): Promise<Resultado<{ wamid: string }>> {
+}): Promise<Resultado<{ canal: string; motivo: string }>> {
   return ejecutar('enviarSecuencia', async () => {
-    await exigir('campanas.activar');
+    const actor = await exigir('campanas.activar');
 
     const secuencia = await conBaseDeDatos(async (db) => {
       const [s] = await db
@@ -283,25 +288,37 @@ export async function enviarSecuencia(datos: {
     });
 
     if (!secuencia) throw new Error('La secuencia no existe');
-    if (secuencia.channel !== 'whatsapp') {
-      throw new Error(`Esta secuencia es de ${secuencia.channel}: la pasarela solo envía WhatsApp`);
-    }
-    if (!secuencia.metaTemplateName?.trim()) {
-      throw new Error('La secuencia no tiene plantilla de Meta configurada');
+    if (!secuencia.template?.trim()) {
+      throw new Error('La secuencia no tiene texto que enviar');
     }
 
-    const r = await enviarPlantilla({
-      consumerId: datos.consumerId,
-      templateName: secuencia.metaTemplateName.trim(),
-      languageCode: secuencia.metaTemplateLang ?? 'es',
-      variables: secuencia.metaTemplateVars ?? [],
-      sequenceId: secuencia.id,
-    });
+    // El texto del CRM con sus {{variables}} ya resueltas. Es lo que se lee en
+    // la notificación y en el mensaje libre; para la plantilla de Meta los
+    // huecos los rellena Meta, y este texto solo sirve para el registro.
+    const valores = await variablesDe(datos.consumerId);
+    const texto = rellenarPlantilla(secuencia.template, valores);
 
-    // enviarPlantilla ya deja el fallo registrado en automation_logs y en el
-    // hilo; aquí solo se propaga para que la interfaz lo enseñe.
-    if (!r.ok || !r.datos) throw new Error(r.error ?? 'No se pudo enviar');
-    return { wamid: r.datos.wamid };
+    const r = await despacharPorMejorCanal(
+      {
+        consumerId: datos.consumerId,
+        sequenceId: secuencia.id,
+        texto,
+        titulo: 'Bocazo',
+        url: '/',
+        templateName: secuencia.metaTemplateName,
+        languageCode: secuencia.metaTemplateLang,
+        variables: secuencia.metaTemplateVars ?? [],
+        categoria: secuencia.categoriaMeta,
+      },
+      { id: actor.id, email: actor.email }
+    );
+
+    // El despachador ya dejó el fallo registrado en automation_logs y en el
+    // hilo; aquí solo se propaga para que la interfaz lo enseñe. El motivo
+    // importa tanto como el error: "no tiene notificaciones activadas" no es un
+    // fallo del sistema, es información que quien envía necesita leer.
+    if (!r.ok) throw new Error(r.error ?? r.motivo ?? 'No se pudo enviar');
+    return { canal: r.canal, motivo: r.motivo };
   }).then((r) => {
     if (r.ok) { revalidatePath('/mensajeria'); revalidatePath('/bandeja'); }
     return r;

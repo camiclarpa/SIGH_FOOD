@@ -81,6 +81,38 @@ export const automationChannelEnum = pgEnum('automation_channel', ['email', 'wha
 
 export const automationStatusEnum = pgEnum('automation_status', ['draft', 'active', 'paused', 'completed']);
 
+/**
+ * Por dónde salió de verdad un mensaje.
+ *
+ * No es lo mismo que `automation_sequences.channel`, que dice por dónde se
+ * QUERÍA mandar. El canal real se decide al vuelo: si la ventana de 24 h está
+ * abierta se usa texto libre de WhatsApp —gratis—, si no se intenta Web Push, y
+ * la plantilla de Meta queda como último recurso. Guardar solo la intención
+ * haría imposible saber cuánto se está ahorrando.
+ */
+export const canalEnvioEnum = pgEnum('canal_envio', [
+  'push',
+  'whatsapp_texto',
+  'whatsapp_plantilla',
+]);
+
+/**
+ * La categoría con la que Meta tiene clasificada una plantilla.
+ *
+ * Determina si el envío es gratuito o facturable. MARKETING se cobra, y sin
+ * tarjeta registrada Meta lo rechaza con el error 131042. UTILITY —avisos de
+ * pedido, códigos de acceso— entra en la cuota gratuita.
+ *
+ * Se guarda aquí una copia de lo que dice Meta porque consultarlo en cada envío
+ * añadiría una llamada a la Graph API por mensaje. La copia se refresca con
+ * `scripts/sincronizar-categorias.mjs`; la fuente de verdad sigue siendo Meta.
+ */
+export const categoriaMetaEnum = pgEnum('categoria_meta', [
+  'utilidad',
+  'marketing',
+  'autenticacion',
+]);
+
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'converted', 'expired', 'cancelled']);
 
 export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['percentage', 'fixed', 'free_shipping']);
@@ -828,6 +860,15 @@ export const automationSequences = pgTable('automation_sequences', {
   metaTemplateName: varchar('meta_template_name', { length: 255 }),
   metaTemplateLang: varchar('meta_template_lang', { length: 10 }),
   metaTemplateVars: jsonb('meta_template_vars').$type<string[]>(),
+  /**
+   * Cómo tiene Meta clasificada esa plantilla. Copia local de lo que dice la
+   * Graph API, refrescada por scripts/sincronizar-categorias.mjs.
+   *
+   * Solo las de UTILIDAD pueden salir por WhatsApp. Las de marketing se cobran, y
+   * sin tarjeta Meta las rechaza con 131042 — el envío falla, la secuencia parece
+   * rota y la campaña no llega. Ese contenido va por Web Push.
+   */
+  categoriaMeta: categoriaMetaEnum('categoria_meta'),
   delayHours: integer('delay_hours').default(0),
   targetSegment: varchar('target_segment', { length: 100 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -856,6 +897,11 @@ export const automationLogs = pgTable('automation_logs', {
   consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
   accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).notNull(),
+  /**
+   * Por dónde salió realmente. Nulo en las filas anteriores a Web Push, que
+   * todas fueron por plantilla de WhatsApp.
+   */
+  canal: canalEnvioEnum('canal'),
   sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow(),
   openedAt: timestamp('opened_at', { withTimezone: true }),
   clickedAt: timestamp('clicked_at', { withTimezone: true }),
@@ -2940,3 +2986,78 @@ export type Activacion = typeof activaciones.$inferSelect;
 export type NewActivacion = typeof activaciones.$inferInsert;
 export type Embajador = typeof embajadores.$inferSelect;
 export type NewEmbajador = typeof embajadores.$inferInsert;
+
+// =============================================================================
+// Web Push: el canal propio
+// =============================================================================
+//
+// POR QUÉ EXISTE ESTA TABLA
+// -------------------------
+// Meta cobra las plantillas de categoría MARKETING, y sin tarjeta registrada las
+// rechaza con el error 131042. Eso deja fuera justo lo que más se manda:
+// bienvenidas, encuestas, reactivaciones, subidas de nivel.
+//
+// Web Push no pasa por Meta. El navegador del comensal guarda una suscripción,
+// nosotros guardamos aquí su dirección, y el mensaje viaja directo del servidor
+// al dispositivo. Sin intermediario y sin coste por mensaje.
+//
+// LO QUE HAY QUE SABER ANTES DE CONFIAR EN ESTE CANAL
+// ---------------------------------------------------
+// En iPhone, Web Push SOLO funciona si la persona ha añadido la web a la
+// pantalla de inicio (iOS 16.4+). Si abre la tienda en Safari y no la instala,
+// no hay notificaciones. Es una limitación de Apple, no del código, y significa
+// que este canal nunca alcanzará al 100% de la gente: por eso WhatsApp sigue
+// siendo el camino de lo transaccional y esto se reserva para lo demás.
+
+export const pushSuscripciones = pgTable('push_suscripciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  consumerId: uuid('consumer_id')
+    .notNull()
+    .references(() => b2cConsumers.id, { onDelete: 'cascade' }),
+
+  /**
+   * La URL que el navegador nos da para alcanzar a ESTE dispositivo.
+   *
+   * Es única por dispositivo y navegador, no por persona: alguien con móvil y
+   * portátil tiene dos. Por eso no hay unicidad por comensal — habría que elegir
+   * a cuál de sus pantallas avisar, y la respuesta correcta es a todas.
+   *
+   * Única globalmente porque el navegador puede reenviar la misma suscripción si
+   * la web se recarga, y sin esto se acumularían duplicados que multiplican el
+   * mismo aviso en el mismo teléfono.
+   */
+  endpoint: text('endpoint').notNull().unique(),
+
+  /** Clave pública del dispositivo. Con ella se cifra el contenido (RFC 8291). */
+  p256dh: text('p256dh').notNull(),
+  /** Secreto de autenticación del dispositivo, también para el cifrado. */
+  auth: text('auth').notNull(),
+
+  /** Para saber desde dónde se suscribió: ayuda a leer los fallos por plataforma. */
+  agente: varchar('agente', { length: 255 }),
+
+  /**
+   * Una suscripción muerta —desinstaló la web, revocó el permiso— responde 404 o
+   * 410. Se marca inactiva en vez de borrarla: saber cuánta gente se dio de baja
+   * es una señal de que los mensajes molestan, y borrar la fila la esconde.
+   */
+  activa: boolean('activa').notNull().default(true),
+
+  /**
+   * Fallos seguidos. Un 404/410 la desactiva de inmediato; los errores de red no
+   * deberían hacerlo, porque una caída del servicio de push del navegador
+   * borraría media base de suscriptores.
+   */
+  fallos: integer('fallos').notNull().default(0),
+
+  ultimaEntrega: timestamp('ultima_entrega', { withTimezone: true }),
+  creada: timestamp('creada', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_push_consumer').on(t.consumerId),
+  // Las consultas de envío siempre filtran por activa: sin este índice cada
+  // campaña recorre la tabla entera.
+  index('idx_push_activa').on(t.activa),
+]);
+
+export type PushSuscripcion = typeof pushSuscripciones.$inferSelect;
+export type NewPushSuscripcion = typeof pushSuscripciones.$inferInsert;

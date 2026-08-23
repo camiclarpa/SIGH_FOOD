@@ -54,10 +54,14 @@ export function rellenarPlantilla(plantilla: string, datos: Record<string, strin
 //   · la de Meta  — aprobada de antemano, identificada por su nombre y con
 //     huecos NUMERADOS. Es lo único que WhatsApp entrega FUERA de esa ventana.
 //
-// Una secuencia de WhatsApp sin la segunda se puede guardar, pero no enviar.
+// La de Meta dejó de ser obligatoria cuando entró Web Push: una secuencia sin
+// ella sigue llegando por notificación, y por texto libre a quien tenga la
+// ventana abierta. Lo que no puede faltar es el texto del CRM.
 
 export interface SecuenciaEnviable {
   channel: string | null;
+  /** El texto del CRM con {{variables}}. Lo único imprescindible. */
+  template?: string | null;
   metaTemplateName?: string | null;
   metaTemplateVars?: string[] | null;
 }
@@ -73,14 +77,29 @@ export interface SecuenciaEnviable {
  * arrastrar el acceso a la base y para poder probarla sin sesión ni base.
  */
 export function motivoNoEnviable(s: SecuenciaEnviable): string | null {
-  // Los demás canales no pasan por la pasarela de Meta y no les aplica.
-  if (s.channel !== 'whatsapp') return null;
+  /*
+    LA PLANTILLA DE META YA NO ES OBLIGATORIA.
 
-  if (!s.metaTemplateName?.trim()) {
-    return 'Falta el nombre de la plantilla aprobada en Meta. ' +
-      'Sin ella, WhatsApp no entrega nada fuera de la ventana de 24 h.';
+    Antes, una secuencia de WhatsApp sin plantilla aprobada no se dejaba activar,
+    y con razón: fuera de la ventana de 24 h la Cloud API no entrega nada más.
+
+    Con Web Push eso dejó de ser cierto. Una campaña sin plantilla de Meta sale
+    igual —por notificación— a quien tenga los avisos activados, y por texto
+    libre a quien haya escrito en las últimas 24 h. Seguir exigiéndola bloquearía
+    justo el contenido que Meta no deja mandar: bienvenidas, encuestas,
+    reactivaciones, subidas de nivel.
+
+    Lo que sí sigue siendo imprescindible es el texto: es lo que se lee en la
+    notificación. Una secuencia sin texto no tiene nada que entregar por ningún
+    canal.
+  */
+  if (!s.template?.trim()) {
+    return 'La secuencia no tiene texto. Sin él no hay nada que enviar por ningún canal.';
   }
 
+  // Si SÍ hay plantilla de Meta, sus huecos tienen que apuntar a variables
+  // reales: una clave inventada llega al comensal como un guion en mitad de la
+  // frase.
   const malas = (s.metaTemplateVars ?? []).filter((v) => !CLAVES.has(v));
   if (malas.length > 0) {
     return `Los huecos ${malas.join(', ')} no son variables del CRM: ` +

@@ -22,6 +22,7 @@ import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import {
+  categoriaDePlantilla,
   marcarLeidoEnMeta,
   sendTemplateMessage,
   sendTextMessage,
@@ -217,6 +218,14 @@ export async function enviarPlantilla(datos: {
   /** Nombres de variables del CRM, en el orden de la plantilla de Meta. */
   variables?: string[];
   sequenceId?: string;
+  /**
+   * Cómo clasifica Meta la plantilla. Sin esto no sale.
+   *
+   * Se pide explícitamente en vez de deducirlo: quien pulsa "enviar" en el CRM
+   * tiene delante la secuencia, que ya guarda la categoría sincronizada desde
+   * Meta. Adivinarla aquí sería reintroducir el 131042 por la puerta de atrás.
+   */
+  categoria: 'utilidad' | 'autenticacion' | 'marketing' | null;
 }): Promise<Resultado<{ wamid: string }>> {
   return ejecutar('enviarPlantilla', async () => {
     const actor = await exigir('campanas.activar');
@@ -254,10 +263,33 @@ export async function enviarPrueba(datos: {
     const telefono = normalizarTelefono(datos.telefono);
     if (!telefono) throw new Error(`"${datos.telefono}" no es un número válido`);
 
+    /*
+      La categoría se le pregunta a META, no a quien pulsa el botón.
+
+      Aquí no hay secuencia guardada de la que leerla —se está probando un
+      nombre escrito a mano—, y añadir un desplegable en el formulario sería
+      pedirle al usuario que adivine un dato que Meta ya sabe. Si se equivoca,
+      el envío falla con el 131042 y el error no dice que la culpa fue del
+      desplegable.
+
+      Es una llamada extra a la Graph API, pero esto es una acción manual y
+      poco frecuente: se paga una vez, y a cambio la prueba refleja lo que va a
+      pasar de verdad.
+    */
+    const categoria = await categoriaDePlantilla(datos.templateName);
+
+    if (categoria === null) {
+      throw new Error(
+        `Meta no reconoce la plantilla "${datos.templateName}", o no se pudo consultar su ` +
+        'categoría. Comprueba que el nombre es exacto y que está aprobada.'
+      );
+    }
+
     const resultado = await sendTemplateMessage({
       to: telefono,
       templateName: datos.templateName,
       languageCode: datos.languageCode,
+      categoria,
     });
 
     await registrarEnvio({

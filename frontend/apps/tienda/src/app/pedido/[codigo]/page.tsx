@@ -15,6 +15,7 @@ import { pedidoPorCodigo } from '@/lib/consultas';
 import { ultimoPago } from '@/lib/cobros';
 import { pasaPorWompi } from '@/lib/wompi';
 import Seguimiento from '@/componentes/Seguimiento';
+import { AvisosPush } from '@/componentes/AvisosPush';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,12 +39,22 @@ export default async function PaginaPedido({
   const pago = await ultimoPago(codigo);
 
   return (
-    <Seguimiento
-      pedido={pedido}
-      pago={{
-        mensajeFallo: pago?.mensaje ?? null,
-        enLinea: pasaPorWompi(pedido.metodoPago),
-      }}
-    />
+    <>
+      <Seguimiento
+        pedido={pedido}
+        pago={{
+          mensajeFallo: pago?.mensaje ?? null,
+          enLinea: pasaPorWompi(pedido.metodoPago),
+        }}
+      />
+
+      {/*
+        El disparador organico. Acaba de pedir y esta mirando el estado: es el
+        unico momento en que "te avisamos cuando este listo" se entiende sin
+        explicar nada. Preguntarlo al entrar a la tienda seria gastar el permiso
+        —que solo se pide una vez en la vida— antes de que sepa para que sirve.
+      */}
+      <AvisosPush motivo="pedido" claveVapid={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''} />
+    </>
   );
 }

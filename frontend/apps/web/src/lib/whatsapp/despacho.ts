@@ -184,6 +184,12 @@ export async function despacharPlantilla(
     /** Nombres de variables del CRM, en el orden de la plantilla de Meta. */
     variables?: string[];
     sequenceId?: string;
+    /**
+     * Cómo clasifica Meta la plantilla. Obligatorio: las de MARKETING se cobran
+     * y sin tarjeta Meta las rechaza con el 131042. El candado está en
+     * sendTemplateMessage, y este parámetro es lo que lo alimenta.
+     */
+    categoria: 'utilidad' | 'autenticacion' | 'marketing' | null;
   },
   quien: QuienEnvia
 ): Promise<ResultadoDespacho> {
@@ -239,6 +245,7 @@ export async function despacharPlantilla(
     templateName: datos.templateName,
     languageCode: datos.languageCode,
     components: componentes,
+    categoria: datos.categoria,
   });
 
   // Texto aproximado de lo que verá el comensal, para que el hilo del CRM se
@@ -265,6 +272,7 @@ export async function despacharPlantilla(
         sequenceId: datos.sequenceId!,
         consumerId: datos.consumerId,
         status: resultado.ok ? 'sent' : 'failed',
+        canal: 'whatsapp_plantilla',
         sentAt: new Date(),
         errorMessage: resultado.ok ? null : resultado.mensaje,
       })
@@ -279,4 +287,197 @@ export async function despacharPlantilla(
   });
 
   return { ok: true, wamid: resultado.wamid, conversacionId: registro.conversacionId };
+}
+
+// =============================================================================
+// El despachador híbrido
+// =============================================================================
+//
+// Este es el único punto por el que debe salir un mensaje de secuencia. Elige el
+// canal, envía, y deja constancia de POR DÓNDE salió — que es lo que después
+// permite ver en el panel cuánto se está ahorrando.
+//
+// El orden lo decide lib/canal.ts: ventana de 24 h abierta -> texto libre de
+// WhatsApp; si no, Web Push; y la plantilla de Meta solo si es de utilidad.
+//
+// POR QUÉ NO HAY REINTENTO ENTRE CANALES
+// --------------------------------------
+// Si el push falla, no se prueba con WhatsApp. Suena razonable y es una mala
+// idea: el fallo típico del push es un dispositivo caducado, y el respaldo
+// mandaría una plantilla de marketing que Meta rechazaría igual — dos intentos
+// fallidos en vez de uno, y la calificación del número más baja.
+//
+// El canal se elige una vez, con la información disponible en ese momento.
+
+import { elegirCanal, type CategoriaMeta } from '@/lib/canal';
+import { enviarPush } from '@/lib/push';
+import { sendTextMessage } from '@/lib/whatsapp/service';
+
+export interface ResultadoHibrido extends ResultadoDespacho {
+  /** Por dónde salió de verdad. */
+  canal: 'whatsapp_texto' | 'push' | 'whatsapp_plantilla' | 'ninguno';
+  motivo: string;
+}
+
+/**
+ * Manda un mensaje de secuencia por el mejor canal disponible.
+ *
+ * `texto` es lo que se dice de verdad, ya con las variables sustituidas: se usa
+ * tanto para el texto libre de WhatsApp como para el cuerpo de la notificación.
+ * La plantilla de Meta es la excepción, porque el texto final lo compone Meta.
+ *
+ * Nunca lanza: el cron recorre muchos comensales y uno que falle no puede
+ * detener a los demás.
+ */
+export async function despacharPorMejorCanal(
+  datos: {
+    consumerId: string;
+    sequenceId?: string;
+    /** Texto ya resuelto, para push y para texto libre. */
+    texto: string;
+    /** Título de la notificación. En WhatsApp no se usa. */
+    titulo: string;
+    /** A dónde lleva la notificación al tocarla. */
+    url?: string;
+    /** Plantilla de Meta, si la secuencia tiene una configurada. */
+    templateName?: string | null;
+    languageCode?: string | null;
+    variables?: string[];
+    categoria: CategoriaMeta;
+  },
+  quien: QuienEnvia
+): Promise<ResultadoHibrido> {
+  const eleccion = await elegirCanal({
+    consumerId: datos.consumerId,
+    categoria: datos.categoria,
+    tienePlantilla: Boolean(datos.templateName),
+  });
+
+  // Sin canal no se intenta nada, y se dice por qué. Antes esto habría sido un
+  // envío fallido con un error de Meta; ahora es una decisión registrada.
+  if (eleccion.canal === 'ninguno') {
+    if (datos.sequenceId) {
+      await conBaseDeDatos((db) =>
+        db.insert(automationLogs).values({
+          sequenceId: datos.sequenceId!,
+          consumerId: datos.consumerId,
+          status: 'skipped',
+          // Sin canal: no se intentó ninguno. Distinto de un fallo de envío.
+          canal: undefined,
+          sentAt: new Date(),
+          errorMessage: eleccion.motivo,
+        })
+      );
+    }
+    return { ok: false, canal: 'ninguno', motivo: eleccion.motivo, error: eleccion.motivo };
+  }
+
+  // --- Plantilla de Meta: se delega en la función de siempre ------------------
+  if (eleccion.canal === 'whatsapp_plantilla') {
+    const r = await despacharPlantilla(
+      {
+        consumerId: datos.consumerId,
+        templateName: datos.templateName!,
+        languageCode: datos.languageCode ?? undefined,
+        variables: datos.variables,
+        sequenceId: datos.sequenceId,
+        categoria: datos.categoria,
+      },
+      quien
+    );
+    return { ...r, canal: 'whatsapp_plantilla', motivo: eleccion.motivo };
+  }
+
+  /*
+    El tope de frecuencia se comprueba también aquí.
+
+    `despacharPlantilla` ya lo hace por su cuenta, pero los otros dos caminos no
+    pasan por ella. Sin esto, mudar una campaña a Web Push sería una forma de
+    saltarse el tope sin darse cuenta — y el tope no existe por el coste, existe
+    para que la gente no silencie las notificaciones.
+  */
+  // El canal ya no puede ser 'ninguno' —se devolvió arriba—, pero TypeScript
+  // vuelve a leer la propiedad y no lo recuerda. Fijarlo aquí lo estrecha una
+  // sola vez en vez de repetir la comprobación en cada uso.
+  const canal: 'push' | 'whatsapp_texto' = eleccion.canal === 'push' ? 'push' : 'whatsapp_texto';
+
+  const frecuencia = await conBaseDeDatos((db) => frecuenciaDe(db, datos.consumerId));
+  if (!frecuencia.puede) {
+    return {
+      ok: false,
+      canal,
+      motivo: motivoDelTope(frecuencia),
+      error: motivoDelTope(frecuencia),
+      frenadoPorTope: true,
+    };
+  }
+
+  let ok = false;
+  let error: string | undefined;
+
+  if (canal === 'push') {
+    const r = await enviarPush(datos.consumerId, {
+      titulo: datos.titulo,
+      cuerpo: datos.texto,
+      url: datos.url,
+      etiqueta: datos.sequenceId ?? 'bocazo',
+    });
+    ok = r.entregados > 0;
+    if (!ok) {
+      error = r.error ?? (r.caducadas > 0
+        ? 'Sus dispositivos ya no aceptan notificaciones'
+        : 'No se pudo entregar la notificación');
+    }
+  } else {
+    // Texto libre por WhatsApp, dentro de la ventana de 24 h.
+    const comensal = await conBaseDeDatos(async (db) => {
+      const [c] = await db
+        .select({ telefono: b2cConsumers.whatsappPhone })
+        .from(b2cConsumers)
+        .where(eq(b2cConsumers.id, datos.consumerId))
+        .limit(1);
+      return c;
+    });
+
+    const telefono = normalizarTelefono(comensal?.telefono ?? '');
+    if (!telefono) {
+      error = 'El teléfono del comensal no es válido';
+    } else {
+      const r = await sendTextMessage({ to: telefono, text: datos.texto });
+      ok = r.ok;
+      if (!r.ok) error = r.mensaje;
+
+      // El mensaje queda en el hilo de la bandeja, para que quien atienda vea lo
+      // que la automatización ya le dijo y no lo repita.
+      await registrarEnvio({
+        telefono,
+        resultado: r,
+        texto: datos.texto,
+        // Sin plantilla: esto es texto libre dentro de la ventana de 24 h.
+        plantilla: undefined,
+        enviadoPor: quien.id || null,
+        sequenceId: datos.sequenceId ?? null,
+      });
+    }
+  }
+
+  if (datos.sequenceId) {
+    await conBaseDeDatos((db) =>
+      db.insert(automationLogs).values({
+        sequenceId: datos.sequenceId!,
+        consumerId: datos.consumerId,
+        status: ok ? 'sent' : 'failed',
+        canal,
+        sentAt: new Date(),
+        errorMessage: ok ? null : (error ?? null),
+      })
+    );
+  }
+
+  log.info(ok ? 'Mensaje de secuencia entregado' : 'Mensaje de secuencia fallido', {
+    ruta: '/whatsapp/despacho',
+    detalle: [quien.email, canal, datos.consumerId, error ?? ''],
+  });
+
+  return { ok, canal, motivo: eleccion.motivo, error };
 }

@@ -176,12 +176,25 @@ async function enviarAMeta(cuerpo: Record<string, unknown>, telefono: string): P
  * Es la única forma admitida de iniciar una conversación o de escribir fuera de
  * la ventana de 24 h. La plantilla debe existir y estar aprobada en Meta con
  * ese nombre y ese idioma exactos.
+ *
+ * SOLO SALEN LAS DE UTILIDAD Y AUTENTICACIÓN
+ * ------------------------------------------
+ * `categoria` es obligatoria, y no por burocracia: Meta cobra las plantillas de
+ * MARKETING y, sin tarjeta registrada, las rechaza con el error 131042. Ese
+ * error no se puede prever desde fuera —ocurre en el envío— y deja la secuencia
+ * pareciendo rota sin estarlo.
+ *
+ * Obligar a declarar la categoría en cada llamada convierte un fallo silencioso
+ * en un parámetro que hay que escribir a conciencia. Quien quiera mandar
+ * marketing tiene que pedirlo explícitamente aquí, y aquí se le dice que no.
  */
 export async function sendTemplateMessage(datos: {
   to: string;
   templateName: string;
   languageCode?: string;
   components?: ComponentePlantilla[];
+  /** Cómo tiene Meta clasificada la plantilla. null = todavía sin averiguar. */
+  categoria: 'utilidad' | 'autenticacion' | 'marketing' | null;
 }): Promise<ResultadoEnvio> {
   const telefono = normalizarTelefono(datos.to);
 
@@ -201,6 +214,38 @@ export async function sendTemplateMessage(datos: {
       ok: false,
       codigo: 'plantilla_vacia',
       mensaje: 'Falta el nombre de la plantilla',
+      reintentable: false,
+      telefono,
+    };
+  }
+
+  /*
+    El candado. Se comprueba ANTES de llamar a Meta, no después de que falle.
+
+    No es reintentable: volver a intentarlo daría el mismo 131042 y solo serviría
+    para castigar la calificación del número. El contenido de marketing tiene su
+    propio camino —Web Push— y quien llama debe haberlo elegido con
+    lib/canal.ts.
+  */
+  if (datos.categoria === 'marketing') {
+    return {
+      ok: false,
+      codigo: 'marketing_bloqueado',
+      mensaje:
+        `La plantilla "${datos.templateName}" es de categoría MARKETING. Meta la cobra y la ` +
+        'rechaza con el error 131042 sin tarjeta registrada. Este contenido va por Web Push.',
+      reintentable: false,
+      telefono,
+    };
+  }
+
+  if (datos.categoria === null) {
+    return {
+      ok: false,
+      codigo: 'categoria_desconocida',
+      mensaje:
+        `No se sabe cómo clasifica Meta la plantilla "${datos.templateName}". Ejecuta ` +
+        'scripts/sincronizar-categorias.mjs antes de usarla.',
       reintentable: false,
       telefono,
     };
@@ -351,5 +396,73 @@ export async function verificarConexion(): Promise<
     };
   } catch (e) {
     return { ok: false, motivo: e instanceof Error ? e.message : 'No se pudo contactar con Meta' };
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Categorías de plantilla
+// -----------------------------------------------------------------------------
+
+/**
+ * Pregunta a Meta cómo tiene clasificada una plantilla.
+ *
+ * LA FUENTE DE VERDAD ES META, NO NUESTRA BASE
+ * --------------------------------------------
+ * Meta RECLASIFICA plantillas por su cuenta. Una que se aprobó como UTILITY
+ * puede pasar a MARKETING meses después si su contenido deriva hacia lo
+ * promocional, y no avisa. A partir de ese momento los envíos empiezan a fallar
+ * con el 131042 y en el CRM no hay nada que explique el cambio.
+ *
+ * Por eso la copia local —`automation_sequences.categoria_meta`— es solo una
+ * caché para no hacer una llamada por mensaje, y esta función es lo que la
+ * rellena. El script de sincronización la usa; el envío de prueba también,
+ * porque ahí no hay secuencia guardada de la que leerla.
+ *
+ * Devuelve null si no encuentra la plantilla o si no se puede consultar. Quien
+ * llama debe tratar el null como "no enviable": suponer que es utilidad es
+ * exactamente el error que produce el 131042.
+ */
+export async function categoriaDePlantilla(
+  nombre: string
+): Promise<'utilidad' | 'marketing' | 'autenticacion' | null> {
+  const estado = await configWhatsApp();
+  if (!estado.listo) return null;
+  const { config } = estado;
+
+  const url =
+    `https://graph.facebook.com/${config.apiVersion}/` +
+    `${config.businessAccountId}/message_templates` +
+    `?name=${encodeURIComponent(nombre.trim())}&fields=name,category,status&limit=10`;
+
+  try {
+    const respuesta = await fetch(url, {
+      headers: { Authorization: `Bearer ${config.accessToken}` },
+      signal: AbortSignal.timeout(TIEMPO_LIMITE_MS),
+    });
+    if (!respuesta.ok) return null;
+
+    const cuerpo = (await respuesta.json()) as {
+      data?: Array<{ name: string; category: string; status: string }>;
+    };
+
+    // El filtro `name` de Meta hace coincidencia PARCIAL: pedir "bienvenida"
+    // devuelve también "bienvenida_v2". Se busca el nombre exacto.
+    const plantilla = cuerpo.data?.find((p) => p.name === nombre.trim());
+    if (!plantilla) return null;
+
+    switch (plantilla.category?.toUpperCase()) {
+      case 'UTILITY':
+        return 'utilidad';
+      case 'AUTHENTICATION':
+        return 'autenticacion';
+      case 'MARKETING':
+        return 'marketing';
+      // Una categoría que Meta añada en el futuro se trata como no enviable.
+      // Dar por gratuito algo desconocido es cómo se descubre una factura.
+      default:
+        return null;
+    }
+  } catch {
+    return null;
   }
 }

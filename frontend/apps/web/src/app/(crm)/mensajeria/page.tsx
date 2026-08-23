@@ -84,6 +84,60 @@ export default async function PaginaMensajeria() {
         />
       </div>
 
+      {/*
+        Por dónde salió cada mensaje.
+
+        Antes esta pantalla contaba "enviados" a secas, y con un solo canal eso
+        bastaba. Ya no: el canal se decide comensal a comensal, y sin el desglose
+        no hay forma de ver que las campañas están saliendo gratis.
+
+        "Sin canal" es la cifra incómoda y por eso está: son las personas a las
+        que no se pudo llegar sin pagar —ni ventana abierta, ni notificaciones, y
+        plantilla de marketing—. Es la medida real de lo que cuesta no tener
+        suscriptores.
+      */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metrica
+          etiqueta="Por notificación"
+          valor={numero(d.totales.porPush)}
+          detalle={
+            d.push.dispositivos === 0
+              ? 'nadie tiene los avisos activados todavía'
+              : `${numero(d.push.dispositivos)} dispositivos · ${numero(d.push.comensales)} comensales`
+          }
+          tono={d.push.dispositivos > 0 ? 'exito' : 'aviso'}
+        />
+        <Metrica
+          etiqueta="Texto libre de WhatsApp"
+          valor={numero(d.totales.porTextoLibre)}
+          detalle="escribieron en las últimas 24 h"
+        />
+        <Metrica
+          etiqueta="Plantilla de utilidad"
+          valor={numero(d.totales.porPlantilla)}
+          detalle="dentro de la cuota gratuita de Meta"
+        />
+        <Metrica
+          etiqueta="Sin canal"
+          valor={numero(d.totales.omitidos)}
+          detalle={
+            d.totales.omitidos === 0
+              ? 'se alcanzó a todo el mundo'
+              : 'sin avisos activados y con plantilla de marketing'
+          }
+          tono={d.totales.omitidos > 0 ? 'aviso' : 'neutro'}
+        />
+      </div>
+
+      {d.push.bajas > 0 && (
+        <p className="texto-suave mt-2 text-xs">
+          {numero(d.push.bajas)} suscripción{d.push.bajas === 1 ? '' : 'es'} dada
+          {d.push.bajas === 1 ? '' : 's'} de baja o caducada
+          {d.push.bajas === 1 ? '' : 's'}. Si esta cifra sube rápido, los mensajes están
+          molestando.
+        </p>
+      )}
+
       {activas === 0 && d.secuencias.length > 0 && (
         <div
           role="status"

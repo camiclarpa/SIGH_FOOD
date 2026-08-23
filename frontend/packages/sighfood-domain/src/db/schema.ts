@@ -216,12 +216,21 @@ export const badgeCriterioEnum = pgEnum('badge_criterio', [
   'bares_distintos',       // n bares distintos visitados
   'escaneos_en_franja',    // n escaneos dentro de una franja horaria
   'racha_semanas',         // n semanas consecutivas con actividad
-  'referidos_convertidos'  // n referidos que llegaron a escanear
+  'referidos_convertidos', // n referidos que llegaron a escanear
+  // Compra. Los seis de arriba miden escaneos en mesa; sin estos, quien pedia
+  // diez veces por la tienda no ganaba una sola insignia. Ver migracion 0014.
+  'pedidos_totales',       // n pedidos ENTREGADOS
+  'gasto_acumulado',       // pesos acumulados en pedidos entregados
+  'lineas_pedidas'         // n productos distintos que ha llegado a pedir
 ]);
 
 /** Por que se movieron los puntos. Sin esto el saldo no es auditable. */
 export const motivoPuntosEnum = pgEnum('motivo_puntos', [
   'escaneo',
+  // Compra en la tienda. Antes se registraba como 'escaneo' porque era el único
+  // valor que existía, y eso volvía ilegible el historial que se le enseña al
+  // comensal. Ver migración 0013.
+  'pedido',
   'insignia',
   'desafio',
   'referido',

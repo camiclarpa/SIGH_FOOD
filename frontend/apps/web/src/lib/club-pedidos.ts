@@ -12,7 +12,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { pedidos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
-import { otorgarPuntos } from '@/lib/fidelizacion';
+import { otorgarPuntos, evaluarInsignias } from '@/lib/fidelizacion';
 
 /** Puntos por cada mil pesos gastados. */
 export const PUNTOS_POR_MIL = 1;
@@ -55,10 +55,33 @@ export async function otorgarPuntosDePedido(pedidoId: string): Promise<number> {
     await otorgarPuntos(db, {
       consumerId: pedido.consumerId,
       puntos,
-      motivo: 'escaneo',
+      // 'pedido', no 'escaneo': el movimiento se le enseña al comensal y se usa
+      // para responder reclamaciones. Etiquetar una compra como un escaneo en
+      // mesa hacía ilegible justamente el historial que este módulo existe para
+      // poder explicar.
+      motivo: 'pedido',
       referenciaId: pedido.id,
       descripcion: `Pedido ${pedido.codigo}`,
     });
+
+    /*
+      Y se revisan las insignias.
+
+      Va aquí, después de marcar, y no en la acción que llama: las insignias de
+      compra —pedidos entregados, gasto acumulado, productos distintos— solo
+      pueden haber cambiado si este pedido acaba de contar, y este es el único
+      punto del código que sabe que contó.
+
+      Envuelto en try: evaluarInsignias es idempotente y se recupera en la
+      siguiente entrega, mientras que dejar los puntos sin dar por un fallo al
+      calcular una insignia sería peor.
+    */
+    try {
+      await evaluarInsignias(db, pedido.consumerId);
+    } catch {
+      // El fallo ya queda en el log del llamador; aquí solo se evita que tumbe
+      // la entrega de puntos, que es lo que de verdad no se puede perder.
+    }
 
     return puntos;
   });

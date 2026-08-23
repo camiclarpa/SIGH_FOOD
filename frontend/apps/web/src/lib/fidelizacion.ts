@@ -11,7 +11,7 @@
 // Un saldo sin historial no se puede auditar, y ante una reclamación de un
 // comensal no habría forma de explicar de dónde salió.
 
-import { and, count, countDistinct, eq, sql } from 'drizzle-orm';
+import { and, count, countDistinct, eq, inArray, sql } from 'drizzle-orm';
 import {
   b2cConsumers,
   badges,
@@ -19,6 +19,8 @@ import {
   pointTransactions,
   sensoryMoments,
   referrals,
+  pedidos,
+  pedidoItems,
 } from '@sighfood/domain/db/schema';
 import type { Database } from '@sighfood/domain/db';
 
@@ -50,7 +52,7 @@ import {
 // -----------------------------------------------------------------------------
 
 export type MotivoPuntos =
-  | 'escaneo' | 'insignia' | 'desafio' | 'referido' | 'canje' | 'ajuste_manual' | 'caducidad';
+  | 'escaneo' | 'pedido' | 'insignia' | 'desafio' | 'referido' | 'canje' | 'ajuste_manual' | 'caducidad';
 
 /**
  * Mueve puntos y deja constancia.
@@ -115,6 +117,15 @@ export async function otorgarPuntos(
  */
 export const ZONA_NEGOCIO = 'America/Bogota';
 
+/**
+ * Estados en los que un pedido cuenta como consumo real.
+ *
+ * Se exige 'entregado': antes de eso el pedido puede cancelarse, y una insignia
+ * otorgada no se puede retirar sin que la persona lo viva como un castigo. Es
+ * el mismo criterio con el que se entregan los puntos.
+ */
+const PEDIDOS_QUE_CUENTAN = ['entregado'] as const;
+
 /** Métricas del comensal contra las que se evalúan los criterios. */
 export interface MetricasComensal {
   escaneosTotales: number;
@@ -125,6 +136,20 @@ export interface MetricasComensal {
   escaneosPorHora: Record<number, number>;
   /** Semanas seguidas con actividad, la racha más larga que ha logrado. */
   rachaSemanas: number;
+
+  /*
+    Métricas de COMPRA.
+
+    Las de arriba miden escaneos en mesa, que era la mecánica cuando el sujeto
+    del CRM era el bar. Hoy el dinero entra por la tienda, y sin estas tres un
+    comensal podía pedir diez veces sin ganar una sola insignia ni subir de
+    nivel: el club no reconocía justamente al mejor cliente.
+  */
+  pedidosTotales: number;
+  /** Suma en pesos de sus pedidos entregados. */
+  gastoAcumulado: number;
+  /** Productos distintos que ha llegado a pedir. */
+  lineasPedidas: number;
 }
 
 /**
@@ -159,7 +184,7 @@ export function rachaMasLarga(semanas: Date[]): number {
 }
 
 export async function medirComensal(db: Database, consumerId: string): Promise<MetricasComensal> {
-  const [[totales], porHora, [refs], semanas] = await Promise.all([
+  const [[totales], porHora, [refs], semanas, [compras], [productosDistintos]] = await Promise.all([
     db
       .select({
         escaneos: count(sensoryMoments.id),
@@ -196,6 +221,35 @@ export async function medirComensal(db: Database, consumerId: string): Promise<M
       .from(sensoryMoments)
       .where(eq(sensoryMoments.consumerId, consumerId))
       .orderBy(sql`1`),
+
+    // Compras. El importe se suma en la base y no en JavaScript: traerse el
+    // historial entero para sumarlo aquí crece con cada pedido, y esto se
+    // reevalúa cada vez que se entrega uno.
+    db
+      .select({
+        pedidos: count(pedidos.id),
+        gasto: sql<number>`COALESCE(SUM(${pedidos.totalCOP}), 0)::int`,
+      })
+      .from(pedidos)
+      .where(
+        and(
+          eq(pedidos.consumerId, consumerId),
+          inArray(pedidos.estado, [...PEDIDOS_QUE_CUENTAN])
+        )
+      ),
+
+    // Productos distintos pedidos. Va por JOIN contra pedidos para no contar
+    // líneas de un pedido cancelado.
+    db
+      .select({ distintos: countDistinct(pedidoItems.productoId) })
+      .from(pedidoItems)
+      .innerJoin(pedidos, eq(pedidoItems.pedidoId, pedidos.id))
+      .where(
+        and(
+          eq(pedidos.consumerId, consumerId),
+          inArray(pedidos.estado, [...PEDIDOS_QUE_CUENTAN])
+        )
+      ),
   ]);
 
   return {
@@ -205,6 +259,9 @@ export async function medirComensal(db: Database, consumerId: string): Promise<M
     referidosConvertidos: Number(refs?.total ?? 0),
     escaneosPorHora: Object.fromEntries(porHora.map((f) => [f.hora, Number(f.total)])),
     rachaSemanas: rachaMasLarga(semanas.map((f) => new Date(f.semana))),
+    pedidosTotales: Number(compras?.pedidos ?? 0),
+    gastoAcumulado: Number(compras?.gasto ?? 0),
+    lineasPedidas: Number(productosDistintos?.distintos ?? 0),
   };
 }
 
@@ -237,6 +294,16 @@ function valorDelCriterio(
     }
     case 'racha_semanas':
       return m.rachaSemanas;
+
+    // Criterios de COMPRA. Sin estos, el club premiaba escanear en la mesa pero
+    // no comprar, y el mejor cliente de la tienda no subía de nivel nunca.
+    case 'pedidos_totales':
+      return m.pedidosTotales;
+    case 'gasto_acumulado':
+      return m.gastoAcumulado;
+    case 'lineas_pedidas':
+      return m.lineasPedidas;
+
     default:
       return 0;
   }

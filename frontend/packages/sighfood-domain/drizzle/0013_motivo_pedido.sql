@@ -1,0 +1,24 @@
+-- =============================================================================
+-- 0013 - Un motivo propio para los puntos que salen de una compra
+-- =============================================================================
+--
+-- Los puntos de un pedido entregado se registraban con motivo 'escaneo', que era
+-- el único valor disponible cuando el club solo premiaba escanear el QR de la
+-- mesa. Hoy el dinero entra por la tienda, y ese movimiento es lo que se le
+-- enseña al comensal y lo que se lee para responder una reclamación: llamar
+-- "escaneo" a una compra hace ilegible justamente el historial que el módulo de
+-- fidelización existe para poder explicar.
+--
+-- POR QUÉ ESTO NO VA DENTRO DE UNA TRANSACCIÓN
+-- --------------------------------------------
+-- Postgres 12+ admite ALTER TYPE ... ADD VALUE dentro de una transacción, pero
+-- el valor nuevo NO se puede usar hasta que esa transacción termina. Envolverlo
+-- aquí no rompería nada, pero invita a añadir después un UPDATE que use
+-- 'pedido' en el mismo bloque, y eso sí falla. Se deja suelto a propósito.
+--
+-- Es aditivo y reversible en la práctica: los valores existentes no se tocan y
+-- ninguna fila cambia de motivo. Los movimientos históricos se quedan como
+-- 'escaneo' — reescribir el pasado para que cuadre con la etiqueta de hoy sería
+-- falsear el registro, que es lo contrario de lo que se busca.
+
+ALTER TYPE "motivo_puntos" ADD VALUE IF NOT EXISTS 'pedido';

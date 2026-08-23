@@ -20,6 +20,11 @@ export const metadata = { title: 'Fidelización · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
 const CRITERIOS: Record<string, string> = {
+  // Compra. Son los que reconocen al cliente que deja dinero.
+  pedidos_totales: 'Pedidos entregados',
+  gasto_acumulado: 'Gasto acumulado',
+  lineas_pedidas: 'Productos distintos pedidos',
+  // Consumo en mesa.
   escaneos_totales: 'Momentos acumulados',
   lineas_distintas: 'Líneas probadas',
   bares_distintos: 'Bares visitados',

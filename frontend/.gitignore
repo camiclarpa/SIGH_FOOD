@@ -56,3 +56,6 @@ wrangler.toml
 # Secretos locales de Cloudflare Workers (wrangler)
 .dev.vars
 .dev.vars.*
+
+# Copias sueltas de trabajo. Se conservan en disco, no en el repositorio.
+*.backup.*

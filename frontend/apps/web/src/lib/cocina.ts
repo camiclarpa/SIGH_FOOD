@@ -91,3 +91,107 @@ export async function resumenDelDia() {
     };
   });
 }
+
+/**
+ * Cifras de venta para la cabecera del panel.
+ *
+ * El panel medía comensales, escaneos e insignias, pero ninguna cifra de dinero:
+ * no se podía responder «¿cuánto vendí ayer?» sin salir a la base. Esto es lo
+ * primero que se mira al abrir el CRM por la mañana, así que va arriba del todo.
+ *
+ * Todo se cuenta en HORA DE BOGOTÁ, no en UTC. Un pedido de las ocho de la noche
+ * en GMT ya cuenta como del día siguiente, y con eso la caja del día nunca cuadra
+ * contra lo que dice el local.
+ *
+ * Los cancelados se excluyen del dinero pero se devuelven aparte: no son ingreso,
+ * y sumarlos infla la venta; pero esconderlos tampoco sirve, porque una racha de
+ * cancelaciones es justo lo que hay que ver a tiempo.
+ */
+export async function resumenVentas() {
+  return conBaseDeDatos(async (db) => {
+    const hoyBogota = sql`(now() AT TIME ZONE 'America/Bogota')::date`;
+    const diaDelPedido = sql`(${pedidos.createdAt} AT TIME ZONE 'America/Bogota')::date`;
+    const cuenta = sql`${pedidos.estado} <> 'cancelado'`;
+
+    const [hoy] = await db
+      .select({
+        pedidos: sql<number>`COUNT(*) FILTER (WHERE ${cuenta})::int`,
+        ventas: sql<number>`COALESCE(SUM(${pedidos.totalCOP}) FILTER (WHERE ${cuenta}), 0)::int`,
+        cancelados: sql<number>`COUNT(*) FILTER (WHERE ${pedidos.estado} = 'cancelado')::int`,
+      })
+      .from(pedidos)
+      .where(sql`${diaDelPedido} = ${hoyBogota}`);
+
+    // Ayer, para saber si hoy va mejor o peor sin tener que recordar la cifra.
+    const [ayer] = await db
+      .select({
+        ventas: sql<number>`COALESCE(SUM(${pedidos.totalCOP}) FILTER (WHERE ${cuenta}), 0)::int`,
+      })
+      .from(pedidos)
+      .where(sql`${diaDelPedido} = ${hoyBogota} - 1`);
+
+    // Lo que está cobrado y todavía no ha salido: es trabajo pendiente, no
+    // histórico, así que no se limita al día. Un pedido de anoche sin entregar
+    // sigue siendo un cliente esperando.
+    const [pendiente] = await db
+      .select({
+        pedidos: sql<number>`COUNT(*)::int`,
+        importe: sql<number>`COALESCE(SUM(${pedidos.totalCOP}), 0)::int`,
+      })
+      .from(pedidos)
+      .where(sql`${pedidos.estado} IN ('recibido','confirmado','preparando','listo','en_camino')`);
+
+    // Cobrado por la pasarela pero sin confirmar: dinero que entró y que nadie
+    // ha empezado a preparar. Es la fila que más urge de todo el panel.
+    const [cobradoSinAtender] = await db
+      .select({ n: sql<number>`COUNT(*)::int` })
+      .from(pedidos)
+      .where(sql`${pedidos.estadoPago} = 'aprobado' AND ${pedidos.estado} = 'recibido'`);
+
+    // Serie de los últimos siete días para la tendencia. generate_series rellena
+    // los días sin pedidos con cero: sin eso el gráfico se salta las fechas
+    // vacías y una semana floja parece continua.
+    const serie = await db.execute<{ dia: string; ventas: number; pedidos: number }>(sql`
+      SELECT to_char(d.dia, 'YYYY-MM-DD') AS dia,
+             COALESCE(SUM(p.total_cop) FILTER (WHERE p.estado <> 'cancelado'), 0)::int AS ventas,
+             COUNT(p.id) FILTER (WHERE p.estado <> 'cancelado')::int AS pedidos
+        FROM generate_series(${hoyBogota} - 6, ${hoyBogota}, interval '1 day') AS d(dia)
+        LEFT JOIN pedidos p
+          ON (p.created_at AT TIME ZONE 'America/Bogota')::date = d.dia
+       GROUP BY d.dia
+       ORDER BY d.dia
+    `);
+
+    const filas = (Array.isArray(serie) ? serie : (serie as { rows?: unknown[] }).rows ?? []) as Array<{
+      dia: string;
+      ventas: number;
+      pedidos: number;
+    }>;
+
+    const ventasHoy = Number(hoy?.ventas ?? 0);
+    const ventasAyer = Number(ayer?.ventas ?? 0);
+
+    return {
+      hoy: {
+        pedidos: Number(hoy?.pedidos ?? 0),
+        ventas: ventasHoy,
+        cancelados: Number(hoy?.cancelados ?? 0),
+        ticketMedio: hoy?.pedidos ? Math.round(ventasHoy / Number(hoy.pedidos)) : 0,
+      },
+      ayer: { ventas: ventasAyer },
+      // Sin cifra de ayer no hay porcentaje que calcular: dividir por cero daría
+      // Infinity y en pantalla saldría un "∞%" que no significa nada.
+      variacion: ventasAyer > 0 ? Math.round(((ventasHoy - ventasAyer) / ventasAyer) * 100) : null,
+      pendiente: {
+        pedidos: Number(pendiente?.pedidos ?? 0),
+        importe: Number(pendiente?.importe ?? 0),
+      },
+      cobradoSinAtender: Number(cobradoSinAtender?.n ?? 0),
+      serie: filas.map((f) => ({
+        dia: f.dia,
+        ventas: Number(f.ventas),
+        pedidos: Number(f.pedidos),
+      })),
+    };
+  });
+}

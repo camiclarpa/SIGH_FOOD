@@ -1,0 +1,31 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+
+  "name": "bocazo-reloj",
+  "account_id": "5e153923b7c5fdd9468c9b184cee5866",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-07",
+
+  // Una vez al día, a las 15:00 UTC = 10:00 en Bogotá.
+  //
+  // La hora importa: un mensaje de reactivación a las tres de la madrugada
+  // molesta en vez de vender, y Colombia no cambia de horario, así que el
+  // desfase de cinco horas es fijo todo el año.
+  //
+  // Diario y no cada hora: los disparadores son de días —inactivo a 30, riesgo
+  // de abandono, primera compra—, y correr más a menudo solo gastaría
+  // ejecuciones para no encontrar a nadie nuevo.
+  "triggers": {
+    "crons": ["0 15 * * *"]
+  },
+
+  "vars": {
+    // No es un secreto: es la dirección pública del CRM. El secreto va aparte,
+    // con `wrangler secret put CRON_SECRETO`.
+    "CRM_CRON_URL": "https://sighbocazo-crm.camiloriverac0.workers.dev/api/cron/secuencias"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

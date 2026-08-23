@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // DOM aporta fetch, Response y console, que en Workers existen con la misma
+    // forma. No se ejecuta en un navegador: es solo de dónde salen esos tipos
+    // sin instalar @cloudflare/workers-types.
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // Sin `types`: los dos del entorno de Workers que hacen falta se declaran
+    // en el propio index.ts. Ver el comentario de allí.
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts"]
+}

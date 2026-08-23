@@ -75,18 +75,51 @@ export const DIAS_INACTIVO = 30;
 export const MAXIMO_POR_EJECUCION = 50;
 
 /**
+ * Intentos fallidos antes de rendirse con una persona.
+ *
+ * Un fallo no puede cerrar la puerta para siempre —ver abajo—, pero reintentar
+ * sin límite tampoco: un número que ya no existe daría error cada día
+ * indefinidamente, y esos errores repetidos son justo lo que Meta mira para
+ * bajarle la calificación al remitente.
+ */
+export const MAXIMO_INTENTOS = 3;
+
+/**
  * A quién NO se le puede volver a mandar esta secuencia.
  *
- * Se consulta la base y no se lleva la cuenta en memoria por lo dicho arriba:
- * el cron puede repetirse y la segunda vuelta tiene que ver lo de la primera.
+ * Se consulta la base y no se lleva la cuenta en memoria: el cron puede
+ * repetirse —reintento, dos regiones— y la segunda vuelta tiene que ver lo de
+ * la primera.
+ *
+ * OJO CON QUÉ CUENTA COMO "YA RECIBIDO"
+ * -------------------------------------
+ * Antes bastaba con que EXISTIERA una fila, sin mirar su estado. El efecto era
+ * grave y silencioso: Meta acepta un envío y devuelve un identificador, y solo
+ * después decide que falló —sin saldo, número inválido, plantilla pausada—. Esa
+ * fila quedaba marcada como enviada y la persona se daba por atendida para
+ * siempre, así que al resolver el problema NO recibía nunca su bienvenida.
+ *
+ * Ocurrió de verdad con el error 131042, cuenta sin método de pago: el mensaje
+ * no llegó a ningún teléfono y el CRM lo daba por hecho.
+ *
+ * Ahora se excluye a quien ya lo recibió DE VERDAD, y a quien ha fallado
+ * demasiadas veces como para seguir insistiendo.
  */
 async function yaRecibieron(db: Database, sequenceId: string): Promise<string[]> {
   const filas = await db
-    .select({ consumerId: automationLogs.consumerId })
+    .select({
+      consumerId: automationLogs.consumerId,
+      entregados: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.status} = 'sent')::int`,
+      fallidos: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.status} <> 'sent')::int`,
+    })
     .from(automationLogs)
-    .where(eq(automationLogs.sequenceId, sequenceId));
+    .where(eq(automationLogs.sequenceId, sequenceId))
+    .groupBy(automationLogs.consumerId);
 
-  return filas.map((f) => f.consumerId).filter((id): id is string => Boolean(id));
+  return filas
+    .filter((f) => Number(f.entregados) > 0 || Number(f.fallidos) >= MAXIMO_INTENTOS)
+    .map((f) => f.consumerId)
+    .filter((id): id is string => Boolean(id));
 }
 
 /**

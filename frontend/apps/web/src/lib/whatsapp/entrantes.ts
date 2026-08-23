@@ -8,6 +8,7 @@
 
 import { and, eq, sql } from 'drizzle-orm';
 import {
+  automationLogs,
   b2cConsumers,
   chatConversations,
   chatMessages,
@@ -303,6 +304,62 @@ async function actualizarEstado(e: EstadoMeta): Promise<boolean> {
         ruta: '/webhooks/whatsapp',
         detalle: [e.id, String(error.code), error.error_data?.details ?? error.title ?? ''],
       });
+    }
+
+    /*
+      Si el mensaje salió de una campaña, hay que corregir también su registro.
+
+      Meta ACEPTA el envío y devuelve un wamid, y solo después decide que falló:
+      sin saldo, número inválido, plantilla pausada. Como automation_logs se
+      escribe con la respuesta inmediata, se quedaba diciendo 'sent' para un
+      mensaje que nadie recibió. Pasó de verdad con el error 131042 —cuenta sin
+      método de pago—: el hilo mostraba "fallido" y la campaña "enviado".
+
+      No es solo una cifra descuadrada. Tiene tres efectos:
+
+        · El tope de frecuencia gasta cupo por un mensaje que no llegó.
+        · La deduplicación da a esa persona por atendida, así que la secuencia
+          NO reintenta cuando el problema se resuelve — se queda sin bienvenida
+          para siempre.
+        · El embudo de Mensajería cuenta como enviados mensajes que no salieron,
+          y las tasas de apertura salen infladas hacia abajo.
+
+      Solo se corrige el que sigue en 'sent': un registro ya marcado como
+      fallido no necesita volver a marcarse.
+    */
+    if (nuevo === 'fallido' && actualizado) {
+      const [mensaje] = await db
+        .select({
+          sequenceId: chatMessages.sequenceId,
+          consumerId: chatConversations.consumerId,
+        })
+        .from(chatMessages)
+        .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+        .where(eq(chatMessages.id, actualizado.id))
+        .limit(1);
+
+      if (mensaje?.sequenceId && mensaje.consumerId) {
+        const corregidos = await db
+          .update(automationLogs)
+          .set({
+            status: 'failed',
+            errorMessage:
+              error?.error_data?.details ?? error?.message ?? error?.title ?? 'Meta rechazó el envío',
+          })
+          .where(and(
+            eq(automationLogs.sequenceId, mensaje.sequenceId),
+            eq(automationLogs.consumerId, mensaje.consumerId),
+            eq(automationLogs.status, 'sent')
+          ))
+          .returning({ id: automationLogs.id });
+
+        if (corregidos.length > 0) {
+          log.warn('Envío de campaña corregido a fallido', {
+            ruta: '/webhooks/whatsapp',
+            detalle: [mensaje.sequenceId, String(error?.code ?? '')],
+          });
+        }
+      }
     }
 
     return Boolean(actualizado);

@@ -42,6 +42,17 @@ const RUTAS_PUBLICAS = [
   // Lo llama Meta, no un usuario: no hay sesión que exigir. Su seguridad es la
   // firma HMAC del cuerpo (X-Hub-Signature-256), que se comprueba en la ruta.
   '/api/webhooks/whatsapp',
+  /*
+    Lo llama el Worker del reloj (bocazo-reloj) una vez al día. No hay persona
+    detrás, así que no hay sesión que exigir.
+
+    "Público" aquí significa solo que el middleware lo deja pasar: la ruta exige
+    un secreto compartido en la cabecera x-cron-secreto y responde 401 sin él.
+    Y si ese secreto no está configurado, se niega a funcionar en vez de quedar
+    abierta — manda WhatsApp real, y una automatización accesible a cualquiera
+    con la URL puede vaciar el cupo del negocio en una tarde.
+  */
+  '/api/cron',
 ];
 
 /** Rutas de página que no requieren sesión. */

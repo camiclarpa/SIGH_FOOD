@@ -23,6 +23,7 @@ import { notFound } from 'next/navigation';
 import { producto } from '@/lib/consultas';
 import Personalizar from '@/componentes/Personalizar';
 import Medir from '@/componentes/Medir';
+import Maridaje from '@/componentes/Maridaje';
 
 export const revalidate = 60;
 
@@ -58,6 +59,11 @@ export default async function PaginaProducto({
     <>
       <Medir evento="vio_producto" productoId={datos.producto.id} />
       <Personalizar producto={datos.producto} opciones={datos.opciones} />
+      {/*
+        Solo se pinta si hay mesa: el propio endpoint lo comprueba y devuelve
+        204 a domicilio. Ver lib/maridaje.ts.
+      */}
+      <Maridaje slug={slug} />
     </>
   );
 }

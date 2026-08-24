@@ -12,6 +12,7 @@ import { qrCodes, sensoryMoments, dataConsents, b2cConsumers } from '@sighfood/d
 import { eq } from 'drizzle-orm';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { procesarEscaneo } from '@/lib/fidelizacion';
+import { normalizarTelefono } from '@/lib/whatsapp/config';
 
 // =============================================================================
 // Schema de validación con Zod
@@ -99,9 +100,28 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
     // =============================================================================
     log.debug('Buscando comensal...', { ruta: '/api/moments/scan' });
     
+    /*
+      EL TELÉFONO SE NORMALIZA ANTES DE BUSCAR Y ANTES DE GUARDAR.
+
+      Aquí se guardaba tal cual llegaba. El resultado fue una ficha duplicada de
+      la misma persona: "+573162066856" creada por este endpoint y
+      "573162066856" creada por la tienda, que sí normaliza. Dos fichas, los
+      puntos repartidos entre ellas y el historial partido por la mitad.
+
+      Y de cara al cliente era peor: la ficha que tenía sus puntos no era la que
+      usaba su sesión en la tienda, así que veía cero.
+    */
+    const telefono = normalizarTelefono(data.whatsapp);
+    if (!telefono) {
+      return NextResponse.json(
+        { ok: false, error: 'El teléfono no parece válido' },
+        { status: 400 }
+      );
+    }
+
     const existingConsumer = await db.select()
       .from(b2cConsumers)
-      .where(eq(b2cConsumers.whatsappPhone, data.whatsapp))
+      .where(eq(b2cConsumers.whatsappPhone, telefono))
       .limit(1);
     
     let consumerId: string;
@@ -129,7 +149,7 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
       log.debug('Creando nuevo comensal...', { ruta: '/api/moments/scan' });
       
       const [newConsumer] = await db.insert(b2cConsumers).values({
-        whatsappPhone: data.whatsapp,
+        whatsappPhone: telefono,
         fullName: data.full_name,
         email: data.email,
         flavorPreference: data.sensory_profile ? { [data.product_line]: 1 } : {},

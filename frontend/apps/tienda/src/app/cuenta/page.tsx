@@ -13,6 +13,7 @@ import { COOKIE_SESION, identidadDe } from '@/lib/sesion';
 import { estadoClub, favoritosDe, historial } from '@/lib/club';
 import VistaCuenta from '@/componentes/VistaCuenta';
 import { AvisosPush } from '@/componentes/AvisosPush';
+import { variableDeEntorno } from '@/lib/cloudflare';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,7 @@ export default async function PaginaCuenta() {
         el programa. "Te avisamos cuando subas de nivel" encaja con lo que tiene
         delante.
       */}
-      <AvisosPush motivo="puntos" claveVapid={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''} />
+      <AvisosPush motivo="puntos" />
     </>
   );
 }

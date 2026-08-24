@@ -16,6 +16,7 @@ import { ultimoPago } from '@/lib/cobros';
 import { pasaPorWompi } from '@/lib/wompi';
 import Seguimiento from '@/componentes/Seguimiento';
 import { AvisosPush } from '@/componentes/AvisosPush';
+import { variableDeEntorno } from '@/lib/cloudflare';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,7 @@ export default async function PaginaPedido({
         explicar nada. Preguntarlo al entrar a la tienda seria gastar el permiso
         —que solo se pide una vez en la vida— antes de que sepa para que sirve.
       */}
-      <AvisosPush motivo="pedido" claveVapid={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''} />
+      <AvisosPush motivo="pedido" />
     </>
   );
 }

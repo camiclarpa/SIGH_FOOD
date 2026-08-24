@@ -59,6 +59,23 @@
       "simple": { "limit": 30, "period": 60 }
     }
   ],
+  // Clave publica de Web Push.
+  //
+  // NO es un secreto: se manda al navegador de cada visitante, que es su unico
+  // proposito. Va aqui, en un archivo versionado, a proposito.
+  //
+  // Y NO se llama NEXT_PUBLIC_*: esas las incrusta Next AL COMPILAR, leyendo
+  // .env.local o .env.production. Este proyecto guarda su configuracion en
+  // .env.development.local —para que los secretos no acaben dentro del paquete—
+  // y Next no lee ese archivo en una compilacion de produccion. El resultado era
+  // que la clave quedaba como `undefined` en el paquete desplegado, el aviso de
+  // notificaciones no aparecia nunca, y no habia ningun error que mirar.
+  //
+  // Leida en ejecucion desde este binding, el problema no puede repetirse.
+  "vars": {
+    "VAPID_PUBLIC_KEY": "BA1hm9tH5512Ew7LFKrZ45mVGufEEUID_ypuo_xJ5QmYuFunzZ-KJA2_aO3BMer5qWUAWFRa2J0nS13_B9IAb8A"
+  },
+
 
   "observability": {
     "enabled": true,

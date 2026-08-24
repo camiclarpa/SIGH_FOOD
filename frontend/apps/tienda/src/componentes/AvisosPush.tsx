@@ -73,15 +73,33 @@ function estaInstalada(): boolean {
 const CLAVE_APLAZADO = 'bocazo_avisos_aplazado';
 const DIAS_DE_ESPERA = 7;
 
-export function AvisosPush({ motivo, claveVapid }: { motivo: Motivo; claveVapid: string }) {
+export function AvisosPush({ motivo }: { motivo: Motivo }) {
   const [visible, setVisible] = useState(false);
+  const [claveVapid, setClave] = useState<string>('');
   const [estado, setEstado] = useState<'preguntando' | 'trabajando' | 'listo' | 'instalar'>(
     'preguntando'
   );
 
   useEffect(() => {
-    // Sin clave configurada no se enseña nada: preguntar y luego no poder
-    // suscribir gasta el permiso a cambio de nada.
+    // La clave se pide al servidor en vez de venir incrustada al compilar.
+    //
+    // Venía como NEXT_PUBLIC_*, que Next resuelve EN LA COMPILACIÓN leyendo
+    // .env.local. Este proyecto guarda su configuración en
+    // .env.development.local —para que los secretos no acaben en el paquete— y
+    // Next no lee ese archivo al compilar para producción: la clave quedaba en
+    // undefined, esto salía sin pintar nada, y nadie se suscribía jamás. Sin un
+    // solo error en ningún sitio.
+    let vivo = true;
+    fetch('/api/push/clave')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (vivo && d?.clave) setClave(d.clave); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  useEffect(() => {
+    // Sin clave no se enseña nada: preguntar y luego no poder suscribir gasta
+    // el permiso —que es de una sola vez— a cambio de nada.
     if (!claveVapid) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     if (typeof Notification === 'undefined') return;

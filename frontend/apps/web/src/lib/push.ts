@@ -78,6 +78,74 @@ export async function configVapid(): Promise<EstadoVapid> {
   };
 }
 
+/** Qué pasó con UN dispositivo. */
+export type Entrega = 'entregado' | 'caducada' | 'fallo';
+
+/**
+ * Manda a un solo dispositivo. Sin base de datos.
+ *
+ * Está separado de `enviarPush` para poder probarlo contra un servidor real: la
+ * parte delicada —cabeceras de VAPID, cuerpo cifrado, y qué códigos significan
+ * "esta suscripción ya no existe"— no necesita nada de la base, y mezclarla
+ * obligaría a levantar una para comprobarla.
+ *
+ * Devuelve qué pasó; quien llama decide qué guardar.
+ */
+export async function enviarADispositivo(datos: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  claves: ClavesVapid;
+  contacto: string;
+  cuerpo: string;
+}): Promise<{ entrega: Entrega; estado?: number; error?: string }> {
+  let respuesta: Response;
+
+  try {
+    const cifrado = await cifrarPayload(datos.cuerpo, { p256dh: datos.p256dh, auth: datos.auth });
+    const jwt = await firmaVapid({
+      endpoint: datos.endpoint,
+      claves: datos.claves,
+      contacto: datos.contacto,
+    });
+
+    respuesta = await fetch(datos.endpoint, {
+      method: 'POST',
+      headers: {
+        // La clave pública va junto al JWT: así el servicio de push puede
+        // comprobar la firma sin conocernos de antes.
+        Authorization: `vapid t=${jwt}, k=${datos.claves.publica}`,
+        'Content-Encoding': 'aes128gcm',
+        'Content-Type': 'application/octet-stream',
+        // Cuánto guardarlo si el móvil está apagado. Doce horas: un aviso de
+        // ayer ya no interesa, y guardarlo más solo consigue que la persona
+        // reciba algo desfasado al encender.
+        TTL: '43200',
+        Urgency: 'normal',
+      },
+      body: cifrado as BodyInit,
+    });
+  } catch (e) {
+    return { entrega: 'fallo', error: e instanceof Error ? e.message : String(e) };
+  }
+
+  if (respuesta.ok) return { entrega: 'entregado', estado: respuesta.status };
+
+  /*
+    404 y 410 significan que esa suscripción ya no existe: desinstaló la web o
+    revocó el permiso.
+
+    Cualquier otro código NO la da por muerta. Un 500 del servicio de push es un
+    problema suyo, y tratarlo como baja borraría a media base de suscriptores
+    durante una caída ajena.
+  */
+  if (respuesta.status === 404 || respuesta.status === 410) {
+    return { entrega: 'caducada', estado: respuesta.status };
+  }
+
+  return { entrega: 'fallo', estado: respuesta.status };
+}
+
 export interface ResultadoPush {
   /** Cuántos dispositivos recibieron el aviso. */
   entregados: number;
@@ -135,78 +203,48 @@ export async function enviarPush(
   });
 
   for (const d of destinos) {
-    try {
-      const cifrado = await cifrarPayload(cuerpo, { p256dh: d.p256dh, auth: d.auth });
-      const jwt = await firmaVapid({
-        endpoint: d.endpoint,
-        claves: config.claves,
-        contacto: config.contacto,
-      });
+    const r = await enviarADispositivo({
+      endpoint: d.endpoint,
+      p256dh: d.p256dh,
+      auth: d.auth,
+      claves: config.claves,
+      contacto: config.contacto,
+      cuerpo,
+    });
 
-      const respuesta = await fetch(d.endpoint, {
-        method: 'POST',
-        headers: {
-          // La clave pública va en la cabecera junto al JWT: así el servicio de
-          // push puede comprobar la firma sin conocernos de antes.
-          Authorization: `vapid t=${jwt}, k=${config.claves.publica}`,
-          'Content-Encoding': 'aes128gcm',
-          'Content-Type': 'application/octet-stream',
-          // Cuánto guardarlo si el móvil está apagado. Doce horas: un aviso de
-          // ayer ya no interesa, y guardarlo más solo consigue que la persona
-          // reciba algo desfasado al encender.
-          TTL: '43200',
-          Urgency: 'normal',
-        },
-        body: cifrado as BodyInit,
-      });
-
-      if (respuesta.ok) {
-        base.entregados++;
-        await conBaseDeDatos((db) =>
-          db
-            .update(pushSuscripciones)
-            .set({ ultimaEntrega: new Date(), fallos: 0 })
-            .where(eq(pushSuscripciones.id, d.id))
-        );
-        continue;
-      }
-
-      /*
-        404 y 410 significan que esa suscripción ya no existe: desinstaló la web
-        o revocó el permiso. Se desactiva de inmediato.
-
-        Cualquier otro código NO la desactiva. Un 500 del servicio de push es un
-        problema suyo, y tratarlo como baja borraría a media base de suscriptores
-        durante una caída ajena.
-      */
-      if (respuesta.status === 404 || respuesta.status === 410) {
-        base.caducadas++;
-        await conBaseDeDatos((db) =>
-          db
-            .update(pushSuscripciones)
-            .set({ activa: false })
-            .where(eq(pushSuscripciones.id, d.id))
-        );
-      } else {
-        base.fallidos++;
-        await conBaseDeDatos((db) =>
-          db
-            .update(pushSuscripciones)
-            .set({ fallos: sql`${pushSuscripciones.fallos} + 1` })
-            .where(eq(pushSuscripciones.id, d.id))
-        );
-        log.warn('El servicio de push rechazó el envío', {
-          ruta: '/lib/push',
-          detalle: [String(respuesta.status), new URL(d.endpoint).host],
-        });
-      }
-    } catch (e) {
-      base.fallidos++;
-      log.warn('No se pudo enviar la notificación', {
-        ruta: '/lib/push',
-        detalle: [e instanceof Error ? e.message : String(e)],
-      });
+    if (r.entrega === 'entregado') {
+      base.entregados++;
+      await conBaseDeDatos((db) =>
+        db
+          .update(pushSuscripciones)
+          .set({ ultimaEntrega: new Date(), fallos: 0 })
+          .where(eq(pushSuscripciones.id, d.id))
+      );
+      continue;
     }
+
+    if (r.entrega === 'caducada') {
+      base.caducadas++;
+      await conBaseDeDatos((db) =>
+        db
+          .update(pushSuscripciones)
+          .set({ activa: false })
+          .where(eq(pushSuscripciones.id, d.id))
+      );
+      continue;
+    }
+
+    base.fallidos++;
+    await conBaseDeDatos((db) =>
+      db
+        .update(pushSuscripciones)
+        .set({ fallos: sql`${pushSuscripciones.fallos} + 1` })
+        .where(eq(pushSuscripciones.id, d.id))
+    );
+    log.warn('No se pudo entregar la notificación', {
+      ruta: '/lib/push',
+      detalle: [String(r.estado ?? 'sin respuesta'), r.error ?? '', new URL(d.endpoint).host],
+    });
   }
 
   return base;

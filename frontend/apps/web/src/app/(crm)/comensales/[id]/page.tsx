@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { puede, rolActual } from '@/lib/permisos';
+import { PruebaPush } from './PruebaPush';
 import { notFound } from 'next/navigation';
 import { pasaporteComensal } from '@/lib/consultas-b2c';
 import {
@@ -260,6 +262,15 @@ export default async function PaginaPasaporte({
               ))}
             </ul>
           )}
+        </Tarjeta>
+
+        {/* --- Notificaciones --- */}
+        <Tarjeta titulo="Notificaciones del navegador">
+          <p className="texto-suave mb-3 text-sm">
+            Se activan desde la tienda, en el móvil de la persona: al terminar un pedido o al
+            mirar sus puntos aparece el aviso. Aquí solo se comprueba que llegan.
+          </p>
+          <PruebaPush consumerId={comensal.id} puede={puede(await rolActual(), 'campanas.probar')} />
         </Tarjeta>
 
         {/* --- Permisos --- */}

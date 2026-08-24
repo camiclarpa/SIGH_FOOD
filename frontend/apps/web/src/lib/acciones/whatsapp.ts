@@ -31,6 +31,7 @@ import {
   type ResultadoEnvio,
 } from '@/lib/whatsapp/service';
 import { normalizarTelefono } from '@/lib/whatsapp/config';
+import { enviarPush } from '@/lib/push';
 import { etiquetaNivel } from '@/lib/fidelizacion';
 import { despacharPlantilla, registrarEnvio, variablesDe } from '@/lib/whatsapp/despacho';
 
@@ -302,5 +303,57 @@ export async function enviarPrueba(datos: {
 
     if (!resultado.ok) throw new Error(resultado.mensaje);
     return { wamid: resultado.wamid };
+  });
+}
+
+/**
+ * Manda una notificación de prueba a los dispositivos de un comensal.
+ *
+ * Existe porque, sin esto, Web Push es imposible de comprobar: la única forma de
+ * que salga una notificación sería activar una campaña de verdad, y nadie
+ * enciende una campaña para averiguar si el canal funciona.
+ *
+ * NO cuenta para el tope de frecuencia. El tope protege al comensal de recibir
+ * demasiada publicidad, y esto no es publicidad: lo dispara alguien del equipo a
+ * mano, sobre una persona concreta, para ver si le llega. Restarlo del cupo
+ * gastaría el impacto comercial de la semana en una prueba.
+ */
+export async function enviarPruebaPush(consumerId: string): Promise<Resultado<{ entregados: number }>> {
+  return ejecutar('enviarPruebaPush', async () => {
+    const actor = await exigir('campanas.probar');
+
+    const r = await enviarPush(consumerId, {
+      titulo: 'Bocazo',
+      cuerpo: 'Notificación de prueba. Si la estás viendo, el canal funciona.',
+      url: '/cuenta',
+      // Etiqueta propia para que una prueba no borre de la pantalla un aviso de
+      // pedido que la persona todavía no ha leído.
+      etiqueta: 'prueba',
+    });
+
+    if (r.error) throw new Error(r.error);
+
+    if (r.sinDispositivos) {
+      throw new Error(
+        'Este comensal no tiene notificaciones activadas. Tiene que entrar a la tienda ' +
+        'desde su móvil, iniciar sesión y aceptar el aviso que aparece tras hacer un ' +
+        'pedido o al mirar sus puntos.'
+      );
+    }
+
+    if (r.entregados === 0) {
+      throw new Error(
+        r.caducadas > 0
+          ? `Sus ${r.caducadas} suscripcion(es) ya no son válidas: desinstaló la tienda o revocó el permiso.`
+          : 'El servicio de notificaciones rechazó el envío.'
+      );
+    }
+
+    log.info('Notificación de prueba enviada', {
+      ruta: '/acciones/whatsapp',
+      detalle: [actor.email, consumerId, `${r.entregados} dispositivo(s)`],
+    });
+
+    return { entregados: r.entregados };
   });
 }

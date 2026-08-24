@@ -79,6 +79,21 @@ export const automationTriggerEnum = pgEnum('automation_trigger', [
 
 export const automationChannelEnum = pgEnum('automation_channel', ['email', 'whatsapp', 'sms', 'push']);
 
+/**
+ * La causa raiz de una resena, en cuatro etiquetas.
+ *
+ * Una nota de 2 estrellas no dice que hacer. "Llego frio" y "no me gusta el
+ * picante" son la misma nota y problemas opuestos: el primero se arregla en
+ * reparto y el segundo NO se arregla — es una preferencia, y tratarla como fallo
+ * llevaria a suavizar un producto que a los demas les gusta asi.
+ */
+export const categoriaResenaEnum = pgEnum('categoria_resena', [
+  'fallo_cocina',
+  'fallo_logistica',
+  'preferencia',
+  'elogio',
+]);
+
 export const automationStatusEnum = pgEnum('automation_status', ['draft', 'active', 'paused', 'completed']);
 
 /**
@@ -2202,6 +2217,15 @@ export const consumerReviews = pgTable('consumer_reviews', {
   puntuacionSentimiento: numeric('puntuacion_sentimiento', { precision: 5, scale: 2 }),
   /** Atributos detectados: textura, temperatura, picante, sabor. */
   atributos: jsonb('atributos').$type<Record<string, string>>(),
+  /** Causa raiz, puesta por el clasificador. Ver categoriaResenaEnum. */
+  categoria: categoriaResenaEnum('categoria'),
+  /**
+   * Motivos de un toque que marco la persona: temperatura, tiempo, empaque,
+   * sabor. Se guardan aparte del comentario porque son datos, no prosa, y se
+   * pueden contar sin pasar por la IA — que es lo que hace falta cuando alguien
+   * pregunta "cuantos pedidos llegaron frios este mes".
+   */
+  motivos: jsonb('motivos').$type<string[]>(),
   /** true si el analisis sugiere un problema de calidad que revisar. */
   alertaCalidad: boolean('alerta_calidad').notNull().default(false),
   analizadaEn: timestamp('analizada_en', { withTimezone: true }),
@@ -2615,6 +2639,17 @@ export const pedidos = pgTable('pedidos', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   entregadoEn: timestamp('entregado_en', { withTimezone: true }),
+  /**
+   * Cuándo se le pidió la opinión.
+   *
+   * La reseña NO se pide en la pantalla de entrega: ahí la persona acaba de
+   * recibir la bolsa y todavía no ha probado nada, así que lo que contesta va
+   * sobre el reparto y no sobre la comida. Se pregunta un rato después.
+   *
+   * Esta columna es lo que impide preguntar dos veces: sin ella, un cron que
+   * corre cada diez minutos preguntaría cada diez minutos.
+   */
+  resenaPedidaEn: timestamp('resena_pedida_en', { withTimezone: true }),
 }, (t) => [
   index('idx_pedidos_estado').on(t.estado),
   index('idx_pedidos_consumer').on(t.consumerId),

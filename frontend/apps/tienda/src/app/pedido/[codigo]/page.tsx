@@ -43,6 +43,7 @@ export default async function PaginaPedido({
     <>
       <Seguimiento
         pedido={pedido}
+        urlGoogle={(await variableDeEntorno('GOOGLE_RESENAS_URL')) || undefined}
         pago={{
           mensajeFallo: pago?.mensaje ?? null,
           enLinea: pasaPorWompi(pedido.metodoPago),

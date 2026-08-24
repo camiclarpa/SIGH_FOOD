@@ -52,13 +52,27 @@ const TITULARES: Record<string, string> = {
 export default function Seguimiento({
   pedido,
   pago,
+  urlGoogle,
 }: {
   pedido: PedidoCompleto;
   pago: { mensajeFallo: string | null; enLinea: boolean };
+  /** Perfil de Google del negocio. Sin él no se enseña la invitación a reseñar. */
+  urlGoogle?: string;
 }) {
   const router = useRouter();
 
   const terminado = pedido.estado === 'entregado' || pedido.estado === 'cancelado';
+
+  /*
+    Minutos que se espera antes de preguntar qué tal estuvo.
+
+    Es el tiempo aproximado de sentarse y comer. Menos da opiniones sobre el
+    reparto; mucho más y el recuerdo ya es vago.
+  */
+  const MINUTOS_ANTES_DE_PREGUNTAR = 35;
+  const puedeResenar =
+    pedido.entregadoEn !== null &&
+    Date.now() - new Date(pedido.entregadoEn).getTime() >= MINUTOS_ANTES_DE_PREGUNTAR * 60_000;
   const [refrescando, setRefrescando] = useState(false);
 
   useEffect(() => {
@@ -255,7 +269,20 @@ export default function Seguimiento({
       </section>
 
       {/* --- Reseña, solo al entregar --- */}
-      {pedido.estado === 'entregado' && <Resena codigo={pedido.codigo} />}
+      {/*
+        LA RESEÑA NO SE PIDE AL ENTREGAR.
+
+        Al recibir la bolsa la persona todavía no ha probado nada: lo que
+        contesta ahí es sobre el reparto, no sobre la comida. Y una nota puesta
+        antes de comer es la que después aparece en el panel como si fuera un
+        juicio del producto.
+
+        Se espera un rato. Quien vuelva a abrir el enlace pasado ese tiempo la
+        encuentra aquí, y a quien no vuelva se le recuerda con un aviso.
+      */}
+      {pedido.estado === 'entregado' && puedeResenar && (
+        <Resena codigo={pedido.codigo} urlGoogle={urlGoogle} />
+      )}
 
       {/* --- Volver a pedir --- */}
       {terminado && !cancelado && (

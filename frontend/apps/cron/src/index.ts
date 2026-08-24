@@ -40,17 +40,32 @@ interface ExecutionContext {
 }
 
 export interface Env {
-  /** URL completa del endpoint del CRM. */
+  /** Endpoint de campañas. Se despierta una vez al día. */
   CRM_CRON_URL: string;
+  /** Endpoint de reseñas. Se despierta cada diez minutos. */
+  CRM_RESENAS_URL: string;
   /** Secreto compartido con el CRM. Se sube con `wrangler secret put`. */
   CRON_SECRETO: string;
 }
 
+/** El horario de las campañas. Lo que no sea esto, son reseñas. */
+const CRON_CAMPANAS = '0 15 * * *';
+
 export default {
   async scheduled(evento: ScheduledController, env: Env, ctx: ExecutionContext) {
+    /*
+      Dos citas, dos destinos.
+
+      Cloudflare dice en `evento.cron` cuál de los horarios disparó, y se usa eso
+      para elegir a quién llamar. Son procesos con ritmos muy distintos: las
+      campañas salen una vez al día y las reseñas cada diez minutos. Mandar las
+      dos al mismo sitio haría que las campañas se evaluaran 144 veces diarias.
+    */
+    const destino = evento.cron === CRON_CAMPANAS ? env.CRM_CRON_URL : env.CRM_RESENAS_URL;
+
     // waitUntil: `scheduled` puede devolver antes de que termine la petición, y
     // sin esto Cloudflare cortaría el Worker a mitad del envío.
-    ctx.waitUntil(despertarAlCrm(evento, env));
+    ctx.waitUntil(despertarAlCrm(evento, env, destino));
   },
 
   /*
@@ -65,14 +80,18 @@ export default {
   },
 };
 
-async function despertarAlCrm(evento: ScheduledController, env: Env): Promise<void> {
-  if (!env.CRM_CRON_URL || !env.CRON_SECRETO) {
-    console.error('Falta CRM_CRON_URL o CRON_SECRETO: el reloj no puede llamar a nadie.');
+async function despertarAlCrm(
+  evento: ScheduledController,
+  env: Env,
+  destino: string
+): Promise<void> {
+  if (!destino || !env.CRON_SECRETO) {
+    console.error('Falta la URL de destino o CRON_SECRETO: el reloj no puede llamar a nadie.');
     return;
   }
 
   try {
-    const respuesta = await fetch(env.CRM_CRON_URL, {
+    const respuesta = await fetch(destino, {
       method: 'POST',
       headers: {
         'x-cron-secreto': env.CRON_SECRETO,

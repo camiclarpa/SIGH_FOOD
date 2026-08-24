@@ -896,6 +896,10 @@ export async function resumenResenas(filtro?: { soloAlertas?: boolean }) {
           atributos: consumerReviews.atributos,
           alertaCalidad: consumerReviews.alertaCalidad,
           analizadaEn: consumerReviews.analizadaEn,
+          // La causa raíz y lo que marcó la persona de un toque. Sin estas dos,
+          // la pantalla solo podía decir "sin analizar" — que es lo que decía.
+          categoria: consumerReviews.categoria,
+          motivos: consumerReviews.motivos,
           linea: consumerReviews.productLine,
           fecha: consumerReviews.createdAt,
           comensal: b2cConsumers.fullName,

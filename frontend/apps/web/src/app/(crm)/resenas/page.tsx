@@ -14,6 +14,37 @@ import {
   numero,
 } from '@/components/ui';
 
+/**
+ * Como se lee cada categoria en pantalla.
+ *
+ * Se separan los dos fallos porque se arreglan en sitios distintos: uno en la
+ * cocina y otro en el reparto. Y 'preferencia' NO se pinta como problema — no lo
+ * es: dice que el producto salio como debia y que a esa persona no le gusto.
+ */
+const ETIQUETA_CATEGORIA: Record<string, string> = {
+  fallo_cocina: 'fallo de cocina',
+  fallo_logistica: 'fallo de reparto',
+  preferencia: 'preferencia',
+  elogio: 'elogio',
+};
+
+const TONO_CATEGORIA: Record<string, 'riesgo' | 'aviso' | 'neutro' | 'exito'> = {
+  fallo_cocina: 'riesgo',
+  fallo_logistica: 'aviso',
+  preferencia: 'neutro',
+  elogio: 'exito',
+};
+
+/** Los motivos de un toque, como se le ensenaron a la persona. */
+const ETIQUETA_MOTIVO: Record<string, string> = {
+  temperatura: 'llego frio',
+  tiempo: 'tardo mucho',
+  empaque: 'el empaque',
+  sabor: 'el sabor',
+  cantidad: 'la cantidad',
+  otro: 'otra cosa',
+};
+
 export const metadata = { title: 'Reseñas · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
@@ -150,8 +181,28 @@ export default async function PaginaResenas({
                           </Etiqueta>
                         )}
                         {r.alertaCalidad && <Etiqueta tono="riesgo">alerta de calidad</Etiqueta>}
+
+                        {/*
+                          La causa raíz. Es lo que convierte una nota en algo
+                          accionable: "llegó frío" y "no me gusta el picante" son
+                          la misma nota y problemas opuestos — el primero se
+                          arregla en reparto y el segundo no se arregla.
+                        */}
+                        {r.categoria && (
+                          <Etiqueta tono={TONO_CATEGORIA[r.categoria]}>
+                            {ETIQUETA_CATEGORIA[r.categoria]}
+                          </Etiqueta>
+                        )}
+
                         {!r.analizadaEn && <Etiqueta tono="aviso">sin analizar</Etiqueta>}
                       </div>
+
+                      {/* Lo que marcó de un toque, antes de escribir nada. */}
+                      {r.motivos && r.motivos.length > 0 && (
+                        <p className="texto-suave mt-1.5 text-xs">
+                          Marcó: {r.motivos.map((m) => ETIQUETA_MOTIVO[m] ?? m).join(' · ')}
+                        </p>
+                      )}
 
                       {r.comentario && <p className="mt-1.5 text-sm">{r.comentario}</p>}
 

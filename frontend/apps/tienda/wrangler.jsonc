@@ -77,6 +77,13 @@
     // y sirve para una sola cosa: rechazar un pedido hecho a este mismo numero,
     // porque WhatsApp no entrega un mensaje de un numero a si mismo y los avisos
     // se perderian en silencio.
+    // Perfil de Google del negocio, para invitar a resenar a quien puso 4 o 5.
+    //
+    // Vacio a proposito: NO se inventa una URL. Mientras este vacio, la tienda
+    // agradece y no ensena el boton — es preferible a mandar a la gente a un
+    // sitio equivocado. Se rellena con el enlace "Escribir una resena" del
+    // perfil de Google Business.
+    "GOOGLE_RESENAS_URL": "",
     "WHATSAPP_NUMERO_NEGOCIO": "573160438031",
     "VAPID_PUBLIC_KEY": "BA1hm9tH5512Ew7LFKrZ45mVGufEEUID_ypuo_xJ5QmYuFunzZ-KJA2_aO3BMer5qWUAWFRa2J0nS13_B9IAb8A"
   },

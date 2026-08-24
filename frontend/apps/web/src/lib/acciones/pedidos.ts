@@ -119,13 +119,25 @@ export async function avanzarPedido(datos: {
         }
       }
 
-      // Y se avisa por WhatsApp. Mismo criterio: es cortesia, no puede tumbar
-      // la operacion.
+      /*
+        Y se avisa a la persona. Mismo criterio: es cortesía, no puede tumbar la
+        operación.
+
+        El `consumerId` va incluido porque sin él solo se podría intentar
+        WhatsApp. Y el texto libre de WhatsApp exige que la persona haya escrito
+        al negocio en las últimas 24 h — algo que quien pide por la tienda casi
+        nunca ha hecho. A esa gente no le llegaba nada: el pedido avanzaba en la
+        cocina y ella seguía viendo "recibido".
+
+        Con el comensal identificado se puede caer a la notificación del
+        navegador, que no depende de ninguna ventana.
+      */
       try {
         await avisarCambioDeEstado({
           telefono: pedido.telefono,
           codigo: pedido.codigo,
           estado: datos.estado,
+          consumerId: pedido.consumerId,
         });
       } catch {
         // La pasarela ya registra el detalle.

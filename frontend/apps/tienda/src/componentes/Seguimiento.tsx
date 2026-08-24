@@ -64,16 +64,56 @@ export default function Seguimiento({
   useEffect(() => {
     if (terminado) return;
 
-    const t = setInterval(() => {
-      setRefrescando(true);
-      // router.refresh() vuelve a pedir el componente de servidor sin recargar
-      // la página: el estado se actualiza sin perder el scroll ni parpadear.
-      router.refresh();
-      setTimeout(() => setRefrescando(false), 800);
-    }, 30_000);
+    /*
+      Se PREGUNTA cada pocos segundos y solo se recarga cuando algo cambió.
 
-    return () => clearInterval(t);
-  }, [terminado, router]);
+      Antes esto llamaba a router.refresh() cada 30 segundos. Medio minuto es
+      una eternidad delante de una pantalla que promete actualizarse sola: la
+      cocina marca "listo" y el cliente sigue leyendo "preparando", así que
+      recarga a mano y concluye, con razón, que no funciona.
+
+      Bajar el intervalo sin más habría significado volver a pedir la página
+      entera doce veces por minuto y por cliente, casi siempre para descubrir
+      que nada cambió. En vez de eso se consulta un endpoint diminuto que
+      devuelve dos campos, y la página completa solo se vuelve a pedir cuando el
+      estado es distinto del que hay en pantalla.
+    */
+    let vivo = true;
+    let ultimoVisto = pedido.estado;
+
+    const preguntar = async () => {
+      try {
+        const r = await fetch(`/api/pedido/${pedido.codigo}/estado`, { cache: 'no-store' });
+        if (!r.ok || !vivo) return;
+
+        const d = (await r.json()) as { estado?: string; estadoPago?: string };
+        if (!d.estado || !vivo) return;
+
+        if (d.estado !== ultimoVisto) {
+          ultimoVisto = d.estado;
+          setRefrescando(true);
+          // router.refresh() vuelve a pedir el componente de servidor sin
+          // recargar la página: el estado se actualiza sin perder el scroll ni
+          // parpadear.
+          router.refresh();
+          setTimeout(() => vivo && setRefrescando(false), 800);
+        }
+      } catch {
+        // Un fallo de red no rompe nada: se vuelve a intentar en el siguiente
+        // ciclo. Con el móvil en el bolsillo esto pasa constantemente.
+      }
+    };
+
+    // La primera consulta va enseguida: quien acaba de llegar desde el checkout
+    // no debe esperar un ciclo entero para ver el estado real.
+    preguntar();
+    const t = setInterval(preguntar, 5_000);
+
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, [terminado, router, pedido.estado, pedido.codigo]);
 
   const pasos = pedido.tipoEntrega === 'recoger' ? PASOS_RECOGER : PASOS_DOMICILIO;
   const actual = pasos.findIndex((p) => p.id === pedido.estado);

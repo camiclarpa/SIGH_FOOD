@@ -35,6 +35,7 @@
 // cocina marque una entrega que ya ocurrió.
 
 import { sendTextMessage } from '@/lib/whatsapp/service';
+import { registrarEnvio } from '@/lib/whatsapp/despacho';
 import { ventanaAbierta } from '@/lib/canal';
 import { enviarPush } from '@/lib/push';
 import { log } from '@sighfood/domain/lib/observabilidad';
@@ -76,6 +77,23 @@ export async function avisarCambioDeEstado(datos: {
   if (datos.consumerId && (await ventanaAbierta(datos.consumerId).catch(() => false))) {
     try {
       const r = await sendTextMessage({ to: datos.telefono, text: texto });
+
+      /*
+        Queda registrado en el hilo de la bandeja, salga bien o mal.
+
+        Antes no se guardaba en ninguna parte, y eso tenia dos consecuencias:
+        quien atendia por WhatsApp no veia lo que el sistema ya le habia dicho
+        al cliente —y se lo repetia—, y cuando alguien preguntaba "¿le llego el
+        aviso?" no habia forma de saberlo. Ni el exito ni el fallo dejaban
+        rastro.
+      */
+      await registrarEnvio({
+        telefono: datos.telefono,
+        resultado: r,
+        texto,
+        enviadoPor: null,
+      }).catch(() => {});
+
       if (r.ok) return 'whatsapp_texto';
     } catch {
       // Se sigue al siguiente canal en vez de rendirse.

@@ -21,7 +21,7 @@ import {
   productos,
   qrCodes,
 } from '@sighfood/domain/db/schema';
-import { conBaseDeDatos } from '@/lib/cloudflare';
+import { conBaseDeDatos, variableDeEntorno } from '@/lib/cloudflare';
 import { ENVIO_COP } from '@/lib/envio';
 import { aPreferencias } from '@/lib/paladar';
 
@@ -151,6 +151,32 @@ export async function crearPedido(datos: DatosPedido): Promise<ResultadoPedido> 
 
   const telefono = normalizarTelefono(datos.telefono);
   if (!telefono) return { ok: false, error: 'El teléfono no parece válido' };
+
+  /*
+    NO SE ACEPTA EL NÚMERO DEL PROPIO NEGOCIO.
+
+    Parece un caso imposible y ocurrió a la primera, probando. El efecto es
+    desconcertante porque el pedido se crea con normalidad y todo parece ir bien:
+    lo que falla después, en silencio, son los avisos.
+
+    WhatsApp no entrega un mensaje de un número a sí mismo, así que las
+    actualizaciones de estado —confirmado, en camino, entregado— no aparecen en
+    ninguna parte. Y como el teléfono es distinto al del cliente, se crea un
+    comensal nuevo sin sus puntos ni sus notificaciones activadas, con lo que
+    tampoco hay canal de respaldo.
+
+    El síntoma es "las notificaciones no funcionan" y no apunta a la causa. Se
+    corta aquí, y se dice por qué.
+  */
+  const numeroDelNegocio = await variableDeEntorno('WHATSAPP_NUMERO_NEGOCIO');
+  if (numeroDelNegocio && normalizarTelefono(numeroDelNegocio) === telefono) {
+    return {
+      ok: false,
+      error:
+        'Ese es el número de WhatsApp del negocio. Pon el número del cliente: si no, ' +
+        'los avisos del pedido no llegarían a nadie.',
+    };
+  }
 
   const propina = Math.max(0, Math.trunc(datos.propinaCOP ?? 0));
 

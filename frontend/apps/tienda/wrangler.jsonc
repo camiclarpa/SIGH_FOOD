@@ -73,6 +73,11 @@
   //
   // Leida en ejecucion desde este binding, el problema no puede repetirse.
   "vars": {
+    // El WhatsApp del negocio. No es un secreto —esta en la landing, es publico—
+    // y sirve para una sola cosa: rechazar un pedido hecho a este mismo numero,
+    // porque WhatsApp no entrega un mensaje de un numero a si mismo y los avisos
+    // se perderian en silencio.
+    "WHATSAPP_NUMERO_NEGOCIO": "573160438031",
     "VAPID_PUBLIC_KEY": "BA1hm9tH5512Ew7LFKrZ45mVGufEEUID_ypuo_xJ5QmYuFunzZ-KJA2_aO3BMer5qWUAWFRa2J0nS13_B9IAb8A"
   },
 

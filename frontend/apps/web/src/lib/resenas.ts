@@ -37,7 +37,12 @@ import { consumerReviews, pedidos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 
-export type CategoriaResena = 'fallo_cocina' | 'fallo_logistica' | 'preferencia' | 'elogio';
+export type CategoriaResena =
+  | 'fallo_cocina'
+  | 'fallo_logistica'
+  | 'preferencia'
+  | 'elogio'
+  | 'sugerencia';
 
 /** Modelo pequeño: la tarea es meter un texto corto en una de cuatro cajas. */
 const MODELO = '@cf/meta/llama-3.1-8b-instruct';
@@ -65,7 +70,8 @@ Devuelve SOLO una de estas cuatro palabras, sin explicar nada:
 fallo_cocina — algo salió mal al prepararlo: crudo, quemado, sin sal, falta un producto, poca cantidad.
 fallo_logistica — se preparó bien pero llegó mal: frío, derramado, tarde, empaque roto, dirección equivocada.
 preferencia — no es un fallo del negocio, es gusto personal: "muy picante para mí", "no me gustan las salsas dulces".
-elogio — le gustó.
+elogio — le gustó y no pide nada más.
+sugerencia — pide un producto que no existe: 'me gustaría con picante medio', 'saquen una bolsa más grande'. Aunque venga con elogio, si pide algo nuevo es sugerencia.
 
 Ojo con la diferencia entre fallo_cocina y preferencia: "le falta sabor" es un fallo; "no me gusta el picante" es una preferencia, porque el producto salió como debía.`;
 
@@ -75,6 +81,9 @@ function aCategoria(texto: string | undefined): CategoriaResena | null {
   if (t.includes('fallo_cocina')) return 'fallo_cocina';
   if (t.includes('fallo_logistica') || t.includes('fallo_logística')) return 'fallo_logistica';
   if (t.includes('preferencia')) return 'preferencia';
+  // 'sugerencia' se comprueba ANTES que 'elogio': un comentario que elogia y
+  // ademas pide algo nuevo vale mas como peticion de producto que como halago.
+  if (t.includes('sugerencia')) return 'sugerencia';
   if (t.includes('elogio')) return 'elogio';
   return null;
 }
@@ -91,9 +100,17 @@ function aCategoria(texto: string | undefined): CategoriaResena | null {
  */
 export function categoriaPorMotivos(
   motivos: string[] | null,
-  puntuacion: number | null
+  puntuacion: number | null,
+  hayComentario = false
 ): CategoriaResena | null {
-  if (puntuacion !== null && puntuacion >= 4) return 'elogio';
+  /*
+    Una nota alta SIN comentario es un elogio y no hace falta molestar al modelo.
+
+    Con comentario no se decide aqui: alguien puede poner cinco estrellas y pedir
+    'saquen una bolsa mas grande', y eso vale mas como peticion de producto que
+    como halago. Esa distincion necesita leer el texto.
+  */
+  if (puntuacion !== null && puntuacion >= 4 && !hayComentario) return 'elogio';
   if (!motivos?.length) return null;
 
   // Estos dos solo pueden pasar entre la cocina y la puerta del cliente.
@@ -146,7 +163,11 @@ export async function clasificarPendientes(): Promise<ResultadoClasificacion> {
   const ai = await bindingAI();
 
   for (const r of pendientes) {
-    let categoria = categoriaPorMotivos(r.motivos ?? null, r.puntuacion);
+    let categoria = categoriaPorMotivos(
+      r.motivos ?? null,
+      r.puntuacion,
+      Boolean(r.comentario?.trim())
+    );
 
     // Solo se llama al modelo cuando los motivos no alcanzan Y hay texto que
     // leer. Una reseña de dos estrellas sin comentario ni motivos no tiene nada
@@ -192,6 +213,7 @@ export async function clasificarPendientes(): Promise<ResultadoClasificacion> {
       "No me gusta el picante" no es un fallo que revisar, y tenerlo en la lista
       de alertas hace que se deje de mirar la lista.
     */
+    // Ni una preferencia ni una sugerencia son averias que revisar.
     const esFallo = categoria === 'fallo_cocina' || categoria === 'fallo_logistica';
 
     await conBaseDeDatos((db) =>

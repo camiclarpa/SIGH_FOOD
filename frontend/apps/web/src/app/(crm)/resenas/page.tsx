@@ -3,6 +3,9 @@ import { resumenResenas } from '@/lib/consultas-b2c';
 import { etiquetaLinea } from '@/lib/fidelizacion';
 import { puede, rolActual } from '@/lib/permisos';
 import { ResolverAlerta } from './ResolverAlerta';
+import { AltaLote, RetirarLote } from './Lotes';
+import { lotesConCalidad, mediasPorAtributo, repartoPorCategoria } from '@/lib/calidad';
+import { catalogoSimple } from '@/lib/calidad-catalogo';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -26,13 +29,15 @@ const ETIQUETA_CATEGORIA: Record<string, string> = {
   fallo_logistica: 'fallo de reparto',
   preferencia: 'preferencia',
   elogio: 'elogio',
+  sugerencia: 'sugerencia de producto',
 };
 
-const TONO_CATEGORIA: Record<string, 'riesgo' | 'aviso' | 'neutro' | 'exito'> = {
+const TONO_CATEGORIA: Record<string, 'riesgo' | 'aviso' | 'neutro' | 'exito' | 'info'> = {
   fallo_cocina: 'riesgo',
   fallo_logistica: 'aviso',
   preferencia: 'neutro',
   elogio: 'exito',
+  sugerencia: 'info',
 };
 
 /** Los motivos de un toque, como se le ensenaron a la persona. */
@@ -62,10 +67,18 @@ export default async function PaginaResenas({
   const p = await searchParams;
   const soloAlertas = p.filtro === 'alertas';
 
-  const [{ datos: d, degradado, edadSegundos }, rol] = await Promise.all([
-    resumenResenas({ soloAlertas }),
-    rolActual(),
-  ]);
+  const [{ datos: d, degradado, edadSegundos }, rol, atributos, tandas, reparto, productos] =
+    await Promise.all([
+      resumenResenas({ soloAlertas }),
+      rolActual(),
+      mediasPorAtributo(),
+      lotesConCalidad(),
+      repartoPorCategoria(),
+      catalogoSimple(),
+    ]);
+
+  const tandasEnAlerta = tandas.filter((t) => t.estado.alerta && !t.retirado).length;
+  const tandasVivas = tandas.filter((t) => !t.retirado).length;
 
   const puedeModerar = puede(rol, 'resenas.moderar');
 
@@ -92,13 +105,159 @@ export default async function PaginaResenas({
           detalle="posibles fallos de tanda"
           tono={d.totales.alertas > 0 ? 'riesgo' : 'exito'}
         />
-        <Metrica etiqueta="Negativas" valor={numero(d.totales.negativas)} tono={d.totales.negativas > 0 ? 'aviso' : 'neutro'} />
+        {/*
+          La cifra que separa lo que hay que ARREGLAR de lo que solo hay que
+          ESCUCHAR.
+
+          Un cliente al que no le gusta el picante no es un defecto de
+          fabricación. Contarlo como tal lleva a suavizar un producto que a los
+          demás les gusta justo así, y a perseguir un problema que no existe.
+        */}
         <Metrica
-          etiqueta="Sin analizar"
-          valor={numero(d.totales.sinAnalizar)}
-          detalle="pendientes de la IA"
-          tono={d.totales.sinAnalizar > 0 ? 'aviso' : 'neutro'}
+          etiqueta="Defectos reales"
+          valor={numero(reparto.defectos)}
+          detalle={`${numero(reparto.subjetivas)} son preferencia o sugerencia`}
+          tono={reparto.defectos > 0 ? 'riesgo' : 'exito'}
         />
+        <Metrica
+          etiqueta="Tandas en revisión"
+          valor={`${numero(tandasEnAlerta)} / ${numero(tandasVivas)}`}
+          detalle={tandasEnAlerta > 0 ? 'superan el umbral de quejas' : 'ninguna con incidencias'}
+          tono={tandasEnAlerta > 0 ? 'riesgo' : 'exito'}
+        />
+      </div>
+
+      {/* --- Atributos: a quién le toca arreglarlo --- */}
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <Tarjeta titulo="Cómo puntúan cada cosa">
+          <p className="texto-suave -mt-2 mb-3 text-xs">
+            Una nota global de 3 no dice nada. «Buenísimo pero llegó blando» y «crujiente
+            pero soso» son las mismas 3 y se arreglan en sitios distintos.
+          </p>
+          <ul className="divide-y borde-tema">
+            {atributos.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm">{a.etiqueta}</p>
+                  <p className="texto-suave text-xs">{a.responsable}</p>
+                </div>
+                <div className="flex shrink-0 items-baseline gap-2">
+                  <span
+                    className={`cifras text-sm font-medium ${
+                      a.media !== null && a.media < 3.5 ? 'text-red-500' : ''
+                    }`}
+                  >
+                    {a.media !== null ? a.media.toFixed(1) : '—'}
+                  </span>
+                  <span className="texto-suave text-xs">
+                    {a.respuestas > 0 ? `${numero(a.respuestas)} resp.` : 'sin datos'}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Tarjeta>
+
+        <Tarjeta titulo="De qué hablan las reseñas">
+          <p className="texto-suave -mt-2 mb-3 text-xs">
+            Las sugerencias son la única categoría que dice qué fabricar después.
+          </p>
+          <ul className="divide-y borde-tema">
+            {[
+              { t: 'Elogios', v: reparto.elogio, tono: 'exito' as const },
+              { t: 'Fallo de cocina', v: reparto.falloCocina, tono: 'riesgo' as const },
+              { t: 'Fallo de reparto', v: reparto.falloLogistica, tono: 'aviso' as const },
+              { t: 'Preferencia personal', v: reparto.preferencia, tono: 'neutro' as const },
+              { t: 'Sugerencia de producto', v: reparto.sugerencia, tono: 'info' as const },
+              { t: 'Sin clasificar', v: reparto.sinClasificar, tono: 'neutro' as const },
+            ].map((f) => (
+              <li key={f.t} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span>{f.t}</span>
+                <span className="cifras">{numero(f.v)}</span>
+              </li>
+            ))}
+          </ul>
+        </Tarjeta>
+      </div>
+
+      {/* --- Trazabilidad por tanda --- */}
+      <div className="mt-6">
+        <Tarjeta
+          titulo="Control por lote"
+          accion={puedeModerar ? <AltaLote productos={productos} /> : null}
+        >
+          <p className="texto-suave -mt-2 mb-3 text-xs">
+            Tres quejas repartidas en tres tandas es ruido. Tres quejas del mismo código
+            impreso es una tanda que hay que sacar de circulación.
+          </p>
+
+          {tandas.length === 0 ? (
+            <Vacio>
+              Todavía no hay lotes dados de alta. Sin ellos, una reseña dice qué pasó pero no
+              a qué producción le pasó.
+            </Vacio>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[44rem] text-sm">
+                <thead className="texto-suave border-b borde-tema text-left text-xs uppercase tracking-wide">
+                  <tr>
+                    <th className="pb-2 pr-3 font-medium">Lote</th>
+                    <th className="pb-2 pr-3 font-medium">Producto</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Reseñas</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Media</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Quejas</th>
+                    <th className="pb-2 pr-3 font-medium">Estado</th>
+                    <th className="pb-2 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y borde-tema">
+                  {tandas.map((t) => (
+                    <tr key={t.id} className={t.retirado ? 'opacity-55' : ''}>
+                      <td className="py-2.5 pr-3">
+                        <span className="cifras font-medium">{t.codigo}</span>
+                        <span className="texto-suave block text-xs">{t.producidoEn}</span>
+                      </td>
+                      <td className="py-2.5 pr-3">{t.producto ?? 'Tanda mixta'}</td>
+                      <td className="cifras py-2.5 pr-3 text-right">{numero(t.resenas)}</td>
+                      <td className="cifras py-2.5 pr-3 text-right">
+                        {t.resenas > 0 ? t.media.toFixed(1) : '—'}
+                      </td>
+                      <td
+                        className={`cifras py-2.5 pr-3 text-right ${
+                          t.negativas > 0 ? 'text-red-500' : ''
+                        }`}
+                      >
+                        {numero(t.negativas)}
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        {t.retirado ? (
+                          <>
+                            <Etiqueta tono="neutro">retirada</Etiqueta>
+                            {t.motivoRetiro && (
+                              <span className="texto-suave block text-xs">{t.motivoRetiro}</span>
+                            )}
+                          </>
+                        ) : t.estado.alerta ? (
+                          <>
+                            <Etiqueta tono="riesgo">revisar</Etiqueta>
+                            <span className="texto-suave block text-xs">{t.estado.motivo}</span>
+                          </>
+                        ) : (
+                          <span className="texto-suave text-xs">{t.estado.motivo}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        {puedeModerar && (
+                          <RetirarLote id={t.id} codigo={t.codigo} retirado={t.retirado} />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Tarjeta>
       </div>
 
       {d.porLinea.length > 0 && (

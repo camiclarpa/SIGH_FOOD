@@ -92,6 +92,13 @@ export const categoriaResenaEnum = pgEnum('categoria_resena', [
   'fallo_logistica',
   'preferencia',
   'elogio',
+  /*
+    Lo que el cliente pide y todavía no existe: "me gustaría con picante medio".
+
+    No es un elogio ni una queja: es una petición de producto. Mezclarla con las
+    quejas la entierra, y es la única categoría que dice qué fabricar después.
+  */
+  'sugerencia',
 ]);
 
 export const automationStatusEnum = pgEnum('automation_status', ['draft', 'active', 'paused', 'completed']);
@@ -2226,6 +2233,29 @@ export const consumerReviews = pgTable('consumer_reviews', {
    * pregunta "cuantos pedidos llegaron frios este mes".
    */
   motivos: jsonb('motivos').$type<string[]>(),
+  /**
+   * La tanda que se comio.
+   *
+   * Sin esto una resena dice QUE paso pero no A QUE lote le paso, y con eso se
+   * puede atender a un cliente pero no arreglar la causa: si tres personas
+   * dicen "perdio la crocancia" y no se sabe si comieron del mismo lote, no hay
+   * forma de distinguir un fallo de una tanda concreta de un problema de la
+   * receta. Esa distincion es la diferencia entre retirar una tanda y cambiar
+   * un producto que funciona.
+   */
+  loteId: uuid('lote_id').references(() => lotes.id, { onDelete: 'set null' }),
+  /**
+   * Puntuacion de 1 a 5 por atributo: crocancia, sabor, empaque, frescura.
+   *
+   * Una nota global de 3 estrellas no dice nada a produccion. Las mismas 3
+   * pueden ser "buenisimo pero llego blando" o "crujiente pero soso", y se
+   * arreglan en sitios distintos.
+   *
+   * En jsonb y no en cuatro columnas porque la lista va a cambiar: un horneado
+   * y un frito no se juzgan igual, y anadir un atributo el dia que exista no
+   * deberia ser una migracion.
+   */
+  atributosCalidad: jsonb('atributos_calidad').$type<Record<string, number>>(),
   /** true si el analisis sugiere un problema de calidad que revisar. */
   alertaCalidad: boolean('alerta_calidad').notNull().default(false),
   analizadaEn: timestamp('analizada_en', { withTimezone: true }),
@@ -3096,3 +3126,58 @@ export const pushSuscripciones = pgTable('push_suscripciones', {
 
 export type PushSuscripcion = typeof pushSuscripciones.$inferSelect;
 export type NewPushSuscripcion = typeof pushSuscripciones.$inferInsert;
+
+// =============================================================================
+// Lotes: qué tanda se comió cada persona
+// =============================================================================
+//
+// La pieza que convierte una queja en algo accionable.
+//
+// "Perdió la crocancia" dicho por tres personas puede ser dos cosas muy
+// distintas: un fallo de UNA tanda —sellado flojo, humedad ese día, aceite
+// pasado— o un problema de la receta. Sin saber de qué lote comió cada una, las
+// dos se parecen exactamente igual desde el panel.
+//
+// Y son decisiones opuestas: la primera se arregla retirando una tanda; la
+// segunda, cambiando un producto que a lo mejor funciona bien.
+
+export const lotes = pgTable('lotes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  /**
+   * El código impreso en la bolsa.
+   *
+   * Se guarda en MAYÚSCULAS y sin espacios porque es lo que teclea una persona
+   * copiándolo de un empaque arrugado: nadie acierta con el formato exacto, y
+   * dos códigos que solo se diferencian en un espacio son el mismo lote.
+   */
+  codigo: varchar('codigo', { length: 40 }).notNull().unique(),
+
+  /** A qué producto pertenece. Nulo si la tanda fue mixta. */
+  productoId: uuid('producto_id').references(() => productos.id, { onDelete: 'set null' }),
+
+  producidoEn: timestamp('producido_en', { mode: 'string' }).notNull(),
+  /** Permite distinguir "llegó viejo" de "salió mal", que no es lo mismo. */
+  venceEn: timestamp('vence_en', { mode: 'string' }),
+  unidades: integer('unidades'),
+  notas: text('notas'),
+
+  /**
+   * Una tanda retirada no se borra.
+   *
+   * Su historial es justo lo que hay que poder consultar cuando el problema se
+   * repita: qué se hizo ese día, cuántas quejas hubo y qué se decidió.
+   */
+  retirado: boolean('retirado').notNull().default(false),
+  retiradoEn: timestamp('retirado_en', { withTimezone: true }),
+  motivoRetiro: text('motivo_retiro'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_lotes_producido').on(t.producidoEn),
+  index('idx_lotes_producto').on(t.productoId),
+]);
+
+export type Lote = typeof lotes.$inferSelect;
+export type NewLote = typeof lotes.$inferInsert;

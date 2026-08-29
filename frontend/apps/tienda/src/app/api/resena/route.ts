@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
-import { consumerReviews, pedidoItems, pedidos, productos } from '@sighfood/domain/db/schema';
+import { consumerReviews, lotes, pedidoItems, pedidos, productos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 
 export const dynamic = 'force-dynamic';
@@ -28,11 +28,35 @@ export const dynamic = 'force-dynamic';
  */
 const MOTIVOS = ['temperatura', 'tiempo', 'empaque', 'sabor', 'cantidad', 'otro'] as const;
 
+/** Lo que se puntua por separado. Cada uno apunta a un responsable distinto. */
+const ATRIBUTOS = ['crocancia', 'sabor', 'empaque', 'frescura'] as const;
+
 const esquema = z.object({
   codigo: z.string().min(4).max(12),
   puntuacion: z.number().int().min(1, 'Elige de 1 a 5').max(5),
   comentario: z.string().max(1000).optional(),
   motivos: z.array(z.enum(MOTIVOS)).max(6).optional(),
+
+  /**
+   * Puntuacion de 1 a 5 por atributo.
+   *
+   * Una nota global no le sirve a produccion: "buenisimo pero llego blando" y
+   * "crujiente pero soso" son las mismas tres estrellas y se arreglan en sitios
+   * distintos.
+   */
+  atributos: z.record(z.enum(ATRIBUTOS), z.number().int().min(1).max(5)).optional(),
+
+  /**
+   * El codigo impreso en la bolsa.
+   *
+   * Es lo que permite saber A QUE TANDA le paso, no solo que paso. Sin el, tres
+   * quejas de "perdio la crocancia" pueden ser una tanda mala o un problema de
+   * la receta, y son decisiones opuestas.
+   *
+   * Opcional a proposito: exigirlo perderia la mayoria de las resenas, porque
+   * mucha gente ya tiro la bolsa.
+   */
+  lote: z.string().max(40).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -91,6 +115,32 @@ export async function POST(request: NextRequest) {
 
       const motivos = v.data.motivos?.length ? v.data.motivos : null;
 
+      /*
+        EL LOTE, SI LO ESCRIBIÓ.
+
+        Se busca por el código impreso, normalizado a mayúsculas y sin espacios:
+        quien lo copia de una bolsa arrugada no acierta con el formato exacto, y
+        "2026-08B" y "2026 08b" son la misma tanda.
+
+        Un código que no existe NO invalida la reseña. La opinión vale igual, y
+        rechazarla por una errata al teclear sería perder el dato que sí importa
+        para no perder el que solo ayuda.
+      */
+      let loteId: string | null = null;
+      if (v.data.lote?.trim()) {
+        const codigo = v.data.lote.trim().toUpperCase().replace(/\s+/g, '');
+        const [l] = await db
+          .select({ id: lotes.id })
+          .from(lotes)
+          .where(eq(lotes.codigo, codigo))
+          .limit(1);
+        loteId = l?.id ?? null;
+      }
+
+      const atributos = v.data.atributos && Object.keys(v.data.atributos).length > 0
+        ? v.data.atributos
+        : null;
+
       await db.insert(consumerReviews).values({
         consumerId: pedido.consumerId,
         pedidoId: pedido.id,
@@ -98,6 +148,8 @@ export async function POST(request: NextRequest) {
         comentario: v.data.comentario?.trim().slice(0, 1000) || null,
         productLine: principal?.linea ?? null,
         motivos,
+        loteId,
+        atributosCalidad: atributos,
         /*
           La alerta se levanta AQUÍ, con la nota, sin esperar a la IA.
 
@@ -119,5 +171,87 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(r, { status: r.ok ? 201 : 409 });
   } catch {
     return NextResponse.json({ ok: false, error: 'No pudimos guardar tu reseña' }, { status: 500 });
+  }
+}
+
+/**
+ * Añade detalle a una reseña que YA existe: atributos y código de lote.
+ *
+ * POR QUÉ NO SE REENVÍA LA RESEÑA ENTERA
+ * --------------------------------------
+ * La nota se guarda al primer toque, y desde aquí NO se puede cambiar. Si este
+ * endpoint aceptara una puntuación, cualquiera con un código de pedido podría
+ * convertir un uno en un cinco después de haberlo enviado — y la prueba social
+ * del catálogo dejaría de significar nada.
+ *
+ * Solo se permite AÑADIR lo que no estaba: si la reseña ya trae atributos o
+ * lote, no se pisan. Alguien que abre el enlace dos veces no debe poder
+ * reescribir lo que dijo la primera.
+ */
+export async function PATCH(request: NextRequest) {
+  const esquemaDetalle = z.object({
+    codigo: z.string().min(4).max(12),
+    atributos: z.record(z.enum(ATRIBUTOS), z.number().int().min(1).max(5)).optional(),
+    lote: z.string().max(40).optional(),
+  });
+
+  const v = esquemaDetalle.safeParse(await request.json().catch(() => null));
+  if (!v.success) {
+    return NextResponse.json({ ok: false, error: 'Datos no válidos' }, { status: 400 });
+  }
+
+  // Nada que añadir: se contesta bien y se ahorra el viaje a la base.
+  if (!v.data.atributos && !v.data.lote?.trim()) {
+    return NextResponse.json({ ok: true });
+  }
+
+  try {
+    await conBaseDeDatos(async (db) => {
+      const [pedido] = await db
+        .select({ id: pedidos.id })
+        .from(pedidos)
+        .where(eq(pedidos.codigo, v.data.codigo.toUpperCase()))
+        .limit(1);
+
+      if (!pedido) return;
+
+      const [resena] = await db
+        .select({
+          id: consumerReviews.id,
+          atributos: consumerReviews.atributosCalidad,
+          loteId: consumerReviews.loteId,
+        })
+        .from(consumerReviews)
+        .where(eq(consumerReviews.pedidoId, pedido.id))
+        .limit(1);
+
+      if (!resena) return;
+
+      let loteId = resena.loteId;
+      if (!loteId && v.data.lote?.trim()) {
+        const codigo = v.data.lote.trim().toUpperCase().replace(/\s+/g, '');
+        const [l] = await db
+          .select({ id: lotes.id })
+          .from(lotes)
+          .where(eq(lotes.codigo, codigo))
+          .limit(1);
+        loteId = l?.id ?? null;
+      }
+
+      await db
+        .update(consumerReviews)
+        .set({
+          // Solo si no había: no se sobrescribe lo que ya contó.
+          atributosCalidad: resena.atributos ?? v.data.atributos ?? null,
+          loteId,
+        })
+        .where(eq(consumerReviews.id, resena.id));
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch {
+    // El detalle es información extra sobre algo ya guardado. Que falle no
+    // justifica preocupar a quien acaba de hacernos un favor.
+    return NextResponse.json({ ok: true });
   }
 }

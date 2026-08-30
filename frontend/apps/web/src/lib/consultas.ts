@@ -300,7 +300,7 @@ export async function entregasRecientes(limite = 50) {
 
 export async function codigosQr(limite = 200) {
   return conRespaldo(`qr:${limite}`, () => conBaseDeDatos(async (db) => {
-    const [filas, escaneos] = await Promise.all([
+    const [filas, escaneosPorCuenta, escaneosPorMesa] = await Promise.all([
       db
         .select({
           id: qrCodes.id,
@@ -311,6 +311,8 @@ export async function codigosQr(limite = 200) {
           token: qrCodes.qrToken,
           activo: qrCodes.isActive,
           creado: qrCodes.createdAt,
+          destinoUrl: qrCodes.destinoUrl,
+          campana: qrCodes.campana,
         })
         .from(qrCodes)
         .innerJoin(accounts, eq(accounts.id, qrCodes.accountId))
@@ -321,9 +323,30 @@ export async function codigosQr(limite = 200) {
         .select({ cuentaId: sensoryMoments.accountId, total: count(sensoryMoments.id) })
         .from(sensoryMoments)
         .groupBy(sensoryMoments.accountId),
+
+      // Desglose por mesa: solo cuenta lo escaneado DESDE que se guarda
+      // qr_code_id en cada momento (migración 0021). Un QR con muchos
+      // escaneos históricos y "0" aquí no está roto: es que esos escaneos
+      // son de antes de que existiera esta columna.
+      db
+        .select({
+          qrCodeId: sensoryMoments.qrCodeId,
+          total: count(sensoryMoments.id),
+          ultimo: sql<string | null>`MAX(${sensoryMoments.scannedAt})`,
+        })
+        .from(sensoryMoments)
+        .where(sql`${sensoryMoments.qrCodeId} IS NOT NULL`)
+        .groupBy(sensoryMoments.qrCodeId),
     ]);
 
-    const porCuenta = new Map(escaneos.map((e) => [e.cuentaId, e.total]));
-    return filas.map((f) => ({ ...f, escaneosCuenta: porCuenta.get(f.cuentaId) ?? 0 }));
+    const porCuenta = new Map(escaneosPorCuenta.map((e) => [e.cuentaId, e.total]));
+    const porMesa = new Map(escaneosPorMesa.map((e) => [e.qrCodeId, e]));
+
+    return filas.map((f) => ({
+      ...f,
+      escaneosCuenta: porCuenta.get(f.cuentaId) ?? 0,
+      escaneosMesa: porMesa.get(f.id)?.total ?? 0,
+      ultimoEscaneoMesa: porMesa.get(f.id)?.ultimo ?? null,
+    }));
   }));
 }

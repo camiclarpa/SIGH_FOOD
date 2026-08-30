@@ -3,6 +3,7 @@ import { resumenFidelizacion } from '@/lib/consultas-b2c';
 import { etiquetaNivel, LINEAS_PRODUCTO } from '@/lib/fidelizacion';
 import { EditorDesafio } from './EditorDesafio';
 import { EstadoDesafio } from './EstadoDesafio';
+import { EditorInsignia } from './EditorInsignia';
 import { Exportar } from '@/components/Exportar';
 import { puede, rolActual } from '@/lib/permisos';
 import {
@@ -13,6 +14,7 @@ import {
   Titulo,
   Vacio,
   desde,
+  moneda,
   numero,
 } from '@/components/ui';
 
@@ -68,7 +70,7 @@ export default async function PaginaFidelizacion() {
         Insignias, billetera de puntos y desafíos en mesa.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metrica etiqueta="Puntos emitidos" valor={numero(d.puntos.emitidos)} tono="marca" />
         <Metrica etiqueta="Puntos canjeados" valor={numero(d.puntos.canjeados)} />
         <Metrica
@@ -77,11 +79,20 @@ export default async function PaginaFidelizacion() {
           detalle="pendientes de canjear"
           tono={enCirculacion > 0 ? 'info' : 'neutro'}
         />
+        <Metrica
+          etiqueta="Pasivo en puntos"
+          valor={moneda(d.pasivoCop)}
+          detalle="a $50 COP por punto"
+          tono={d.pasivoCop > 0 ? 'aviso' : 'neutro'}
+        />
         <Metrica etiqueta="Movimientos" valor={numero(d.puntos.movimientos)} detalle="asientos en la billetera" />
       </div>
 
       <div className="mt-6">
-        <Tarjeta titulo={`Catálogo de insignias (${d.insignias.length})`}>
+        <Tarjeta
+          titulo={`Catálogo de insignias (${d.insignias.length})`}
+          accion={puedeGestionar ? <EditorInsignia /> : null}
+        >
           {d.insignias.length === 0 ? (
             <Vacio>
               No hay insignias definidas. Ejecuta{' '}
@@ -125,9 +136,27 @@ export default async function PaginaFidelizacion() {
                       <td className="cifras py-2.5 pr-3 text-right">{numero(b.puntosOtorgados)}</td>
                       <td className="cifras py-2.5 pr-3 text-right">{numero(b.otorgadas)}</td>
                       <td className="py-2.5">
-                        <Etiqueta tono={b.activa ? 'exito' : 'neutro'}>
-                          {b.activa ? 'activa' : 'inactiva'}
-                        </Etiqueta>
+                        <div className="flex items-center gap-2">
+                          <Etiqueta tono={b.activa ? 'exito' : 'neutro'}>
+                            {b.activa ? 'activa' : 'inactiva'}
+                          </Etiqueta>
+                          {puedeGestionar && (
+                            <EditorInsignia
+                              insignia={{
+                                id: b.id,
+                                codigo: b.codigo,
+                                nombre: b.nombre,
+                                descripcion: b.descripcion,
+                                icono: b.icono,
+                                criterio: b.criterio,
+                                umbral: b.umbral,
+                                parametro: b.parametro,
+                                puntosOtorgados: b.puntosOtorgados,
+                                activa: b.activa,
+                              }}
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -231,6 +260,49 @@ export default async function PaginaFidelizacion() {
                 </li>
               ))}
             </ul>
+          )}
+        </Tarjeta>
+      </div>
+
+      <div className="mt-6">
+        <Tarjeta titulo="Movimientos de la billetera">
+          {d.movimientos.length === 0 ? (
+            <Vacio>Todavía no hay movimientos de puntos.</Vacio>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-sm">
+                <thead className="texto-suave border-b borde-tema text-left text-xs uppercase tracking-wide">
+                  <tr>
+                    <th className="pb-2 pr-3 font-medium">Comensal</th>
+                    <th className="pb-2 pr-3 font-medium">Motivo</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Puntos</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Saldo</th>
+                    <th className="pb-2 font-medium">Cuándo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y borde-tema">
+                  {d.movimientos.map((m) => (
+                    <tr key={m.id}>
+                      <td className="py-2 pr-3">
+                        {m.comensalId ? (
+                          <Link href={`/comensales/${m.comensalId}`} className="hover:underline">
+                            {m.comensal ?? 'Sin nombre'}
+                          </Link>
+                        ) : (
+                          <span className="texto-suave">—</span>
+                        )}
+                      </td>
+                      <td className="texto-suave py-2 pr-3 text-xs">{m.descripcion ?? m.motivo}</td>
+                      <td className={`cifras py-2 pr-3 text-right font-medium ${m.puntos >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {m.puntos >= 0 ? '+' : ''}{numero(m.puntos)}
+                      </td>
+                      <td className="cifras py-2 pr-3 text-right">{m.saldoResultante === null ? '—' : numero(m.saldoResultante)}</td>
+                      <td className="texto-suave py-2 text-xs">{m.creado ? desde(m.creado) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Tarjeta>
       </div>

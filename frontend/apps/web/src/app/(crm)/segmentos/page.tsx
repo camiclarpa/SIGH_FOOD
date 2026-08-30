@@ -1,6 +1,9 @@
 import Link from 'next/link';
-import { segmentosConConteo } from '@/lib/consultas-b2c';
+import { segmentosConConteo, secuenciasActivas } from '@/lib/consultas-b2c';
 import { etiquetaLinea } from '@/lib/fidelizacion';
+import { puede, rolActual } from '@/lib/permisos';
+import { LanzarCampana } from './LanzarCampana';
+import { EditorSegmento } from './EditorSegmento';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -8,17 +11,45 @@ import {
   Tarjeta,
   Titulo,
   Vacio,
+  moneda,
   numero,
 } from '@/components/ui';
 
 export const metadata = { title: 'Segmentos · SIGH_FOOD' };
 export const dynamic = 'force-dynamic';
 
-/** Traduce la regla guardada a algo legible por una persona. */
+const NOMBRES_RFM: Record<string, string> = {
+  campeon: 'es Campeón',
+  leal: 'es Cliente leal',
+  en_riesgo: 'está en riesgo',
+  dormido: 'está dormido',
+  nuevo: 'es nuevo',
+  prometedor: 'es prometedor',
+};
+
+/**
+ * Traduce la regla guardada a algo legible por una persona.
+ *
+ * ANTES le faltaban tres claves —minPedidos, minGasto, segmentoRfm— que sí
+ * existen de verdad en la base (ver segmentacion.ts, que sí las evalúa todas).
+ * El efecto no era solo un texto raro: "Alta frecuencia", "Alto ticket",
+ * "Campeones", "Clientes leales", "Se están yendo" y "Ya se fueron" —seis de
+ * los trece segmentos— mostraban "Sin condiciones" aunque su regla era
+ * perfectamente válida.
+ */
 function describirRegla(regla: Record<string, unknown> | null): string[] {
   if (!regla) return ['Sin regla definida'];
   const partes: string[] = [];
 
+  if (typeof regla.segmentoRfm === 'string') {
+    partes.push(`Quien ${NOMBRES_RFM[regla.segmentoRfm] ?? regla.segmentoRfm} por valor (RFM)`);
+  }
+  if (typeof regla.minPedidos === 'number') {
+    partes.push(`${regla.minPedidos} o más pedidos entregados`);
+  }
+  if (typeof regla.minGasto === 'number') {
+    partes.push(`${moneda(regla.minGasto)} o más gastados`);
+  }
   if (typeof regla.minEscaneos === 'number') {
     partes.push(`${regla.minEscaneos} o más momentos registrados`);
   }
@@ -60,7 +91,14 @@ function filtrosAproximados(regla: Record<string, unknown> | null): Record<strin
 }
 
 export default async function PaginaSegmentos() {
-  const { datos: segmentos, degradado, edadSegundos } = await segmentosConConteo();
+  const [{ datos: segmentos, degradado, edadSegundos }, { datos: secuencias }, rol] = await Promise.all([
+    segmentosConConteo(),
+    secuenciasActivas(),
+    rolActual(),
+  ]);
+
+  const puedeGestionar = puede(rol, 'segmentos.gestionar');
+  const puedeDisparar = puede(rol, 'campanas.activar');
 
   const activos = segmentos.filter((s) => s.activo);
   const totalAlcance = activos.reduce((s, x) => s + x.comensales, 0);
@@ -69,7 +107,7 @@ export default async function PaginaSegmentos() {
     <>
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
-      <Titulo>Segmentos</Titulo>
+      <Titulo accion={puedeGestionar ? <EditorSegmento /> : null}>Segmentos</Titulo>
       <p className="texto-suave -mt-2 mb-4 text-sm">
         Grupos de comensales que se recalculan solos. Un segmento guarda su regla, no la
         lista: quien deja de cumplirla sale del grupo sin que nadie lo toque.
@@ -109,6 +147,19 @@ export default async function PaginaSegmentos() {
                 comensal{s.comensales === 1 ? '' : 'es'} ahora mismo
               </p>
 
+              {s.comensales > 0 && (
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                  <span className="texto-suave">
+                    LTV promedio <span className="cifras font-medium">{moneda(s.ltvPromedio)}</span>
+                  </span>
+                  {s.enRiesgo > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      {s.enRiesgo} en riesgo de fuga
+                    </span>
+                  )}
+                </div>
+              )}
+
               <ul className="texto-suave mt-3 space-y-1 border-t borde-tema pt-3 text-xs">
                 {describirRegla(s.regla as Record<string, unknown> | null).map((linea) => (
                   <li key={linea}>· {linea}</li>
@@ -124,6 +175,15 @@ export default async function PaginaSegmentos() {
                 >
                   Ver comensales
                 </Link>
+              )}
+
+              {puedeDisparar && (
+                <LanzarCampana
+                  segmentId={s.id}
+                  segmentoNombre={s.nombre}
+                  comensales={s.comensales}
+                  secuencias={secuencias}
+                />
               )}
             </Tarjeta>
           ))

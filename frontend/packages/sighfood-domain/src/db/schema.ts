@@ -709,12 +709,16 @@ export const sensoryMoments = pgTable('sensory_moments', {
 
   /** Si lo enseñó a alguien. Es la base de la tasa de viralización. */
   compartido: boolean('compartido').notNull().default(false),
+
+  /** Qué QR concreto se escaneó. Es lo que permite el desglose por mesa, no solo por bar. */
+  qrCodeId: uuid('qr_code_id').references(() => qrCodes.id, { onDelete: 'set null' }),
 }, (t) => [
   index('idx_sensory_moments_account').on(t.accountId),
   index('idx_sensory_moments_consumer').on(t.consumerId),
   index('idx_sensory_moments_scanned').on(t.scannedAt),
   index('idx_momentos_canal').on(t.canal),
   index('idx_momentos_zona').on(t.zona),
+  index('idx_sensory_moments_qr_code').on(t.qrCodeId),
 ]);
 
 // =============================================================================
@@ -2218,7 +2222,7 @@ export const segments = pgTable('segments', {
   nombre: varchar('nombre', { length: 120 }).notNull().unique(),
   descripcion: text('descripcion'),
   tipo: segmentoTipoEnum('tipo').notNull().default('dinamico'),
-  /** Regla evaluada: { lineaProducto?, zona?, franja?, minEscaneos?, diasInactivo?, nivel? }. */
+  /** Regla evaluada. Ver ReglaSegmento en apps/web/src/lib/segmentacion.ts, que es quien la interpreta. */
   regla: jsonb('regla').$type<{
     lineaProducto?: string;
     zona?: string;
@@ -2227,6 +2231,12 @@ export const segments = pgTable('segments', {
     minEscaneos?: number;
     diasInactivo?: number;
     nivel?: string;
+    /** Se apoya en RFM: 'campeon' | 'leal' | 'en_riesgo' | 'dormido' | ... */
+    segmentoRfm?: string;
+    /** Pedidos entregados mínimos. */
+    minPedidos?: number;
+    /** Gasto acumulado mínimo, en pesos. */
+    minGasto?: number;
   }>(),
   color: varchar('color', { length: 20 }).default('slate'),
   activo: boolean('activo').notNull().default(true),

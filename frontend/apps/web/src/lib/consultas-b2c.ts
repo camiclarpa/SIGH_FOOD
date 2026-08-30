@@ -21,6 +21,7 @@ import {
   pointTransactions,
   referrals,
   segments,
+  consumerSegments,
   sensoryMoments,
   lotes,
   automationSequences,
@@ -36,6 +37,17 @@ import { conBaseDeDatos } from '@/lib/cloudflare';
 import { conRespaldo } from '@/lib/respaldo';
 import { nivelDeComensal } from '@/lib/fidelizacion';
 import { umbralesActuales } from '@/lib/configuracion';
+import { tablaRFM, type FilaRFM } from '@/lib/rfm';
+
+/** Locales, para selectores: la consola de redención y el generador de QR. */
+export async function cuentasActivas() {
+  return conRespaldo('b2c:cuentas-activas', () => conBaseDeDatos(async (db) =>
+    db
+      .select({ id: accounts.id, nombre: accounts.name, zona: accounts.zone })
+      .from(accounts)
+      .orderBy(asc(accounts.name))
+  ));
+}
 
 // -----------------------------------------------------------------------------
 // Directorio de comensales
@@ -457,9 +469,18 @@ export async function analiticaMomentos() {
 // Fidelización
 // -----------------------------------------------------------------------------
 
+/**
+ * Cuánto vale un punto en pesos, para el pasivo financiero.
+ *
+ * No hay un precio de mercado del punto: es una decisión del negocio, no un
+ * dato que se pueda calcular. $50 es lo que Roys By Roys fijó — cambia aquí si
+ * cambia la política, y el KPI de pasivo se recalcula solo.
+ */
+export const VALOR_PUNTO_COP = 50;
+
 export async function resumenFidelizacion() {
   return conRespaldo('b2c:fidelizacion', () => conBaseDeDatos(async (db) => {
-    const [catalogo, otorgadas, puntos, desafios, respuestas, topComensales] = await Promise.all([
+    const [catalogo, otorgadas, puntos, desafios, respuestas, topComensales, movimientos] = await Promise.all([
       db.select().from(badges).orderBy(asc(badges.criterio), asc(badges.umbral)),
 
       db
@@ -497,16 +518,38 @@ export async function resumenFidelizacion() {
         .from(b2cConsumers)
         .orderBy(desc(b2cConsumers.points))
         .limit(10),
+
+      // El libro mayor de la billetera: cada asiento, no solo el total. Sin
+      // esto "Movimientos: 214" es una cifra que no se puede auditar.
+      db
+        .select({
+          id: pointTransactions.id,
+          puntos: pointTransactions.puntos,
+          motivo: pointTransactions.motivo,
+          descripcion: pointTransactions.descripcion,
+          saldoResultante: pointTransactions.saldoResultante,
+          creado: pointTransactions.createdAt,
+          comensal: b2cConsumers.fullName,
+          comensalId: b2cConsumers.id,
+        })
+        .from(pointTransactions)
+        .leftJoin(b2cConsumers, eq(b2cConsumers.id, pointTransactions.consumerId))
+        .orderBy(desc(pointTransactions.createdAt))
+        .limit(50),
     ]);
 
     const conteo = new Map(otorgadas.map((o) => [o.badgeId, Number(o.total)]));
     const respuestasPorDesafio = new Map(respuestas.map((r) => [r.challengeId, Number(r.total)]));
+    const datosPuntos = puntos[0] ?? { emitidos: 0, canjeados: 0, movimientos: 0 };
+    const enCirculacion = datosPuntos.emitidos - datosPuntos.canjeados;
 
     return {
       insignias: catalogo.map((b) => ({ ...b, otorgadas: conteo.get(b.id) ?? 0 })),
-      puntos: puntos[0] ?? { emitidos: 0, canjeados: 0, movimientos: 0 },
+      puntos: datosPuntos,
+      pasivoCop: enCirculacion * VALOR_PUNTO_COP,
       desafios: desafios.map((d) => ({ ...d, respuestas: respuestasPorDesafio.get(d.id) ?? 0 })),
       topComensales,
+      movimientos,
     };
   }));
 }
@@ -516,95 +559,69 @@ export async function resumenFidelizacion() {
 // -----------------------------------------------------------------------------
 
 /**
- * Traduce la regla de un segmento a una condición SQL.
+ * Segmentos con su conteo real, LTV y riesgo de fuga.
  *
- * Se evalúa en el momento de consultar, no se materializa: un comensal que deja
- * de cumplir la regla debe salir del segmento solo, o seguiría recibiendo
- * campañas que ya no le corresponden.
+ * ANTES esta función volvía a traducir la regla a SQL aquí mismo, en una copia
+ * incompleta de la que ya vive en segmentacion.ts (le faltaban minPedidos,
+ * minGasto y segmentoRfm — ver la nota en describirRegla, en la página). Dos
+ * intérpretes de la misma regla es como se llega a que uno entienda "Alta
+ * frecuencia" y el otro no.
+ *
+ * Ahora se cuenta lo que ya calculó `recalcularSegmentos()` en consumer_segments
+ * —la tabla materializada que también usa Mensajería para dirigir campañas—, así
+ * que la pantalla y los envíos reales por fin miden lo mismo.
  */
-function condicionDeSegmento(regla: Record<string, unknown> | null): SQL | undefined {
-  if (!regla) return undefined;
-  const partes: SQL[] = [];
-
-  if (typeof regla.minEscaneos === 'number') {
-    partes.push(sql`(
-      SELECT COUNT(*) FROM ${sensoryMoments}
-      WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
-    ) >= ${regla.minEscaneos}`);
-  }
-
-  if (typeof regla.diasInactivo === 'number') {
-    partes.push(sql`COALESCE((
-      SELECT MAX(${sensoryMoments.scannedAt}) FROM ${sensoryMoments}
-      WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
-    ), ${b2cConsumers.createdAt}) < now() - (${regla.diasInactivo} || ' days')::interval`);
-  }
-
-  if (typeof regla.lineaProducto === 'string') {
-    partes.push(sql`EXISTS (
-      SELECT 1 FROM ${sensoryMoments}
-      WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
-        AND ${sensoryMoments.productLine} = ${regla.lineaProducto}
-    )`);
-  }
-
-  if (typeof regla.zona === 'string') {
-    partes.push(sql`EXISTS (
-      SELECT 1 FROM ${sensoryMoments} sm
-      JOIN ${accounts} a ON a.id = sm.account_id
-      WHERE sm.consumer_id = ${b2cConsumers.id} AND a.zone = ${regla.zona}
-    )`);
-  }
-
-  if (typeof regla.franjaDesde === 'number' && typeof regla.franjaHasta === 'number') {
-    const { franjaDesde: desde, franjaHasta: hasta } = regla as { franjaDesde: number; franjaHasta: number };
-    // La franja puede cruzar la medianoche (22 a 4): en ese caso la condición es
-    // OR, no BETWEEN, o no seleccionaría a nadie.
-    const dentro = desde <= hasta
-      ? sql`EXTRACT(HOUR FROM sm.scanned_at) BETWEEN ${desde} AND ${hasta}`
-      : sql`(EXTRACT(HOUR FROM sm.scanned_at) >= ${desde} OR EXTRACT(HOUR FROM sm.scanned_at) <= ${hasta})`;
-
-    partes.push(sql`EXISTS (
-      SELECT 1 FROM ${sensoryMoments} sm
-      WHERE sm.consumer_id = ${b2cConsumers.id} AND ${dentro}
-    )`);
-  }
-
-  if (typeof regla.nivel === 'string') {
-    partes.push(sql`${b2cConsumers.membershipTier} = ${regla.nivel}`);
-  }
-
-  return partes.length > 0 ? and(...partes) : undefined;
-}
-
 export async function segmentosConConteo() {
   return conRespaldo('b2c:segmentos', () => conBaseDeDatos(async (db) => {
-    const lista = await db.select().from(segments).orderBy(asc(segments.nombre));
+    const [lista, conteos, valor] = await Promise.all([
+      db.select().from(segments).orderBy(asc(segments.nombre)),
 
-    // Un conteo por segmento. Son pocos y la alternativa —una sola consulta con
-    // un CASE por regla— sería ilegible y habría que rehacerla al añadir reglas.
-    const conConteo = await Promise.all(
-      lista.map(async (s) => {
-        const donde = condicionDeSegmento(s.regla as Record<string, unknown> | null);
-        const [{ total }] = await db
-          .select({ total: count(b2cConsumers.id) })
-          .from(b2cConsumers)
-          .where(donde);
-        return { ...s, comensales: Number(total) };
-      })
-    );
+      db
+        .select({ segmentId: consumerSegments.segmentId, total: count(consumerSegments.id) })
+        .from(consumerSegments)
+        .groupBy(consumerSegments.segmentId),
 
-    return conConteo;
+      // LTV y riesgo por segmento: se apoya en la misma tabla RFM que ya usa
+      // segmentacion.ts, no en una consulta nueva que pueda dar otro número.
+      tablaRFM(db, 3000),
+    ]);
+
+    const totalPorSegmento = new Map(conteos.map((c) => [c.segmentId, Number(c.total)]));
+    const rfmPorConsumer = new Map(valor.map((f) => [f.consumerId, f]));
+
+    const miembros = await db
+      .select({ segmentId: consumerSegments.segmentId, consumerId: consumerSegments.consumerId })
+      .from(consumerSegments);
+    const miembrosPorSegmento = new Map<string, string[]>();
+    for (const m of miembros) {
+      const lista = miembrosPorSegmento.get(m.segmentId) ?? [];
+      lista.push(m.consumerId);
+      miembrosPorSegmento.set(m.segmentId, lista);
+    }
+
+    return lista.map((s) => {
+      const ids = miembrosPorSegmento.get(s.id) ?? [];
+      const filasRfm = ids.map((id) => rfmPorConsumer.get(id)).filter((f): f is FilaRFM => Boolean(f));
+      const ltvPromedio = filasRfm.length > 0
+        ? Math.round(filasRfm.reduce((acc, f) => acc + f.monetario, 0) / filasRfm.length)
+        : 0;
+      const enRiesgo = filasRfm.filter((f) => f.enRiesgo).length;
+
+      return {
+        ...s,
+        comensales: totalPorSegmento.get(s.id) ?? 0,
+        ltvPromedio,
+        enRiesgo,
+      };
+    });
   }));
 }
 
-/** Comensales de un segmento, resueltos en el momento. */
+/** Comensales de un segmento, según la pertenencia materializada por el cron. */
 export async function comensalesDeSegmento(segmentId: string, limite = 100) {
   return conRespaldo(`b2c:segmento:${segmentId}:${limite}`, () => conBaseDeDatos(async (db) => {
     const [segmento] = await db.select().from(segments).where(eq(segments.id, segmentId)).limit(1);
     if (!segmento) return null;
-
-    const donde = condicionDeSegmento(segmento.regla as Record<string, unknown> | null);
 
     const filas = await db
       .select({
@@ -624,11 +641,23 @@ export async function comensalesDeSegmento(segmentId: string, limite = 100) {
         )`,
       })
       .from(b2cConsumers)
-      .where(donde)
+      .innerJoin(consumerSegments, eq(consumerSegments.consumerId, b2cConsumers.id))
+      .where(eq(consumerSegments.segmentId, segmentId))
       .limit(limite);
 
     return { segmento, filas };
   }));
+}
+
+/** Secuencias que se pueden disparar ahora mismo a un segmento. */
+export async function secuenciasActivas() {
+  return conRespaldo('b2c:secuencias-activas', () => conBaseDeDatos(async (db) =>
+    db
+      .select({ id: automationSequences.id, nombre: automationSequences.name, canal: automationSequences.channel })
+      .from(automationSequences)
+      .where(eq(automationSequences.status, 'active'))
+      .orderBy(asc(automationSequences.name))
+  ));
 }
 
 // -----------------------------------------------------------------------------
@@ -850,6 +879,9 @@ export async function resumenMensajeria() {
 // Economía de canje
 // -----------------------------------------------------------------------------
 
+/** Bajo este umbral de stock, el catálogo avisa antes de que se agote del todo. */
+export const STOCK_BAJO_UMBRAL = 5;
+
 export async function resumenPremios() {
   return conRespaldo('b2c:premios', () => conBaseDeDatos(async (db) => {
     const [catalogo, porPremio, totales, ultimos] = await Promise.all([
@@ -888,22 +920,36 @@ export async function resumenPremios() {
           comensal: b2cConsumers.fullName,
           comensalId: b2cConsumers.id,
           whatsapp: b2cConsumers.whatsappPhone,
+          // Rastro de la entrega: quién lo atendió y en qué local. Las dos
+          // columnas ya existían en redemptions —canjeadoPor y accountId— pero
+          // nadie las leía en la pantalla.
+          atendioPor: staffUsers.fullName,
+          puntoDeVenta: accounts.name,
         })
         .from(redemptions)
         .innerJoin(rewards, eq(rewards.id, redemptions.rewardId))
         .leftJoin(b2cConsumers, eq(b2cConsumers.id, redemptions.consumerId))
+        .leftJoin(staffUsers, eq(staffUsers.id, redemptions.canjeadoPor))
+        .leftJoin(accounts, eq(accounts.id, redemptions.accountId))
         .orderBy(desc(redemptions.createdAt))
         .limit(30),
     ]);
 
     const porId = new Map(porPremio.map((p) => [p.rewardId, p]));
+    const conPocoStock = catalogo.filter(
+      (r) => r.activo && r.stock !== null && r.stock <= STOCK_BAJO_UMBRAL
+    );
 
     return {
       catalogo: catalogo.map((r) => ({
         ...r,
         metricas: porId.get(r.id) ?? { emitidos: 0, entregados: 0, pendientes: 0 },
+        stockBajo: r.stock !== null && r.stock <= STOCK_BAJO_UMBRAL,
       })),
-      totales: totales[0] ?? { emitidos: 0, entregados: 0, pendientes: 0, caducados: 0, puntosGastados: 0 },
+      totales: {
+        ...(totales[0] ?? { emitidos: 0, entregados: 0, pendientes: 0, caducados: 0, puntosGastados: 0 }),
+        conPocoStock: conPocoStock.length,
+      },
       ultimos,
     };
   }));

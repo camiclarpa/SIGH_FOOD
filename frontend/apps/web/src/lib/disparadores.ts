@@ -35,6 +35,7 @@ import {
   automationLogs,
   automationSequences,
   b2cConsumers,
+  consumerSegments,
   pedidos,
   referrals,
   sensoryMoments,
@@ -430,5 +431,96 @@ export async function ejecutarSecuencias(): Promise<ResultadoSecuencia[]> {
     }
 
     return resultados;
+  });
+}
+
+export interface ResultadoDisparoSegmento {
+  segmento: string;
+  secuencia: string;
+  miembros: number;
+  enviados: number;
+  frenadosPorTope: number;
+  fallidos: number;
+  yaHabianRecibido: number;
+}
+
+/**
+ * Manda una secuencia a TODOS los miembros de un segmento, ahora mismo.
+ *
+ * Es el "lanzar campaña con un clic" que se pidió sobre Segmentos: en vez de
+ * esperar a que el disparador automático de la secuencia coincida con este
+ * grupo, el segmento MISMO decide a quién llega.
+ *
+ * Comparte con `ejecutarSecuencias` las dos protecciones que importan: no le
+ * repite el mensaje a quien ya lo recibió de verdad (`yaRecibieron`, que mira
+ * el estado real en Meta, no solo si se intentó) y respeta el tope de
+ * frecuencia dentro de `despacharPorMejorCanal`. Un botón de un clic sin esas
+ * dos cosas sería un botón para hacer spam de un clic.
+ */
+export async function dispararASegmento(datos: {
+  segmentId: string;
+  segmentoNombre: string;
+  sequenceId: string;
+}): Promise<ResultadoDisparoSegmento> {
+  return conBaseDeDatos(async (db) => {
+    const [secuencia] = await db
+      .select()
+      .from(automationSequences)
+      .where(eq(automationSequences.id, datos.sequenceId))
+      .limit(1);
+    if (!secuencia) throw new Error('La secuencia no existe');
+    if (!secuencia.template?.trim()) throw new Error('La secuencia no tiene texto que enviar');
+
+    const miembros = await db
+      .select({ id: consumerSegments.consumerId })
+      .from(consumerSegments)
+      .where(eq(consumerSegments.segmentId, datos.segmentId));
+    const ids = miembros.map((m) => m.id);
+
+    const base: ResultadoDisparoSegmento = {
+      segmento: datos.segmentoNombre,
+      secuencia: secuencia.name,
+      miembros: ids.length,
+      enviados: 0,
+      frenadosPorTope: 0,
+      fallidos: 0,
+      yaHabianRecibido: 0,
+    };
+    if (ids.length === 0) return base;
+
+    const recibidos = new Set(await yaRecibieron(db, secuencia.id));
+    const pendientes = ids.filter((id) => !recibidos.has(id));
+    base.yaHabianRecibido = ids.length - pendientes.length;
+
+    for (const consumerId of pendientes) {
+      const valores = await variablesDe(consumerId);
+      const texto = rellenarPlantilla(secuencia.template, valores);
+
+      const r = await despacharPorMejorCanal(
+        {
+          consumerId,
+          sequenceId: secuencia.id,
+          texto,
+          titulo: 'Roys By Roys',
+          url: '/',
+          templateName: secuencia.metaTemplateName,
+          languageCode: secuencia.metaTemplateLang,
+          variables: secuencia.metaTemplateVars ?? [],
+          categoria: secuencia.categoriaMeta,
+        },
+        ACTOR_SISTEMA
+      );
+
+      if (r.ok) base.enviados++;
+      else if (r.frenadoPorTope) base.frenadosPorTope++;
+      else base.fallidos++;
+    }
+
+    log.info('Campaña disparada a un segmento', {
+      ruta: '/disparadores',
+      detalle: [datos.segmentoNombre, secuencia.name, `${base.enviados}/${base.miembros}`],
+    });
+
+    return base;
   });
 }

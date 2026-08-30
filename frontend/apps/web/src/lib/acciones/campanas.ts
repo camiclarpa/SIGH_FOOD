@@ -19,6 +19,7 @@ import { exigir, SinPermiso } from '@/lib/permisos';
 import { etiquetaNivel } from '@/lib/fidelizacion';
 import { VARIABLES, variablesDesconocidas, rellenarPlantilla, motivoNoEnviable } from '@/lib/plantillas';
 import { despacharPorMejorCanal, variablesDe } from '@/lib/whatsapp/despacho';
+import { dispararASegmento } from '@/lib/disparadores';
 
 export interface Resultado<T = undefined> {
   ok: boolean;
@@ -321,6 +322,36 @@ export async function enviarSecuencia(datos: {
     return { canal: r.canal, motivo: r.motivo };
   }).then((r) => {
     if (r.ok) { revalidatePath('/mensajeria'); revalidatePath('/bandeja'); }
+    return r;
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Disparar una secuencia a un segmento completo
+// -----------------------------------------------------------------------------
+
+/**
+ * "Lanzar campaña" desde la tarjeta de un segmento.
+ *
+ * Mismo permiso que activar una secuencia: esto manda mensajes reales a un
+ * grupo entero de personas de un solo golpe, no es una vista previa.
+ */
+export async function dispararCampanaASegmento(datos: {
+  segmentId: string;
+  segmentoNombre: string;
+  sequenceId: string;
+}): Promise<Resultado<{
+  miembros: number;
+  enviados: number;
+  frenadosPorTope: number;
+  fallidos: number;
+  yaHabianRecibido: number;
+}>> {
+  return ejecutar('dispararCampanaASegmento', async () => {
+    await exigir('campanas.activar');
+    return dispararASegmento(datos);
+  }).then((r) => {
+    if (r.ok) { revalidatePath('/segmentos'); revalidatePath('/mensajeria'); revalidatePath('/bandeja'); }
     return r;
   });
 }

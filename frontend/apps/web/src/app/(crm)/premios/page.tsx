@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { resumenPremios } from '@/lib/consultas-b2c';
+import { resumenPremios, cuentasActivas, STOCK_BAJO_UMBRAL } from '@/lib/consultas-b2c';
 import { etiquetaNivel } from '@/lib/fidelizacion';
 import { puede, rolActual } from '@/lib/permisos';
 import {
@@ -35,8 +35,9 @@ const ESTADOS: Record<string, 'exito' | 'aviso' | 'riesgo' | 'neutro'> = {
 };
 
 export default async function PaginaPremios() {
-  const [{ datos: d, degradado, edadSegundos }, rol] = await Promise.all([
+  const [{ datos: d, degradado, edadSegundos }, { datos: cuentas }, rol] = await Promise.all([
     resumenPremios(),
+    cuentasActivas(),
     rolActual(),
   ]);
 
@@ -55,7 +56,7 @@ export default async function PaginaPremios() {
         en la mesa.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metrica etiqueta="Premios activos" valor={`${d.catalogo.filter((r) => r.activo).length} / ${d.catalogo.length}`} />
         <Metrica etiqueta="Canjes emitidos" valor={numero(d.totales.emitidos)} />
         <Metrica
@@ -70,12 +71,18 @@ export default async function PaginaPremios() {
           detalle="salieron de circulación"
           tono="marca"
         />
+        <Metrica
+          etiqueta="Con poco stock"
+          valor={numero(d.totales.conPocoStock)}
+          detalle={`${STOCK_BAJO_UMBRAL} unidades o menos`}
+          tono={d.totales.conPocoStock > 0 ? 'riesgo' : 'neutro'}
+        />
       </div>
 
       {/* La consola va arriba: es lo que se usa a diario, con el comensal delante. */}
       <div className="mt-6">
         <Tarjeta titulo="Entregar un canje">
-          <ConsolaRedencion puedeEntregar={puedeEntregar} />
+          <ConsolaRedencion puedeEntregar={puedeEntregar} cuentas={cuentas} />
         </Tarjeta>
       </div>
 
@@ -114,7 +121,14 @@ export default async function PaginaPremios() {
                       <td className="texto-suave py-2.5 pr-3 text-xs">{TIPOS[r.tipo] ?? r.tipo}</td>
                       <td className="cifras py-2.5 pr-3 text-right font-medium">{numero(r.costePuntos)}</td>
                       <td className="cifras py-2.5 pr-3 text-right">
-                        {r.stock === null ? <span className="texto-suave">∞</span> : numero(r.stock)}
+                        {r.stock === null ? (
+                          <span className="texto-suave">∞</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            {numero(r.stock)}
+                            {r.stockBajo && <Etiqueta tono="riesgo">bajo</Etiqueta>}
+                          </span>
+                        )}
                       </td>
                       <td className="texto-suave py-2.5 pr-3 text-xs">
                         {r.nivelMinimo ? etiquetaNivel(r.nivelMinimo) : '—'}
@@ -158,7 +172,7 @@ export default async function PaginaPremios() {
             <Vacio>Nadie ha canjeado puntos todavía.</Vacio>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[44rem] text-sm">
+              <table className="w-full min-w-[54rem] text-sm">
                 <thead className="texto-suave border-b borde-tema text-left text-xs uppercase tracking-wide">
                   <tr>
                     <th className="pb-2 pr-3 font-medium">Código</th>
@@ -166,7 +180,9 @@ export default async function PaginaPremios() {
                     <th className="pb-2 pr-3 font-medium">Premio</th>
                     <th className="pb-2 pr-3 text-right font-medium">Puntos</th>
                     <th className="pb-2 pr-3 font-medium">Estado</th>
-                    <th className="pb-2 font-medium">Caduca</th>
+                    <th className="pb-2 pr-3 font-medium">Caduca</th>
+                    <th className="pb-2 pr-3 font-medium">Punto de venta</th>
+                    <th className="pb-2 font-medium">Atendido por</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y borde-tema">
@@ -191,9 +207,11 @@ export default async function PaginaPremios() {
                             {caducado ? 'caducado' : c.estado}
                           </Etiqueta>
                         </td>
-                        <td className="texto-suave py-2.5 text-xs">
+                        <td className="texto-suave py-2.5 pr-3 text-xs">
                           {c.estado === 'canjeado' ? `entregado ${desde(c.canjeadoEn)}` : fecha(c.expiraEn)}
                         </td>
+                        <td className="texto-suave py-2.5 pr-3 text-xs">{c.puntoDeVenta ?? '—'}</td>
+                        <td className="texto-suave py-2.5 text-xs">{c.atendioPor ?? '—'}</td>
                       </tr>
                     );
                   })}

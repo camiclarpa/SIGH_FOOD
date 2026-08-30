@@ -225,6 +225,7 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
       const insertado = await tx.insert(sensoryMoments).values({
         accountId: qrCode.accountId,
         consumerId: consumerId,
+        qrCodeId: qrCode.id,
         productLine: data.product_line,
         scannedAt: new Date(),
         canal: data.canal,

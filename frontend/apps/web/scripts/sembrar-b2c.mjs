@@ -199,7 +199,7 @@ try {
     const r = await sql`
       INSERT INTO segments (nombre, descripcion, tipo, regla, color, activo)
       VALUES (${s.nombre}, ${s.descripcion}, 'dinamico'::segmento_tipo,
-              ${JSON.stringify(s.regla)}::jsonb, ${s.color}, true)
+              ${sql.json(s.regla)}, ${s.color}, true)
       ON CONFLICT (nombre) DO NOTHING
       RETURNING nombre
     `;

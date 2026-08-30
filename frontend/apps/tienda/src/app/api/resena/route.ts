@@ -28,8 +28,29 @@ export const dynamic = 'force-dynamic';
  */
 const MOTIVOS = ['temperatura', 'tiempo', 'empaque', 'sabor', 'cantidad', 'otro'] as const;
 
-/** Lo que se puntua por separado. Cada uno apunta a un responsable distinto. */
-const ATRIBUTOS = ['crocancia', 'sabor', 'empaque', 'frescura'] as const;
+/**
+ * Los cuatro atributos que se puntúan por separado, TODOS opcionales.
+ *
+ * Cada uno apunta a un responsable distinto: crocancia es proceso, sabor es
+ * receta, empaque es sellado y frescura es rotación.
+ *
+ * Estaba escrito como `z.record(z.enum([...]), ...)` y era un fallo grave:
+ * en Zod 4, un record con clave de enum exige que estén las CUATRO claves. Quien
+ * puntuaba solo la crocancia recibía «expected number, received undefined» y se
+ * perdía la reseña ENTERA — nota incluida.
+ *
+ * Lo encontró una prueba contra producción, no el compilador: los tipos
+ * encajaban perfectamente.
+ *
+ * Escrito así, cada atributo se puede mandar o no, que es como se usa de verdad:
+ * casi nadie puntúa las cuatro cosas.
+ */
+const atributosParciales = z.object({
+  crocancia: z.number().int().min(1).max(5).optional(),
+  sabor: z.number().int().min(1).max(5).optional(),
+  empaque: z.number().int().min(1).max(5).optional(),
+  frescura: z.number().int().min(1).max(5).optional(),
+});
 
 const esquema = z.object({
   codigo: z.string().min(4).max(12),
@@ -44,7 +65,7 @@ const esquema = z.object({
    * "crujiente pero soso" son las mismas tres estrellas y se arreglan en sitios
    * distintos.
    */
-  atributos: z.record(z.enum(ATRIBUTOS), z.number().int().min(1).max(5)).optional(),
+  atributos: atributosParciales.optional(),
 
   /**
    * El codigo impreso en la bolsa.
@@ -191,7 +212,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const esquemaDetalle = z.object({
     codigo: z.string().min(4).max(12),
-    atributos: z.record(z.enum(ATRIBUTOS), z.number().int().min(1).max(5)).optional(),
+    atributos: atributosParciales.optional(),
     lote: z.string().max(40).optional(),
   });
 

@@ -33,6 +33,7 @@ const TIPOS = [
 
 export function EditorPremio({ premio }: { premio?: Premio }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const formulario = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
 
@@ -60,6 +61,7 @@ export function EditorPremio({ premio }: { premio?: Premio }) {
       if (r.ok) {
         setError(null);
         dialogo.current?.close();
+        if (!editando) formulario.current?.reset();
       } else {
         setError(r.error ?? 'No se pudo guardar');
       }
@@ -73,7 +75,11 @@ export function EditorPremio({ premio }: { premio?: Premio }) {
     <>
       <button
         type="button"
-        onClick={() => { setError(null); dialogo.current?.showModal(); }}
+        onClick={() => {
+          setError(null);
+          if (!editando) formulario.current?.reset();
+          dialogo.current?.showModal();
+        }}
         className={
           editando
             ? 'texto-suave text-xs hover:underline'
@@ -88,7 +94,7 @@ export function EditorPremio({ premio }: { premio?: Premio }) {
         className="superficie w-[min(32rem,92vw)] rounded-xl border borde-tema p-0 backdrop:bg-black/60"
         onClose={() => setError(null)}
       >
-        <form onSubmit={enviar} className="p-5">
+        <form ref={formulario} onSubmit={enviar} className="p-5">
           <h2 className="mb-4 text-base font-semibold">
             {editando ? 'Editar premio' : 'Nuevo premio'}
           </h2>

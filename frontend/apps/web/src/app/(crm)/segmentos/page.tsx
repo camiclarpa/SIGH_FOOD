@@ -4,6 +4,7 @@ import { etiquetaLinea } from '@/lib/fidelizacion';
 import { puede, rolActual } from '@/lib/permisos';
 import { LanzarCampana } from './LanzarCampana';
 import { EditorSegmento } from './EditorSegmento';
+import { AlternarSegmento } from './AlternarSegmento';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -139,7 +140,10 @@ export default async function PaginaSegmentos() {
                   <h2 className="truncate text-sm font-semibold">{s.nombre}</h2>
                   {s.descripcion && <p className="texto-suave mt-0.5 text-xs">{s.descripcion}</p>}
                 </div>
-                <Etiqueta tono={s.tipo === 'dinamico' ? 'info' : 'neutro'}>{s.tipo}</Etiqueta>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <Etiqueta tono={s.tipo === 'dinamico' ? 'info' : 'neutro'}>{s.tipo}</Etiqueta>
+                  {puedeGestionar && <AlternarSegmento id={s.id} activo={s.activo} />}
+                </div>
               </div>
 
               <p className="cifras mt-4 text-3xl font-semibold">{numero(s.comensales)}</p>

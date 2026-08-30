@@ -36,6 +36,7 @@ const CRITERIOS = [
 
 export function EditorInsignia({ insignia }: { insignia?: Insignia }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const formulario = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
 
@@ -62,6 +63,11 @@ export function EditorInsignia({ insignia }: { insignia?: Insignia }) {
       if (r.ok) {
         setError(null);
         dialogo.current?.close();
+        // El <dialog> sigue montado tras cerrarse — es el mismo elemento la
+        // próxima vez que se abra "Nueva insignia" — y sin resetear el
+        // formulario aquí, esa próxima apertura arrancaría con los datos de
+        // esta insignia ya escritos en los campos.
+        if (!editando) formulario.current?.reset();
       } else {
         setError(r.error ?? 'No se pudo guardar');
       }
@@ -83,7 +89,15 @@ export function EditorInsignia({ insignia }: { insignia?: Insignia }) {
       <span className="inline-flex items-center gap-2">
         <button
           type="button"
-          onClick={() => { setError(null); dialogo.current?.showModal(); }}
+          onClick={() => {
+            setError(null);
+            // Al crear (no al editar) se limpia el formulario ANTES de
+            // abrir: es el mismo <dialog> de la última vez, y sin esto
+            // "Nueva insignia" reabriría con los datos de la insignia
+            // anterior todavía escritos.
+            if (!editando) formulario.current?.reset();
+            dialogo.current?.showModal();
+          }}
           className={
             editando
               ? 'texto-suave text-xs hover:underline'
@@ -109,7 +123,7 @@ export function EditorInsignia({ insignia }: { insignia?: Insignia }) {
         className="superficie w-[min(32rem,92vw)] rounded-xl border borde-tema p-0 backdrop:bg-black/60"
         onClose={() => setError(null)}
       >
-        <form onSubmit={enviar} className="p-5">
+        <form ref={formulario} onSubmit={enviar} className="p-5">
           <h2 className="mb-4 text-base font-semibold">
             {editando ? 'Editar insignia' : 'Nueva insignia'}
           </h2>

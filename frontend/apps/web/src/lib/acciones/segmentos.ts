@@ -14,7 +14,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { segments } from '@sighfood/domain/db/schema';
-import { conBaseDeDatos } from '@/lib/cloudflare';
+import { conBaseDeDatos, contextoCloudflare } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import type { ReglaSegmento } from '@/lib/segmentacion';
@@ -66,11 +66,33 @@ export async function crearSegmentoPersonalizado(datos: {
     });
   }).then(async (r) => {
     if (r.ok) {
-      // Sin esto el segmento recién creado se ve con 0 comensales hasta la
-      // próxima pasada del cron —hasta 24h—, y quien lo acaba de crear no
-      // tiene forma de saber si la regla que escribió sirve para algo.
-      await recalcularSegmentos().catch(() => undefined);
       revalidatePath('/segmentos');
+
+      /*
+        El recálculo se dispara, pero NO se espera aquí.
+
+        La primera versión hacía `await recalcularSegmentos()` antes de
+        responder — recorre los 14 segmentos y recalcula la tabla RFM entera
+        (percentiles sobre todos los pedidos). En producción tardó más de 40
+        segundos, tiempo suficiente para que el propio navegador diera la
+        petición por perdida y mostrara la pantalla de error genérica, aunque
+        el servidor SÍ terminaba respondiendo "Ok" un rato después. El
+        segmento se creaba bien; lo que fallaba era hacer esperar a quien lo
+        creó a un cálculo que no tenía por qué ser síncrono.
+
+        `ctx.waitUntil()` deja que seguir corriendo después de responder: el
+        segmento recién creado sigue mostrando 0 comensales durante unos
+        segundos en vez de instantáneo, pero la pantalla no se rompe. Fuera de
+        Cloudflare Workers (dev local) `ctx` no existe, así que se recalcula
+        igual pero sin bloquear el `then` — mismo resultado, sin el binding.
+      */
+      const { ctx } = await contextoCloudflare();
+      const recalculo = recalcularSegmentos().catch((e) => {
+        log.error('Fallo al recalcular segmentos tras crear uno nuevo', e, {
+          ruta: '/acciones/segmentos',
+        });
+      });
+      if (ctx) ctx.waitUntil(recalculo);
     }
     return r;
   });

@@ -42,6 +42,18 @@ export const authConfig = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as { role?: RolStaff }).role = (token.role as RolStaff) ?? 'lectura';
+        /*
+          El id NUNCA llegaba a la sesión: Auth.js guarda el id devuelto por
+          authorize() en token.sub, pero session.user no lo trae por defecto
+          sin un adapter — hay que copiarlo aquí a mano.
+
+          El efecto real, silencioso durante quién sabe cuánto: actorActual().id
+          siempre era '', así que CADA acción del CRM que deja rastro de quién
+          la hizo —entregar un canje, anular uno, ajustar puntos a mano—
+          guardaba ese rastro vacío. "Atendido por" en Premios salía en blanco
+          no porque nadie lo mostrara, sino porque nunca hubo un id que guardar.
+        */
+        (session.user as { id?: string }).id = token.sub;
       }
       return session;
     },

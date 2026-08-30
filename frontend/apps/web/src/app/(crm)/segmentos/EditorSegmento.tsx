@@ -25,6 +25,7 @@ const SEGMENTOS_RFM = [
 
 export function EditorSegmento() {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const formulario = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
 
@@ -62,7 +63,16 @@ export function EditorSegmento() {
       if (r.ok) {
         setError(null);
         dialogo.current?.close();
-        e.currentTarget.reset();
+        /*
+          e.currentTarget.reset() — que es lo que había aquí antes — rompía la
+          pantalla entera con "Cannot read properties of null (reading
+          'reset')". React limpia el SyntheticEvent en cuanto el manejador
+          síncrono termina, y esto se ejecuta DESPUÉS, dentro del callback
+          async de iniciar(): para entonces e.currentTarget ya es null. Por
+          eso el formulario se referencia aparte, con su propia ref, en vez de
+          leerlo del evento.
+        */
+        formulario.current?.reset();
         setUsaRfm(false); setUsaPedidos(false); setUsaGasto(false);
         setUsaEscaneos(false); setUsaInactivo(false); setUsaLinea(false); setUsaNivel(false);
       } else {
@@ -89,7 +99,7 @@ export function EditorSegmento() {
         className="superficie w-[min(34rem,92vw)] rounded-xl border borde-tema p-0 backdrop:bg-black/60"
         onClose={() => setError(null)}
       >
-        <form onSubmit={enviar} className="max-h-[85vh] overflow-y-auto p-5">
+        <form ref={formulario} onSubmit={enviar} className="max-h-[85vh] overflow-y-auto p-5">
           <h2 className="mb-1 text-base font-semibold">Nuevo segmento</h2>
           <p className="texto-suave mb-4 text-xs">
             Marca las condiciones que quieres combinar. Todas las marcadas deben cumplirse a la vez.

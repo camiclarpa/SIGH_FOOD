@@ -67,6 +67,12 @@ importers:
         specifier: ^4.119.0
         version: 4.119.0
 
+  apps/cron:
+    devDependencies:
+      wrangler:
+        specifier: ^4.119.0
+        version: 4.119.0
+
   apps/tienda:
     dependencies:
       '@opennextjs/cloudflare':

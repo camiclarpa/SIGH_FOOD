@@ -20,10 +20,12 @@ export const dynamic = 'force-dynamic';
 
 const DISPARADORES: Record<string, string> = {
   signup: 'Al registrarse',
-  first_purchase: 'Tras el primer momento',
+  first_purchase: 'Tras el primer pedido entregado',
+  first_scan: 'Al primer escaneo del QR',
   abandoned_cart: 'Flujo abandonado',
   birthday: 'Cumpleaños',
-  inactive_30_days: 'Por inactividad',
+  inactive_30_days: 'Sin comprar hace 30 días',
+  inactive_21_days: 'Sin escanear hace 21 días',
   churn_risk: 'Riesgo de abandono',
   referral_conversion: 'Referido convertido',
 };

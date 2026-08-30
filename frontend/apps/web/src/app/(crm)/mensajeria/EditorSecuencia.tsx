@@ -33,8 +33,12 @@ interface Secuencia {
 
 const DISPARADORES = [
   { valor: 'signup', texto: 'Al registrarse' },
-  { valor: 'first_purchase', texto: 'Tras el primer momento' },
-  { valor: 'inactive_30_days', texto: 'Por inactividad' },
+  { valor: 'first_purchase', texto: 'Tras el primer pedido entregado' },
+  // Distinto de "first_purchase": este es al ESCANEAR, no al comprar. Puede
+  // pasar en un bar o desde una bolsa comprada, sin que haya pedido de por medio.
+  { valor: 'first_scan', texto: 'Al primer escaneo del QR' },
+  { valor: 'inactive_30_days', texto: 'Sin comprar hace 30 días' },
+  { valor: 'inactive_21_days', texto: 'Sin escanear hace 21 días' },
   { valor: 'churn_risk', texto: 'Riesgo de abandono' },
   { valor: 'birthday', texto: 'Cumpleaños' },
   { valor: 'referral_conversion', texto: 'Referido convertido' },

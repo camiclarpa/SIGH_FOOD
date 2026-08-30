@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { log, conTrazas } from '@sighfood/domain/lib/observabilidad';
 import { z } from 'zod';
-import { qrCodes, sensoryMoments, dataConsents, b2cConsumers } from '@sighfood/domain/db/schema';
+import { accounts, lotes, qrCodes, sensoryMoments, dataConsents, b2cConsumers } from '@sighfood/domain/db/schema';
 import { eq } from 'drizzle-orm';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { procesarEscaneo } from '@/lib/fidelizacion';
@@ -36,6 +36,26 @@ const momentScanSchema = z.object({
     userAgent: z.string().optional(),
     platform: z.string().optional(),
   }).optional(),
+
+  /*
+    Dónde se consumió.
+
+    Por defecto 'horeca' porque este endpoint nació para el QR de la mesa, y
+    suponerlo mantiene funcionando a quien ya lo llama sin pasar el campo.
+
+    Un pico a las seis de la tarde significa una cosa si es en un bar y otra si
+    es en casa. Sin esta distinción los dos caían en la misma barra del gráfico.
+  */
+  canal: z.enum(['horeca', 'hogar', 'evento']).default('horeca'),
+
+  /** Con qué lo está tomando. Una pregunta de un toque, justo tras escanear. */
+  maridaje: z.enum(['cerveza', 'vino', 'cafe', 'solo']).optional(),
+
+  /** Código del lote impreso en la bolsa, si lo tiene delante. */
+  lote: z.string().max(40).optional(),
+
+  /** Si lo enseñó a alguien. Es la base de la tasa de viralización. */
+  compartido: z.boolean().optional(),
 });
 
 // =============================================================================
@@ -94,6 +114,24 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
     
     const qrCode = qrResult[0];
     log.debug('QR válido - Restaurante', { ruta: '/api/moments/scan', detalle: [qrCode.accountId, 'Mesa:', qrCode.tableNumber] });
+
+    /*
+      La zona sale del BAR, no del móvil de la persona.
+
+      Para saber en qué parte de la ciudad se activa la marca basta con el
+      barrio, y el bar ya lo tiene registrado. Pedirle la ubicación exacta a
+      quien escanea costaría un permiso que mucha gente niega —y una obligación
+      de tratamiento de datos— a cambio de una precisión que nadie necesita para
+      decidir dónde abrir el siguiente punto de venta.
+    */
+    const [bar] = qrCode.accountId
+      ? await db
+          .select({ zona: accounts.zone })
+          .from(accounts)
+          .where(eq(accounts.id, qrCode.accountId))
+          .limit(1)
+      : [];
+    const zonaDelBar = bar?.zona ?? null;
 
     // =============================================================================
     // 2. Buscar o crear comensal
@@ -167,11 +205,35 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
     
     const [momento] = await db.transaction(async (tx) => {
       // Insertar momento sensorial
+      /*
+        El lote, si lo escribió. Mismo criterio que en las reseñas: se normaliza
+        a mayúsculas sin espacios, y un código que no existe NO invalida el
+        momento — la persona escaneó de verdad, y perder el escaneo por una
+        errata al copiar de una bolsa arrugada sería absurdo.
+      */
+      let loteId: string | null = null;
+      if (data.lote?.trim()) {
+        const codigo = data.lote.trim().toUpperCase().replace(/\s+/g, '');
+        const [l] = await tx
+          .select({ id: lotes.id })
+          .from(lotes)
+          .where(eq(lotes.codigo, codigo))
+          .limit(1);
+        loteId = l?.id ?? null;
+      }
+
       const insertado = await tx.insert(sensoryMoments).values({
         accountId: qrCode.accountId,
         consumerId: consumerId,
         productLine: data.product_line,
         scannedAt: new Date(),
+        canal: data.canal,
+        maridaje: data.maridaje ?? null,
+        // La zona ya se leyó del bar antes de la transacción (zonaDelBar):
+        // qrCodes no tiene columna de zona propia, la tiene accounts.
+        zona: zonaDelBar,
+        loteId,
+        compartido: data.compartido ?? false,
         deviceInfo: data.device_info || {
           // headers.get() devuelve null cuando falta; el campo es opcional.
           userAgent: request.headers.get('user-agent') ?? undefined,
@@ -228,6 +290,7 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
         message: 'Momento sensorial registrado exitosamente',
         execution_time_ms: executionTime,
         data: {
+          moment_id: momento.id,
           consumer_id: consumerId,
           account_id: qrCode.accountId,
           table_number: qrCode.tableNumber,
@@ -257,6 +320,54 @@ export const POST = conTrazas('/api/moments/scan', async (request: NextRequest) 
       },
       { status: 500 }
     );
+  }
+});
+
+// =============================================================================
+// PATCH — Añadir el maridaje o marcar que se compartió, tras el registro
+// =============================================================================
+//
+// Va aparte del POST a propósito: el momento se registra al enviar el
+// formulario, y esta pregunta —"¿con qué lo estás tomando?"— se hace DESPUÉS,
+// sin bloquear la celebración de puntos. Un formulario que pidiera el maridaje
+// antes de guardar perdería registros enteros por un dato secundario.
+//
+// NO acepta cambiar `product_line` ni el comensal: eso ya quedó fijado en el
+// POST, y reabrirlo aquí permitiría reescribir de qué trató el momento después
+// de que ya contara para puntos e insignias.
+
+const patchSchema = z.object({
+  moment_id: z.string().uuid(),
+  maridaje: z.enum(['cerveza', 'vino', 'cafe', 'solo']).optional(),
+  compartido: z.boolean().optional(),
+});
+
+export const PATCH = conTrazas('/api/moments/scan', async (request: NextRequest) => {
+  const v = patchSchema.safeParse(await request.json().catch(() => null));
+  if (!v.success) {
+    return NextResponse.json({ success: false, error: 'Datos no válidos' }, { status: 400 });
+  }
+
+  if (v.data.maridaje === undefined && v.data.compartido === undefined) {
+    return NextResponse.json({ success: true });
+  }
+
+  try {
+    await conBaseDeDatos((db) =>
+      db
+        .update(sensoryMoments)
+        .set({
+          ...(v.data.maridaje !== undefined ? { maridaje: v.data.maridaje } : {}),
+          ...(v.data.compartido !== undefined ? { compartido: v.data.compartido } : {}),
+        })
+        .where(eq(sensoryMoments.id, v.data.moment_id))
+    );
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    log.error('No se pudo actualizar el momento', e, { ruta: '/api/moments/scan' });
+    // Es información extra sobre un momento que ya se guardó. Que falle no
+    // debe romper nada en la pantalla del comensal.
+    return NextResponse.json({ success: true });
   }
 });
 

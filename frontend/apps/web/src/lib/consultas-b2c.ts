@@ -22,6 +22,7 @@ import {
   referrals,
   segments,
   sensoryMoments,
+  lotes,
   automationSequences,
   automationLogs,
   rewards,
@@ -313,12 +314,17 @@ export async function pasaporteComensal(consumerId: string) {
 
 export async function analiticaMomentos() {
   return conRespaldo('b2c:analitica-momentos', () => conBaseDeDatos(async (db) => {
-    const [totales, porHora, porDia, porLinea, porZona, porBar, ultimos, recurrencia] = await Promise.all([
+    const [totales, porHora, porDia, porLinea, porZona, porBar, ultimos, recurrencia, porCanal, porMaridaje] =
+      await Promise.all([
       db
         .select({
           momentos: count(sensoryMoments.id),
           comensales: countDistinct(sensoryMoments.consumerId),
           bares: countDistinct(sensoryMoments.accountId),
+          // Cuántos se hicieron desde una bolsa comprada, no desde una mesa. Es
+          // la señal de que el producto empaquetado ya vive fuera del bar.
+          enHogar: sql<number>`COUNT(*) FILTER (WHERE ${sensoryMoments.canal} = 'hogar')::int`,
+          compartidos: sql<number>`COUNT(*) FILTER (WHERE ${sensoryMoments.compartido})::int`,
         })
         .from(sensoryMoments),
 
@@ -367,20 +373,28 @@ export async function analiticaMomentos() {
         .orderBy(desc(count(sensoryMoments.id)))
         .limit(10),
 
+      // El feed en vivo: quién, qué, con qué y hace cuánto. Es lo primero que se
+      // mira para saber si el QR de hoy está funcionando, sin esperar a que se
+      // recalculen los agregados de arriba.
       db
         .select({
           id: sensoryMoments.id,
           linea: sensoryMoments.productLine,
           fecha: sensoryMoments.scannedAt,
+          canal: sensoryMoments.canal,
+          maridaje: sensoryMoments.maridaje,
+          compartido: sensoryMoments.compartido,
           comensal: b2cConsumers.fullName,
           comensalId: b2cConsumers.id,
           whatsapp: b2cConsumers.whatsappPhone,
           bar: accounts.name,
-          zona: accounts.zone,
+          zona: sensoryMoments.zona,
+          lote: lotes.codigo,
         })
         .from(sensoryMoments)
         .leftJoin(b2cConsumers, eq(b2cConsumers.id, sensoryMoments.consumerId))
         .leftJoin(accounts, eq(accounts.id, sensoryMoments.accountId))
+        .leftJoin(lotes, eq(lotes.id, sensoryMoments.loteId))
         .orderBy(desc(sensoryMoments.scannedAt))
         .limit(30),
 
@@ -404,17 +418,35 @@ export async function analiticaMomentos() {
         ) AS por_comensal
         GROUP BY tramo
       `),
+
+      // HORECA (bar) contra hogar (bolsa comprada) contra evento. Un pico a las
+      // seis de la tarde significa una cosa en un bar y otra en casa; antes de
+      // separar canal, los dos caían en la misma barra del gráfico.
+      db
+        .select({ canal: sensoryMoments.canal, total: count(sensoryMoments.id) })
+        .from(sensoryMoments)
+        .groupBy(sensoryMoments.canal)
+        .orderBy(desc(count(sensoryMoments.id))),
+
+      db
+        .select({ maridaje: sensoryMoments.maridaje, total: count(sensoryMoments.id) })
+        .from(sensoryMoments)
+        .where(sql`${sensoryMoments.maridaje} IS NOT NULL`)
+        .groupBy(sensoryMoments.maridaje)
+        .orderBy(desc(count(sensoryMoments.id))),
     ]);
 
     const filas = (recurrencia as unknown as { rows?: unknown[] }).rows ?? recurrencia;
 
     return {
-      totales: totales[0] ?? { momentos: 0, comensales: 0, bares: 0 },
+      totales: totales[0] ?? { momentos: 0, comensales: 0, bares: 0, enHogar: 0, compartidos: 0 },
       porHora: Object.fromEntries(porHora.map((f) => [f.hora, Number(f.total)])),
       porDia: Object.fromEntries(porDia.map((f) => [f.dia, Number(f.total)])),
       porLinea,
       porZona,
       porBar,
+      porCanal,
+      porMaridaje,
       ultimos,
       recurrencia: filas as Array<{ tramo: string; comensales: number }>,
     };

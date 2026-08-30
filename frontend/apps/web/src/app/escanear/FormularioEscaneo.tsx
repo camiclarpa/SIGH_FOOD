@@ -31,7 +31,78 @@ type Estado =
       consumerId: string | null;
       accountId: string | null;
       lineaProducto: string | null;
+      // Para la pregunta de maridaje, que se hace DESPUÉS de celebrar los
+      // puntos y sin bloquear nada si no responde.
+      momentId: string | null;
     };
+
+/** Con qué se puede acompañar. Un solo toque, sin escribir nada. */
+const MARIDAJES = [
+  { valor: 'cerveza', etiqueta: 'Cerveza', icono: '🍺' },
+  { valor: 'vino', etiqueta: 'Vino', icono: '🍷' },
+  { valor: 'cafe', etiqueta: 'Café', icono: '☕' },
+  { valor: 'solo', etiqueta: 'Solo', icono: '🌶' },
+] as const;
+
+/**
+ * "¿Con qué lo estás disfrutando?" — un solo toque, tras el registro.
+ *
+ * Va como pregunta aparte y no como parte del formulario principal porque
+ * responderla lleva tiempo de decisión que el envío del momento no puede
+ * esperar: la persona quiere ver sus puntos YA, y esto se pregunta después,
+ * sin bloquear nada si no contesta.
+ */
+function PreguntaMaridaje({ momentId }: { momentId: string }) {
+  const [elegido, setElegido] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function elegir(valor: string) {
+    if (enviando || elegido) return;
+    setElegido(valor);
+    setEnviando(true);
+    try {
+      await fetch('/api/moments/scan', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ moment_id: momentId, maridaje: valor }),
+      });
+    } catch {
+      // Silencioso a propósito: es una pregunta opcional sobre un momento que
+      // ya quedó registrado. Un fallo de red aquí no debe alarmar a nadie.
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 border-t borde-tema pt-5">
+      <p className="texto-suave mb-3 text-sm">
+        {elegido ? '¡Anotado!' : '¿Con qué lo estás disfrutando?'}
+      </p>
+      <div className="flex justify-center gap-2">
+        {MARIDAJES.map((m) => (
+          <button
+            key={m.valor}
+            type="button"
+            onClick={() => elegir(m.valor)}
+            disabled={Boolean(elegido)}
+            aria-pressed={elegido === m.valor}
+            className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-2.5 text-xs transition-colors ${
+              elegido === m.valor
+                ? 'border-orange-500 bg-orange-500/10'
+                : elegido
+                  ? 'borde-tema opacity-40'
+                  : 'borde-tema hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <span aria-hidden className="text-xl">{m.icono}</span>
+            {m.etiqueta}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Linea[] }) {
   const [linea, setLinea] = useState<string>('');
@@ -76,6 +147,7 @@ export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Li
         consumerId: d.data?.consumer_id ?? null,
         accountId: d.data?.account_id ?? null,
         lineaProducto: d.data?.product_line ?? null,
+        momentId: d.data?.moment_id ?? null,
       });
     } catch {
       setEstado({
@@ -125,7 +197,9 @@ export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Li
         )}
 
         {/* Va DESPUÉS de la celebración: primero el comensal ve sus puntos, que
-            es a lo que vino, y solo entonces se le propone algo más. */}
+            es a lo que vino, y solo entonces se le pregunta el maridaje. */}
+        {estado.momentId && <PreguntaMaridaje momentId={estado.momentId} />}
+
         {estado.consumerId && (
           <RetoEnMesa
             consumerId={estado.consumerId}

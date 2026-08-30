@@ -74,8 +74,26 @@ export const automationTriggerEnum = pgEnum('automation_trigger', [
   'birthday',
   'inactive_30_days',
   'churn_risk',
-  'referral_conversion'
+  'referral_conversion',
+  /** Primer escaneo de una persona. La puerta de entrada del canal físico. */
+  'first_scan',
+  /**
+   * Tres semanas sin registrar un momento.
+   *
+   * Más corto que `inactive_30_days`, que mide compras. Un snack se consume más
+   * a menudo de lo que se pide: esperar un mes a reaccionar es esperar de más.
+   */
+  'inactive_21_days',
 ]);
+
+/**
+ * Dónde se consumió.
+ *
+ * Un pico a las seis de la tarde significa una cosa si es en un bar y otra si
+ * es en casa. Antes los dos caían en la misma barra del gráfico, y con eso no
+ * se puede decidir nada.
+ */
+export const canalMomentoEnum = pgEnum('canal_momento', ['horeca', 'hogar', 'evento']);
 
 export const automationChannelEnum = pgEnum('automation_channel', ['email', 'whatsapp', 'sms', 'push']);
 
@@ -660,11 +678,43 @@ export const sensoryMoments = pgTable('sensory_moments', {
   consumerId: uuid('consumer_id').references(() => b2cConsumers.id, { onDelete: 'cascade' }),
   productLine: momentProductLineEnum('product_line').notNull(),
   scannedAt: timestamp('scanned_at', { withTimezone: true }).defaultNow(),
-  deviceInfo: jsonb('device_info').$type<{ userAgent?: string; platform?: string }>()
+  deviceInfo: jsonb('device_info').$type<{ userAgent?: string; platform?: string }>(),
+
+  /** Bar aliado, casa o activación. Ver canalMomentoEnum. */
+  canal: canalMomentoEnum('canal'),
+
+  /**
+   * Con qué lo estaba tomando. Una pregunta de un toque tras escanear.
+   *
+   * Es el único instante en que la persona tiene el producto en la mano y sabe
+   * la respuesta. Sirve para dos cosas: recomendar maridajes con fundamento en
+   * lugar de por intuición, y entender el contexto — quien lo toma con café a
+   * las cuatro de la tarde no es el mismo cliente que quien lo toma con cerveza
+   * a las diez de la noche.
+   */
+  maridaje: varchar('maridaje', { length: 30 }),
+
+  /**
+   * Zona, no coordenadas.
+   *
+   * Para decidir dónde poner el siguiente punto de venta basta con el barrio.
+   * Pedir la ubicación exacta del móvil a cambio de eso es desproporcionado:
+   * cuesta un permiso que mucha gente niega y arrastra obligaciones de
+   * tratamiento de datos que no compensan.
+   */
+  zona: varchar('zona', { length: 80 }),
+
+  /** Qué tanda se estaba comiendo. La misma trazabilidad que las reseñas. */
+  loteId: uuid('lote_id').references(() => lotes.id, { onDelete: 'set null' }),
+
+  /** Si lo enseñó a alguien. Es la base de la tasa de viralización. */
+  compartido: boolean('compartido').notNull().default(false),
 }, (t) => [
   index('idx_sensory_moments_account').on(t.accountId),
   index('idx_sensory_moments_consumer').on(t.consumerId),
   index('idx_sensory_moments_scanned').on(t.scannedAt),
+  index('idx_momentos_canal').on(t.canal),
+  index('idx_momentos_zona').on(t.zona),
 ]);
 
 // =============================================================================

@@ -37,6 +37,7 @@ import {
   b2cConsumers,
   pedidos,
   referrals,
+  sensoryMoments,
 } from '@sighfood/domain/db/schema';
 import type { Database } from '@sighfood/domain/db';
 import { conBaseDeDatos } from '@/lib/cloudflare';
@@ -54,6 +55,10 @@ export const DISPARADORES_SOPORTADOS = [
   'churn_risk',
   'referral_conversion',
   'abandoned_cart',
+  /** Primer escaneo del QR — en mesa o de una bolsa comprada. */
+  'first_scan',
+  /** Sin registrar un momento en 21 días. Ver DIAS_INACTIVO_MOMENTO abajo. */
+  'inactive_21_days',
 ] as const;
 
 export type DisparadorSoportado = (typeof DISPARADORES_SOPORTADOS)[number];
@@ -65,6 +70,16 @@ export type DisparadorSoportado = (typeof DISPARADORES_SOPORTADOS)[number];
  * una consulta: si algún día se quiere probar a los 21, se cambia en un sitio.
  */
 export const DIAS_INACTIVO = 30;
+
+/**
+ * Días sin un momento sensorial antes de mandar la recuperación corta.
+ *
+ * Es distinto del umbral de pedidos (30 días) a propósito: dejar de escanear es
+ * una señal más temprana que dejar de comprar — alguien puede seguir pidiendo
+ * por la tienda sin volver a escanear la bolsa, y viceversa. Veintiún días es el
+ * ciclo de recompra típico de un snack, no un número arbitrario.
+ */
+export const DIAS_INACTIVO_MOMENTO = 21;
 
 /**
  * Tope de envíos por ejecución del cron.
@@ -191,6 +206,42 @@ export async function elegiblesPara(
         .where(and(eq(referrals.status, 'converted'), lt(referrals.createdAt, limite)))
         .limit(500);
       return filas.map((f) => f.id);
+    }
+
+    case 'first_scan': {
+      /*
+        Su primer momento sensorial, sea en una mesa o en una bolsa comprada en
+        casa. Es el disparador de bienvenida al escanear: "primer escaneo ->
+        cupón inmediato" que se pidió como automatización explícita.
+
+        Con exactamente UN momento hasta la fecha del corte: si tiene dos o más,
+        ya pasó por aquí antes y `yaRecibieron` lo habría filtrado igualmente,
+        pero exigirlo aquí evita incluso calcular sobre alguien que claramente
+        no es su primera vez.
+      */
+      const filas = await db
+        .select({ id: sensoryMoments.consumerId })
+        .from(sensoryMoments)
+        .where(lt(sensoryMoments.scannedAt, limite))
+        .groupBy(sensoryMoments.consumerId)
+        .having(sql`count(*) = 1`)
+        .limit(500);
+      return filas.map((f) => f.id).filter((id): id is string => Boolean(id));
+    }
+
+    case 'inactive_21_days': {
+      const corte = new Date(Date.now() - DIAS_INACTIVO_MOMENTO * 24 * 3_600_000);
+      // Con al menos un momento: a quien nunca ha escaneado no se le puede
+      // decir "tu momento te está esperando" sin que suene raro — nunca hubo un
+      // primer momento del que hablar.
+      const filas = await db
+        .select({ id: sensoryMoments.consumerId })
+        .from(sensoryMoments)
+        .where(sql`${sensoryMoments.consumerId} IS NOT NULL`)
+        .groupBy(sensoryMoments.consumerId)
+        .having(sql`max(${sensoryMoments.scannedAt}) < ${corte}`)
+        .limit(500);
+      return filas.map((f) => f.id).filter((id): id is string => Boolean(id));
     }
 
     case 'abandoned_cart': {

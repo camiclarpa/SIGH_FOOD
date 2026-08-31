@@ -24,6 +24,7 @@ import {
   consumerSegments,
   sensoryMoments,
   lotes,
+  pedidos,
   automationSequences,
   automationLogs,
   rewards,
@@ -1081,8 +1082,16 @@ export async function bandejaEntrada() {
 // Bandeja de WhatsApp
 // -----------------------------------------------------------------------------
 
-export async function listarConversaciones() {
-  return conRespaldo('wa:conversaciones', () => conBaseDeDatos(async (db) => {
+export async function listarConversaciones(filtro?: 'sin_atender' | 'seguimiento' | 'cerrada') {
+  return conRespaldo(`wa:conversaciones:${filtro ?? 'todas'}`, () => conBaseDeDatos(async (db) => {
+    // "Sin atender" y "en seguimiento" no son un valor de columna: son una
+    // lectura de negocio sobre sinLeer/estado. "Cerrada" sí es un estado real.
+    const condicionFiltro =
+      filtro === 'cerrada' ? eq(chatConversations.estado, 'cerrada')
+      : filtro === 'sin_atender' ? and(sql`${chatConversations.sinLeer} > 0`, sql`${chatConversations.estado} <> 'cerrada'`)
+      : filtro === 'seguimiento' ? and(eq(chatConversations.estado, 'humano'), sql`${chatConversations.sinLeer} = 0`)
+      : sql`${chatConversations.estado} <> 'cerrada'`; // por defecto, todo lo abierto
+
     const [filas, [totales]] = await Promise.all([
       db
         .select({
@@ -1109,6 +1118,7 @@ export async function listarConversaciones() {
         .from(chatConversations)
         .leftJoin(b2cConsumers, eq(b2cConsumers.id, chatConversations.consumerId))
         .leftJoin(staffUsers, eq(staffUsers.id, chatConversations.asignadoA))
+        .where(condicionFiltro)
         // Sin leer primero: son los que esperan a alguien.
         .orderBy(desc(chatConversations.sinLeer), desc(chatConversations.ultimoMensajeEn))
         .limit(50),
@@ -1116,13 +1126,71 @@ export async function listarConversaciones() {
       db
         .select({
           total: count(chatConversations.id),
-          sinAtender: sql<number>`COUNT(*) FILTER (WHERE ${chatConversations.sinLeer} > 0)::int`,
+          sinAtender: sql<number>`COUNT(*) FILTER (WHERE ${chatConversations.sinLeer} > 0 AND ${chatConversations.estado} <> 'cerrada')::int`,
           abiertas: sql<number>`COUNT(*) FILTER (WHERE ${chatConversations.ventanaExpiraEn} > now())::int`,
+          cerradas: sql<number>`COUNT(*) FILTER (WHERE ${chatConversations.estado} = 'cerrada')::int`,
         })
         .from(chatConversations),
     ]);
 
-    return { filas, totales: totales ?? { total: 0, sinAtender: 0, abiertas: 0 } };
+    return { filas, totales: totales ?? { total: 0, sinAtender: 0, abiertas: 0, cerradas: 0 } };
+  }));
+}
+
+/**
+ * Ficha 360° del comensal, para el panel lateral de la Bandeja.
+ *
+ * Lo que importa saber ANTES de escribirle: qué probó, cómo lo acompaña, y en
+ * qué quedó lo último que pidió. Nada de esto se calcula aparte — son las
+ * mismas columnas que ya usan Momentos y Pedidos, solo reunidas en un sitio.
+ */
+export async function fichaComensal(consumerId: string) {
+  return conRespaldo(`wa:ficha:${consumerId}`, () => conBaseDeDatos(async (db) => {
+    const [ultimoMomento, maridajePreferido, ultimoPedido] = await Promise.all([
+      db
+        .select({
+          productLine: sensoryMoments.productLine,
+          scannedAt: sensoryMoments.scannedAt,
+          loteCodigo: lotes.codigo,
+        })
+        .from(sensoryMoments)
+        .leftJoin(lotes, eq(lotes.id, sensoryMoments.loteId))
+        .where(eq(sensoryMoments.consumerId, consumerId))
+        .orderBy(desc(sensoryMoments.scannedAt))
+        .limit(1),
+
+      db
+        .select({ maridaje: sensoryMoments.maridaje, total: count(sensoryMoments.id) })
+        .from(sensoryMoments)
+        .where(and(eq(sensoryMoments.consumerId, consumerId), sql`${sensoryMoments.maridaje} IS NOT NULL`))
+        .groupBy(sensoryMoments.maridaje)
+        .orderBy(desc(count(sensoryMoments.id)))
+        .limit(1),
+
+      db
+        .select({
+          codigo: pedidos.codigo,
+          estado: pedidos.estado,
+          totalCOP: pedidos.totalCOP,
+          createdAt: pedidos.createdAt,
+        })
+        .from(pedidos)
+        .where(eq(pedidos.consumerId, consumerId))
+        .orderBy(desc(pedidos.createdAt))
+        .limit(1),
+    ]);
+
+    return {
+      ultimoMomento: ultimoMomento[0]
+        ? {
+            linea: ultimoMomento[0].productLine,
+            cuando: ultimoMomento[0].scannedAt,
+            lote: ultimoMomento[0].loteCodigo,
+          }
+        : null,
+      maridajePreferido: maridajePreferido[0]?.maridaje ?? null,
+      ultimoPedido: ultimoPedido[0] ?? null,
+    };
   }));
 }
 

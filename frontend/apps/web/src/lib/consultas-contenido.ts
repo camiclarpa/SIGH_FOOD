@@ -11,8 +11,10 @@ import {
   b2cConsumers,
   contenidos,
   embajadores,
+  lotes,
   pedidos,
   qrCodes,
+  sensoryMoments,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 
@@ -27,8 +29,27 @@ export async function listarContenidos(filtro?: { estado?: string; canal?: strin
     if (filtro?.canal) condiciones.push(eq(contenidos.canal, filtro.canal as never));
 
     const filas = await db
-      .select()
+      .select({
+        id: contenidos.id,
+        titulo: contenidos.titulo,
+        tipo: contenidos.tipo,
+        canal: contenidos.canal,
+        lineaProducto: contenidos.lineaProducto,
+        estado: contenidos.estado,
+        gancho: contenidos.gancho,
+        notas: contenidos.notas,
+        url: contenidos.url,
+        mediaKey: contenidos.mediaKey,
+        mediaTipo: contenidos.mediaTipo,
+        loteId: contenidos.loteId,
+        loteCodigo: lotes.codigo,
+        publicadoEn: contenidos.publicadoEn,
+        alcance: contenidos.alcance,
+        interacciones: contenidos.interacciones,
+        createdAt: contenidos.createdAt,
+      })
       .from(contenidos)
+      .leftJoin(lotes, eq(lotes.id, contenidos.loteId))
       .where(condiciones.length ? and(...condiciones) : undefined)
       // Lo publicado más reciente arriba; lo que aún no salió, al final. Sin el
       // NULLS LAST, las ideas sin fecha se comen la parte de arriba de la lista
@@ -67,6 +88,29 @@ export async function listarActivaciones() {
         notas: activaciones.notas,
         qrCodeId: activaciones.qrCodeId,
         qrMesa: qrCodes.tableNumber,
+        /*
+          Ventas de verdad atribuidas al QR del evento, no tecleadas.
+
+          Quien escaneó el QR de esta activación queda vinculado por ese
+          escaneo (sensory_moments.qr_code_id). Cualquier pedido ENTREGADO
+          suyo, en cualquier momento después, se cuenta como traído por el
+          evento — un QR de activación es de un solo uso específico, no una
+          mesa recurrente, así que ese vínculo es fiable.
+
+          Esto complementa a ventasCOP (que puede incluir ventas en efectivo
+          del propio evento, sin QR de por medio), no lo sustituye.
+        */
+        ventasAtribuidasQrCOP: sql<number>`(
+          SELECT COALESCE(SUM(p.total_cop), 0)::int FROM ${pedidos} p
+          WHERE p.estado = 'entregado' AND p.consumer_id IN (
+            SELECT DISTINCT sm.consumer_id FROM ${sensoryMoments} sm
+            WHERE sm.qr_code_id = ${activaciones.qrCodeId} AND sm.consumer_id IS NOT NULL
+          )
+        )`,
+        comensalesAtribuidosQr: sql<number>`(
+          SELECT count(DISTINCT sm.consumer_id)::int FROM ${sensoryMoments} sm
+          WHERE sm.qr_code_id = ${activaciones.qrCodeId} AND sm.consumer_id IS NOT NULL
+        )`,
       })
       .from(activaciones)
       .leftJoin(qrCodes, eq(qrCodes.id, activaciones.qrCodeId))
@@ -96,6 +140,18 @@ export async function listarActivaciones() {
   });
 }
 
+/** Lotes vivos, para vincular una pieza de contenido a la tanda de la que habla. */
+export async function lotesDisponibles() {
+  return conBaseDeDatos(async (db) =>
+    db
+      .select({ id: lotes.id, codigo: lotes.codigo })
+      .from(lotes)
+      .where(sql`${lotes.retirado} = false`)
+      .orderBy(desc(lotes.producidoEn))
+      .limit(100)
+  );
+}
+
 /** QR disponibles para asignar a una activación. */
 export async function qrParaActivaciones() {
   return conBaseDeDatos(async (db) =>
@@ -120,6 +176,8 @@ export interface FilaEmbajador {
   codigo: string;
   estado: string;
   puntosPorPedido: number;
+  comisionPorPedidoCop: number | null;
+  comisionLiquidadaCop: number;
   seguidores: number | null;
   /** Pedidos entregados que trajo su código. */
   pedidos: number;
@@ -127,6 +185,8 @@ export interface FilaEmbajador {
   ventas: number;
   /** Comensales distintos que llegaron por él. */
   personas: number;
+  /** Comisión generada menos lo ya liquidado. 0 si no tiene comisión en pesos. */
+  comisionPendienteCop: number;
 }
 
 /**
@@ -151,6 +211,8 @@ export async function listarEmbajadores(): Promise<FilaEmbajador[]> {
         codigo: embajadores.codigo,
         estado: embajadores.estado,
         puntosPorPedido: embajadores.puntosPorPedido,
+        comisionPorPedidoCop: embajadores.comisionPorPedidoCop,
+        comisionLiquidadaCop: embajadores.comisionLiquidadaCop,
         seguidores: embajadores.seguidores,
         pedidos: sql<number>`(
           SELECT count(*)::int FROM ${pedidos} p
@@ -173,12 +235,17 @@ export async function listarEmbajadores(): Promise<FilaEmbajador[]> {
       )`))
       .limit(200);
 
-    return filas.map((f) => ({
-      ...f,
-      pedidos: Number(f.pedidos ?? 0),
-      ventas: Number(f.ventas ?? 0),
-      personas: Number(f.personas ?? 0),
-    }));
+    return filas.map((f) => {
+      const pedidos = Number(f.pedidos ?? 0);
+      const generadoCop = f.comisionPorPedidoCop ? pedidos * f.comisionPorPedidoCop : 0;
+      return {
+        ...f,
+        pedidos,
+        ventas: Number(f.ventas ?? 0),
+        personas: Number(f.personas ?? 0),
+        comisionPendienteCop: Math.max(0, generadoCop - f.comisionLiquidadaCop),
+      };
+    });
   });
 }
 

@@ -318,7 +318,7 @@ export const desafioEstadoEnum = pgEnum('desafio_estado', ['borrador', 'activo',
 // por tests/config/schema-integridad.test.ts.
 
 export const contenidoTipoEnum = pgEnum('contenido_tipo', [
-  'guia', 'video', 'reto', 'storytelling', 'receta', 'ugc'
+  'guia', 'video', 'reto', 'storytelling', 'receta', 'ugc', 'maridaje', 'campana'
 ]);
 
 export const contenidoCanalEnum = pgEnum('contenido_canal', [
@@ -3016,8 +3016,16 @@ export const contenidos = pgTable('contenidos', {
   /** La frase con la que entra. Es lo que decide si alguien para de deslizar. */
   gancho: text('gancho'),
   notas: text('notas'),
-  /** Solo el enlace: alojar video en el CRM no aporta y complica los respaldos. */
+  /** Enlace externo: donde vive la pieza ya publicada (el reel, el post). */
   url: varchar('url', { length: 500 }),
+  /**
+   * Clave del archivo en R2, si se subió uno desde el CRM en vez de solo
+   * pegar un enlace. Se sirve de vuelta por /api/contenido/media/[key].
+   */
+  mediaKey: varchar('media_key', { length: 300 }),
+  mediaTipo: varchar('media_tipo', { length: 100 }),
+  /** A qué tanda de producción hace referencia, si el gancho es "prueba este lote". */
+  loteId: uuid('lote_id').references(() => lotes.id, { onDelete: 'set null' }),
   publicadoEn: timestamp('publicado_en', { withTimezone: true }),
   /*
     Resultado real, tecleado a mano despues de publicar.
@@ -3095,6 +3103,19 @@ export const embajadores = pgTable('embajadores', {
   estado: embajadorEstadoEnum('estado').notNull().default('activo'),
   /** Puntos que se le abonan por cada pedido traido. 0 = solo visibilidad. */
   puntosPorPedido: integer('puntos_por_pedido').notNull().default(0),
+  /**
+   * Comision en pesos por cada pedido entregado que trajo. Nullable: no todo
+   * embajador cobra en dinero, algunos solo en puntos o solo por visibilidad.
+   *
+   * Esto NO mueve dinero. Es lo que se le DEBE, calculado al leer igual que las
+   * ventas (ver cabecera del archivo) menos lo ya marcado como liquidado. El
+   * pago real -transferencia, efectivo- ocurre fuera del sistema; aqui solo
+   * queda el numero y la fecha de cuando se liquido.
+   */
+  comisionPorPedidoCop: integer('comision_por_pedido_cop'),
+  /** Cuanto de la comision generada ya se le pago. Se resta del total al calcular lo pendiente. */
+  comisionLiquidadaCop: integer('comision_liquidada_cop').notNull().default(0),
+  comisionLiquidadaEn: timestamp('comision_liquidada_en', { withTimezone: true }),
   seguidores: integer('seguidores'),
   notas: text('notas'),
   alta: timestamp('alta', { withTimezone: true }).defaultNow(),

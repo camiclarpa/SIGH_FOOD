@@ -88,6 +88,20 @@
     "binding": "AI"
   },
 
+  // Archivos de la biblioteca de Contenido: imágenes y vídeos subidos desde
+  // el editor de piezas, en vez de solo poder pegar un enlace externo.
+  //
+  // Se sirven de vuelta por /api/contenido/media/[key] en lugar de habilitar
+  // el dominio público r2.dev: así el archivo pasa siempre por el propio
+  // Worker (mismo dominio, mismas cabeceras de caché que el resto del CRM) y
+  // no depende de un segundo dominio de Cloudflare que habilitar aparte.
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "sighfood-contenido"
+    }
+  ],
+
   // Rate limiting global de Cloudflare.
   //
   // El contador que había en el middleware vivía en memoria, y cada isolate

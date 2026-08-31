@@ -17,7 +17,11 @@
 import Link from 'next/link';
 import { listarEmbajadores, candidatosAEmbajador, resumenEmbajadores } from '@/lib/consultas-contenido';
 import { puede, rolActual } from '@/lib/permisos';
-import { EditorEmbajador, ESTADOS_EMBAJADOR } from './EditorEmbajador';
+import { variableDeEntorno } from '@/lib/cloudflare';
+import { EditorEmbajador } from './EditorEmbajador';
+import { ESTADOS_EMBAJADOR } from '@/lib/catalogo-contenido';
+import { QrEmbajador } from './QrEmbajador';
+import { LiquidarComision } from './LiquidarComision';
 import { Etiqueta, Metrica, Tarjeta, Titulo, Vacio, numero } from '@/components/ui';
 
 export const metadata = { title: 'Embajadores · SIGH_FOOD' };
@@ -34,17 +38,20 @@ const TONO: Record<string, 'exito' | 'aviso' | 'neutro'> = {
 };
 
 export default async function PaginaEmbajadores() {
-  const [lista, candidatos, resumen, rol] = await Promise.all([
+  const [lista, candidatos, resumen, rol, urlTiendaEnv] = await Promise.all([
     listarEmbajadores(),
     candidatosAEmbajador(),
     resumenEmbajadores(30),
     rolActual(),
+    variableDeEntorno('URL_TIENDA'),
   ]);
 
   const puedeGestionar = puede(rol, 'embajadores.gestionar');
+  const urlTienda = (urlTiendaEnv?.trim().replace(/\/+$/, '')) || 'https://bocazo-tienda.camiloriverac0.workers.dev';
 
   const ventasTotales = lista.reduce((s, e) => s + e.ventas, 0);
   const pedidosTotales = lista.reduce((s, e) => s + e.pedidos, 0);
+  const comisionPendienteTotal = lista.reduce((s, e) => s + e.comisionPendienteCop, 0);
 
   return (
     <>
@@ -60,7 +67,7 @@ export default async function PaginaEmbajadores() {
         que entra por ahí queda contado a su nombre.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metrica
           etiqueta="Embajadores activos"
           valor={numero(resumen.activos)}
@@ -83,6 +90,12 @@ export default async function PaginaEmbajadores() {
           valor={pesos(resumen.ventas)}
           detalle={`${numero(resumen.pedidos)} pedidos con código de referido`}
         />
+        <Metrica
+          etiqueta="Comisión por pagar"
+          valor={pesos(comisionPendienteTotal)}
+          detalle="fuera del sistema, no automático"
+          tono={comisionPendienteTotal > 0 ? 'aviso' : 'neutro'}
+        />
       </div>
 
       <div className="mt-6">
@@ -99,11 +112,12 @@ export default async function PaginaEmbajadores() {
                 <thead>
                   <tr className="texto-suave border-b borde-tema text-left text-xs uppercase tracking-wider">
                     <th className="py-2 pr-3 font-medium">Embajador</th>
-                    <th className="py-2 pr-3 font-medium">Código</th>
+                    <th className="py-2 pr-3 font-medium">Código / Link</th>
                     <th className="py-2 pr-3 font-medium">Estado</th>
                     <th className="py-2 pr-3 text-right font-medium">Personas</th>
                     <th className="py-2 pr-3 text-right font-medium">Pedidos</th>
                     <th className="py-2 pr-3 text-right font-medium">Ventas</th>
+                    <th className="py-2 pr-3 text-right font-medium">Comisión a liquidar</th>
                     {puedeGestionar && <th className="py-2 font-medium" />}
                   </tr>
                 </thead>
@@ -116,7 +130,11 @@ export default async function PaginaEmbajadores() {
                         </Link>
                         <p className="texto-suave cifras text-xs">{e.telefono}</p>
                       </td>
-                      <td className="cifras py-2.5 pr-3 text-xs">{e.codigo}</td>
+                      <td className="py-2.5 pr-3">
+                        <span className="cifras text-xs">{e.codigo}</span>
+                        <span className="mx-1.5 text-xs">·</span>
+                        <QrEmbajador url={`${urlTienda}/?ref=${e.codigo}`} alias={e.alias ?? e.nombre ?? e.codigo} />
+                      </td>
                       <td className="py-2.5 pr-3">
                         <Etiqueta tono={TONO[e.estado] ?? 'neutro'}>
                           {ESTADOS_EMBAJADOR.find((s) => s.valor === e.estado)?.texto ?? e.estado}
@@ -125,6 +143,20 @@ export default async function PaginaEmbajadores() {
                       <td className="cifras py-2.5 pr-3 text-right">{numero(e.personas)}</td>
                       <td className="cifras py-2.5 pr-3 text-right">{numero(e.pedidos)}</td>
                       <td className="cifras py-2.5 pr-3 text-right font-medium">{pesos(e.ventas)}</td>
+                      <td className="py-2.5 pr-3 text-right">
+                        {e.comisionPorPedidoCop ? (
+                          <>
+                            <span className={`cifras ${e.comisionPendienteCop > 0 ? 'font-medium text-amber-500' : ''}`}>
+                              {pesos(e.comisionPendienteCop)}
+                            </span>
+                            {puedeGestionar && (
+                              <LiquidarComision id={e.id} pendienteCop={e.comisionPendienteCop} />
+                            )}
+                          </>
+                        ) : (
+                          <span className="texto-suave text-xs">—</span>
+                        )}
+                      </td>
                       {puedeGestionar && (
                         <td className="py-2.5 text-right">
                           <EditorEmbajador
@@ -135,6 +167,7 @@ export default async function PaginaEmbajadores() {
                               codigo: e.codigo,
                               estado: e.estado,
                               puntosPorPedido: e.puntosPorPedido,
+                              comisionPorPedidoCop: e.comisionPorPedidoCop,
                               seguidores: e.seguidores,
                             }}
                             candidatos={[]}

@@ -14,6 +14,7 @@ import {
   redemptions,
   rewards,
   pointTransactions,
+  consumerReviews,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
@@ -374,6 +375,102 @@ export async function ajustarPuntos(datos: {
     );
   }).then((r) => {
     if (r.ok) revalidatePath('/comensales');
+    return r;
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Compensación por un fallo de calidad
+// -----------------------------------------------------------------------------
+
+/** Nombre fijo del premio de disculpa. find-or-create: no hace falta sembrarlo aparte. */
+const NOMBRE_COMPENSACION = 'Disculpa ROYS';
+
+/**
+ * Emite un cupón de compensación por una alerta de calidad confirmada.
+ *
+ * NO usa emitirCanje(): esto no lo paga el comensal con sus puntos, lo paga
+ * la casa. `puntosGastados` se guarda en 0 y el saldo de puntos del comensal
+ * no se toca en absoluto — un cupón que "cuesta puntos" a quien recibió un
+ * producto defectuoso sería una disculpa que además le sale cara.
+ */
+export async function emitirCompensacion(datos: {
+  consumerId: string;
+  motivo: string;
+  reviewId?: string;
+}): Promise<Resultado<{ codigo: string; expiraEn: Date }>> {
+  return ejecutar('emitirCompensacion', async () => {
+    const actor = await exigir('resenas.moderar');
+    if (!datos.motivo.trim()) throw new Error('Indica el motivo de la compensación');
+
+    return conBaseDeDatos(async (db) =>
+      db.transaction(async (tx) => {
+        let [premio] = await tx.select().from(rewards).where(eq(rewards.nombre, NOMBRE_COMPENSACION)).limit(1);
+        if (!premio) {
+          [premio] = await tx
+            .insert(rewards)
+            .values({
+              nombre: NOMBRE_COMPENSACION,
+              descripcion: 'Compensación por una experiencia que no estuvo a la altura. La casa invita.',
+              tipo: 'producto',
+              // 0 puntos: no es un premio del catálogo normal, es una
+              // disculpa. No aparece como "gratis" en la tienda porque nadie
+              // lo canjea desde ahí — solo lo emite el equipo, desde aquí.
+              costePuntos: 0,
+              diasValidez: 60,
+              activo: false,
+            })
+            .returning();
+        }
+
+        const comensal = await tx
+          .select({ id: b2cConsumers.id })
+          .from(b2cConsumers)
+          .where(eq(b2cConsumers.id, datos.consumerId))
+          .limit(1);
+        if (!comensal[0]) throw new Error('El comensal no existe');
+
+        const codigo = generarCodigo();
+        const expiraEn = new Date(Date.now() + premio.diasValidez * 86_400_000);
+
+        const [canje] = await tx
+          .insert(redemptions)
+          .values({
+            consumerId: datos.consumerId,
+            rewardId: premio.id,
+            codigo,
+            puntosGastados: 0,
+            expiraEn,
+          })
+          .returning();
+
+        if (datos.reviewId) {
+          await tx
+            .update(consumerReviews)
+            .set({
+              atributos: sql`
+                COALESCE(${consumerReviews.atributos}, '{}'::jsonb) ||
+                ${JSON.stringify({
+                  _compensacionCodigo: codigo,
+                  _compensacionMotivo: datos.motivo.trim(),
+                  _compensacionPor: actor.email,
+                  _compensacionEn: new Date().toISOString(),
+                })}::jsonb
+              `,
+            })
+            .where(eq(consumerReviews.id, datos.reviewId));
+        }
+
+        log.info('Compensación emitida', {
+          ruta: '/acciones/canjes',
+          detalle: [actor.email, datos.consumerId, codigo],
+        });
+
+        return { codigo, expiraEn };
+      })
+    );
+  }).then((r) => {
+    if (r.ok) { revalidatePath('/resenas'); revalidatePath('/premios'); }
     return r;
   });
 }

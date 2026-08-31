@@ -167,6 +167,90 @@ export async function tomarChat(datos: {
   });
 }
 
+/**
+ * Cierra o reabre una conversación.
+ *
+ * "Cerrada" es una etiqueta operativa, no un estado técnico: no cambia si se
+ * puede escribir texto libre —eso lo decide solo la ventana de 24 h de Meta—,
+ * solo saca la conversación de la vista de "por atender" cuando ya no hace
+ * falta seguir mirándola.
+ */
+export async function cerrarChat(datos: { conversationId: string; cerrar: boolean }): Promise<Resultado> {
+  return ejecutar('cerrarChat', async () => {
+    await exigir('campanas.probar');
+
+    await conBaseDeDatos((db) =>
+      db
+        .update(chatConversations)
+        .set({
+          // Al reabrir vuelve a 'bot': si estuviera en 'humano' seguiría
+          // asignada a quien la cerró, que puede llevar días sin mirarla.
+          estado: datos.cerrar ? 'cerrada' : 'bot',
+          asignadoA: datos.cerrar ? null : undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(chatConversations.id, datos.conversationId))
+    );
+
+    return undefined;
+  }).then((r) => {
+    if (r.ok) revalidatePath('/bandeja');
+    return r;
+  });
+}
+
+/**
+ * Reactivación por Web Push cuando la ventana de WhatsApp está cerrada.
+ *
+ * Fuera de la ventana de 24 h no se le puede escribir texto libre por
+ * WhatsApp, y una plantilla de Meta es un trámite para un simple "¿sigues
+ * ahí?". Si el comensal tiene la tienda instalada, esto llega gratis y de
+ * inmediato — y si contesta, la ventana de WhatsApp se vuelve a abrir sola.
+ */
+export async function enviarPushReactivacion(conversationId: string): Promise<Resultado<{ entregados: number }>> {
+  return ejecutar('enviarPushReactivacion', async () => {
+    const actor = await exigir('campanas.probar');
+
+    const conversacion = await conBaseDeDatos(async (db) => {
+      const [c] = await db
+        .select({ consumerId: chatConversations.consumerId, nombre: b2cConsumers.fullName })
+        .from(chatConversations)
+        .leftJoin(b2cConsumers, eq(b2cConsumers.id, chatConversations.consumerId))
+        .where(eq(chatConversations.id, conversationId))
+        .limit(1);
+      return c;
+    });
+
+    if (!conversacion) throw new Error('Esa conversación no existe');
+    if (!conversacion.consumerId) {
+      throw new Error('Este número no está registrado como comensal, no tiene notificaciones que activar');
+    }
+
+    const r = await enviarPush(conversacion.consumerId, {
+      titulo: 'Roys By Roys',
+      cuerpo: conversacion.nombre
+        ? `${conversacion.nombre}, tenemos algo pendiente contigo. Escríbenos.`
+        : 'Tenemos algo pendiente contigo. Escríbenos.',
+      url: '/cuenta',
+      etiqueta: 'reactivacion-chat',
+    });
+
+    if (r.error) throw new Error(r.error);
+    if (r.sinDispositivos || r.entregados === 0) {
+      throw new Error(
+        'Este comensal no tiene notificaciones activadas, o ya no son válidas. No se puede reactivar por este canal.'
+      );
+    }
+
+    log.info('Push de reactivación enviado', {
+      ruta: '/acciones/whatsapp',
+      detalle: [actor.email, conversationId, `${r.entregados} dispositivo(s)`],
+    });
+
+    return { entregados: r.entregados };
+  });
+}
+
 /** Marca la conversación como leída, también en el móvil del comensal. */
 export async function marcarChatLeido(conversationId: string): Promise<Resultado> {
   return ejecutar('marcarChatLeido', async () => {

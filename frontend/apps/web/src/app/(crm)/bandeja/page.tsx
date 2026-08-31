@@ -5,6 +5,7 @@ import { puede, rolActual } from '@/lib/permisos';
 import { telefonoLegible } from '@/lib/whatsapp/config';
 import { Responder } from './Responder';
 import { EstadoWhatsApp } from './EstadoWhatsApp';
+import { FichaComensal } from './FichaComensal';
 import {
   AvisoDegradado,
   Etiqueta,
@@ -41,8 +42,11 @@ export default async function PaginaBandeja({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const p = await searchParams;
+  const filtro = p.estado === 'sin_atender' || p.estado === 'seguimiento' || p.estado === 'cerrada'
+    ? p.estado
+    : undefined;
 
-  const [lista, rol] = await Promise.all([listarConversaciones(), rolActual()]);
+  const [lista, rol] = await Promise.all([listarConversaciones(filtro), rolActual()]);
   const { filas, totales } = lista.datos;
 
   const abierto = p.chat ?? filas[0]?.id ?? null;
@@ -58,7 +62,7 @@ export default async function PaginaBandeja({
 
       <EstadoWhatsApp puedeVer={puede(rol, 'campanas.editar')} />
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metrica etiqueta="Conversaciones" valor={numero(totales.total)} />
         <Metrica
           etiqueta="Sin atender"
@@ -70,9 +74,33 @@ export default async function PaginaBandeja({
           valor={numero(totales.abiertas)}
           detalle="se les puede escribir texto libre"
         />
+        <Metrica etiqueta="Cerradas" valor={numero(totales.cerradas)} tono="neutro" />
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]">
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        {[
+          { valor: undefined, texto: 'Abiertas' },
+          { valor: 'sin_atender', texto: 'Sin atender' },
+          { valor: 'seguimiento', texto: 'En seguimiento' },
+          { valor: 'cerrada', texto: 'Cerradas' },
+        ].map((f) => (
+          <Link
+            key={f.texto}
+            href={f.valor ? `/bandeja?estado=${f.valor}` : '/bandeja'}
+            className={`rounded-md border px-3 py-1 ${
+              filtro === f.valor ? 'border-orange-500 text-orange-500' : 'borde-tema'
+            }`}
+          >
+            {f.texto}
+          </Link>
+        ))}
+      </div>
+
+      <div
+        className={`mt-4 grid gap-4 ${
+          hilo?.conversacion.comensalId ? 'lg:grid-cols-[18rem_1fr_16rem]' : 'lg:grid-cols-[20rem_1fr]'
+        }`}
+      >
         {/* --- Lista de conversaciones --- */}
         <Tarjeta className="lg:max-h-[38rem] lg:overflow-y-auto">
           {filas.length === 0 ? (
@@ -91,7 +119,7 @@ export default async function PaginaBandeja({
                 return (
                   <li key={c.id}>
                     <Link
-                      href={`/bandeja?chat=${c.id}`}
+                      href={`/bandeja?chat=${c.id}${filtro ? `&estado=${filtro}` : ''}`}
                       className={`block py-2.5 ${activa ? 'text-orange-500' : ''}`}
                     >
                       <div className="flex items-baseline justify-between gap-2">
@@ -204,10 +232,16 @@ export default async function PaginaBandeja({
                 restanteInicial={horasRestantes(hilo.conversacion.ventanaExpiraEn)}
                 estado={hilo.conversacion.estado}
                 puedeResponder={puedeResponder}
+                tieneComensal={Boolean(hilo.conversacion.comensalId)}
               />
             </>
           )}
         </Tarjeta>
+
+        {/* --- Contexto del comensal: solo si hay a quién mostrar --- */}
+        {hilo?.conversacion.comensalId && (
+          <FichaComensal consumerId={hilo.conversacion.comensalId} />
+        )}
       </div>
     </>
   );

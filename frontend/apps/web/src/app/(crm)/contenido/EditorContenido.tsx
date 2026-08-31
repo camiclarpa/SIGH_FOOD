@@ -10,6 +10,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { guardarContenido } from '@/lib/acciones/contenido';
 import { LINEAS_PRODUCTO } from '@/lib/catalogo-b2c';
+import { TIPOS_CONTENIDO, CANALES_CONTENIDO, ESTADOS_CONTENIDO } from '@/lib/catalogo-contenido';
 
 export interface Pieza {
   id: string;
@@ -23,41 +24,58 @@ export interface Pieza {
   url: string | null;
   alcance: number | null;
   interacciones: number | null;
+  loteId: string | null;
+  mediaKey: string | null;
+  mediaTipo: string | null;
 }
 
-export const TIPOS = [
-  { valor: 'video', texto: 'Vídeo corto' },
-  { valor: 'guia', texto: 'Guía' },
-  { valor: 'reto', texto: 'Reto' },
-  { valor: 'storytelling', texto: 'Storytelling' },
-  { valor: 'receta', texto: 'Receta' },
-  { valor: 'ugc', texto: 'Contenido de un cliente' },
-];
+const TIPOS = TIPOS_CONTENIDO;
+const CANALES = CANALES_CONTENIDO;
+const ESTADOS = ESTADOS_CONTENIDO;
 
-export const CANALES = [
-  { valor: 'instagram', texto: 'Instagram' },
-  { valor: 'tiktok', texto: 'TikTok' },
-  { valor: 'whatsapp', texto: 'WhatsApp' },
-  { valor: 'vip', texto: 'Comunidad VIP' },
-  { valor: 'web', texto: 'Web' },
-  { valor: 'otro', texto: 'Otro' },
-];
-
-export const ESTADOS = [
-  { valor: 'idea', texto: 'Idea' },
-  { valor: 'produccion', texto: 'En producción' },
-  { valor: 'listo', texto: 'Listo para publicar' },
-  { valor: 'publicado', texto: 'Publicado' },
-  { valor: 'archivado', texto: 'Archivado' },
-];
-
-export function EditorContenido({ pieza }: { pieza?: Pieza }) {
+export function EditorContenido({
+  pieza,
+  lotesDisponibles = [],
+}: {
+  pieza?: Pieza;
+  lotesDisponibles?: Array<{ id: string; codigo: string }>;
+}) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const formulario = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [estado, setEstado] = useState(pieza?.estado ?? 'idea');
   const [enCurso, iniciar] = useTransition();
 
+  // El archivo se sube ANTES de guardar la pieza, al elegirlo: así el botón
+  // Guardar solo tiene que mandar la clave que ya quedó en R2, no el archivo
+  // entero como parte del formulario.
+  const [subiendo, setSubiendo] = useState(false);
+  const [media, setMedia] = useState<{ key: string; tipo: string } | null>(
+    pieza?.mediaKey ? { key: pieza.mediaKey, tipo: pieza.mediaTipo ?? '' } : null
+  );
+
   const editando = Boolean(pieza);
+
+  async function alElegirArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    setSubiendo(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('archivo', archivo);
+      const r = await fetch('/api/contenido/subir', { method: 'POST', body: form });
+      const d = (await r.json()) as { ok: boolean; key?: string; tipo?: string; error?: string };
+      if (!r.ok || !d.ok || !d.key) throw new Error(d.error ?? 'No se pudo subir el archivo');
+      setMedia({ key: d.key, tipo: d.tipo ?? archivo.type });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir el archivo');
+      e.target.value = '';
+    } finally {
+      setSubiendo(false);
+    }
+  }
 
   function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -76,10 +94,18 @@ export function EditorContenido({ pieza }: { pieza?: Pieza }) {
         url: String(f.get('url') ?? ''),
         alcance: String(f.get('alcance') ?? ''),
         interacciones: String(f.get('interacciones') ?? ''),
+        loteId: String(f.get('loteId') ?? ''),
+        mediaKey: media?.key,
+        mediaTipo: media?.tipo,
       });
 
-      if (r.ok) { setError(null); dialogo.current?.close(); }
-      else setError(r.error ?? 'No se pudo guardar');
+      if (r.ok) {
+        setError(null);
+        dialogo.current?.close();
+        if (!editando) { formulario.current?.reset(); setMedia(null); }
+      } else {
+        setError(r.error ?? 'No se pudo guardar');
+      }
     });
   }
 
@@ -90,7 +116,12 @@ export function EditorContenido({ pieza }: { pieza?: Pieza }) {
     <>
       <button
         type="button"
-        onClick={() => { setError(null); setEstado(pieza?.estado ?? 'idea'); dialogo.current?.showModal(); }}
+        onClick={() => {
+          setError(null);
+          setEstado(pieza?.estado ?? 'idea');
+          if (!editando) { formulario.current?.reset(); setMedia(null); }
+          dialogo.current?.showModal();
+        }}
         className={
           editando
             ? 'texto-suave text-xs hover:underline'
@@ -105,7 +136,7 @@ export function EditorContenido({ pieza }: { pieza?: Pieza }) {
         className="superficie w-[min(34rem,92vw)] rounded-xl border borde-tema p-0 backdrop:bg-black/60"
         onClose={() => setError(null)}
       >
-        <form onSubmit={enviar} className="p-5">
+        <form ref={formulario} onSubmit={enviar} className="p-5">
           <h2 className="mb-4 text-base font-semibold">
             {editando ? 'Editar pieza' : 'Nueva pieza de contenido'}
           </h2>
@@ -162,11 +193,53 @@ export function EditorContenido({ pieza }: { pieza?: Pieza }) {
               </div>
             </div>
 
+            {lotesDisponibles.length > 0 && (
+              <div>
+                <label className={etiqueta} htmlFor="loteId">Lote del que habla</label>
+                <select id="loteId" name="loteId" defaultValue={pieza?.loteId ?? ''} className={campo}>
+                  <option value="">Sin lote específico</option>
+                  {lotesDisponibles.map((l) => (
+                    <option key={l.id} value={l.id}>{l.codigo}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className={etiqueta} htmlFor="archivo">Archivo</label>
+              <input
+                id="archivo" type="file" accept="image/*,video/mp4,video/quicktime,video/webm"
+                onChange={alElegirArchivo} disabled={subiendo}
+                className={`${campo} file:mr-3 file:rounded file:border-0 file:bg-orange-600 file:px-3 file:py-1 file:text-white`}
+              />
+              {subiendo && <p className="texto-suave mt-1 text-xs">Subiendo…</p>}
+              {media && !subiendo && (
+                <div className="mt-2 flex items-center gap-2">
+                  {media.tipo.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/contenido/media/${media.key}`}
+                      alt="" className="h-14 w-14 rounded-md border borde-tema object-cover"
+                    />
+                  ) : (
+                    <span className="texto-suave text-xs">Vídeo subido ✓</span>
+                  )}
+                  <button
+                    type="button" onClick={() => setMedia(null)}
+                    className="texto-suave text-xs hover:underline"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )}
+              <p className="texto-suave mt-1 text-xs">Imagen o vídeo corto, hasta 25 MB. Opcional.</p>
+            </div>
+
             <div>
               <label className={etiqueta} htmlFor="url">Enlace</label>
               <input
                 id="url" name="url" type="url" maxLength={500} defaultValue={pieza?.url ?? ''}
-                placeholder="Donde vive la pieza o el reel publicado"
+                placeholder="Donde vive la pieza ya publicada (el reel, el post)"
                 className={campo}
               />
             </div>
@@ -220,7 +293,7 @@ export function EditorContenido({ pieza }: { pieza?: Pieza }) {
             </button>
             <button
               type="submit"
-              disabled={enCurso}
+              disabled={enCurso || subiendo}
               className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
             >
               {enCurso ? 'Guardando…' : 'Guardar'}

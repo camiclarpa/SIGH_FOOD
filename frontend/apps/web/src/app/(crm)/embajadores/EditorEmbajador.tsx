@@ -12,6 +12,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { guardarEmbajador } from '@/lib/acciones/contenido';
+import { ESTADOS_EMBAJADOR as _ESTADOS_EMBAJADOR } from '@/lib/catalogo-contenido';
 
 export interface Embajador {
   id: string;
@@ -20,14 +21,11 @@ export interface Embajador {
   codigo: string;
   estado: string;
   puntosPorPedido: number;
+  comisionPorPedidoCop: number | null;
   seguidores: number | null;
 }
 
-export const ESTADOS_EMBAJADOR = [
-  { valor: 'activo', texto: 'Activo' },
-  { valor: 'pausado', texto: 'Pausado' },
-  { valor: 'retirado', texto: 'Retirado' },
-];
+const ESTADOS_EMBAJADOR = _ESTADOS_EMBAJADOR;
 
 /** Sugiere un código legible a partir del nombre. */
 function sugerir(nombre: string): string {
@@ -52,6 +50,7 @@ export function EditorEmbajador({
   nombreActual?: string | null;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const formulario = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [codigo, setCodigo] = useState(embajador?.codigo ?? '');
   const [enCurso, iniciar] = useTransition();
@@ -78,12 +77,18 @@ export function EditorEmbajador({
         codigo: String(f.get('codigo') ?? ''),
         estado: String(f.get('estado') ?? 'activo'),
         puntosPorPedido: String(f.get('puntosPorPedido') ?? '0'),
+        comisionPorPedidoCop: String(f.get('comisionPorPedidoCop') ?? ''),
         seguidores: String(f.get('seguidores') ?? ''),
         notas: String(f.get('notas') ?? ''),
       });
 
-      if (r.ok) { setError(null); dialogo.current?.close(); }
-      else setError(r.error ?? 'No se pudo guardar');
+      if (r.ok) {
+        setError(null);
+        dialogo.current?.close();
+        if (!editando) formulario.current?.reset();
+      } else {
+        setError(r.error ?? 'No se pudo guardar');
+      }
     });
   }
 
@@ -94,7 +99,12 @@ export function EditorEmbajador({
     <>
       <button
         type="button"
-        onClick={() => { setError(null); setCodigo(embajador?.codigo ?? ''); dialogo.current?.showModal(); }}
+        onClick={() => {
+          setError(null);
+          setCodigo(embajador?.codigo ?? '');
+          if (!editando) formulario.current?.reset();
+          dialogo.current?.showModal();
+        }}
         disabled={!editando && candidatos.length === 0}
         className={
           editando
@@ -110,7 +120,7 @@ export function EditorEmbajador({
         className="superficie w-[min(32rem,92vw)] rounded-xl border borde-tema p-0 backdrop:bg-black/60"
         onClose={() => setError(null)}
       >
-        <form onSubmit={enviar} className="p-5">
+        <form ref={formulario} onSubmit={enviar} className="p-5">
           <h2 className="mb-4 text-base font-semibold">
             {editando ? `Editar a ${nombreActual ?? 'este embajador'}` : 'Nuevo embajador'}
           </h2>
@@ -181,12 +191,24 @@ export function EditorEmbajador({
                 <p className="texto-suave mt-1 text-xs">0 = solo visibilidad</p>
               </div>
               <div>
-                <label className={etiqueta} htmlFor="seguidores">Seguidores</label>
+                <label className={etiqueta} htmlFor="comisionPorPedidoCop">Comisión (COP) por pedido</label>
                 <input
-                  id="seguidores" name="seguidores" type="number" min={0}
-                  defaultValue={embajador?.seguidores ?? ''} placeholder="Opcional" className={campo}
+                  id="comisionPorPedidoCop" name="comisionPorPedidoCop" type="number" min={0} step={100}
+                  defaultValue={embajador?.comisionPorPedidoCop ?? ''} placeholder="Sin comisión en dinero"
+                  className={campo}
                 />
+                <p className="texto-suave mt-1 text-xs">
+                  Se calcula, no se paga aquí: el dinero se le entrega fuera del sistema.
+                </p>
               </div>
+            </div>
+
+            <div>
+              <label className={etiqueta} htmlFor="seguidores">Seguidores</label>
+              <input
+                id="seguidores" name="seguidores" type="number" min={0}
+                defaultValue={embajador?.seguidores ?? ''} placeholder="Opcional" className={campo}
+              />
             </div>
 
             <div>

@@ -3,6 +3,7 @@ import { resumenResenas } from '@/lib/consultas-b2c';
 import { etiquetaLinea } from '@/lib/fidelizacion';
 import { puede, rolActual } from '@/lib/permisos';
 import { ResolverAlerta } from './ResolverAlerta';
+import { CompensarComensal } from './CompensarComensal';
 import { AltaLote, RetirarLote } from './Lotes';
 import { lotesConCalidad, mediasPorAtributo, repartoPorCategoria } from '@/lib/calidad';
 import { catalogoSimple } from '@/lib/calidad-catalogo';
@@ -387,7 +388,12 @@ export default async function PaginaResenas({
                       </p>
                     </div>
 
-                    {r.alertaCalidad && <ResolverAlerta id={r.id} puedeModerar={puedeModerar} />}
+                    {r.alertaCalidad && (
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <ResolverAlerta id={r.id} puedeModerar={puedeModerar} />
+                        <CompensarComensal reviewId={r.id} consumerId={r.comensalId} puedeModerar={puedeModerar} />
+                      </div>
+                    )}
                   </div>
                 </li>
               ))}

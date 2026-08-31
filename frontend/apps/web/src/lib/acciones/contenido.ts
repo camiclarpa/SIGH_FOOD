@@ -9,12 +9,13 @@
 // invocable por quien sepa hacerlo.
 
 import { revalidatePath } from 'next/cache';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
   activaciones,
   b2cConsumers,
   contenidos,
   embajadores,
+  pedidos,
 } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { log } from '@sighfood/domain/lib/observabilidad';
@@ -65,6 +66,9 @@ export async function guardarContenido(datos: {
   url?: string;
   alcance?: string;
   interacciones?: string;
+  loteId?: string;
+  mediaKey?: string;
+  mediaTipo?: string;
 }): Promise<Resultado<{ id: string }>> {
   return ejecutar('guardarContenido', async () => {
     const actor = await exigir('contenido.gestionar');
@@ -82,6 +86,10 @@ export async function guardarContenido(datos: {
       url: texto(datos.url, 500),
       alcance: entero(datos.alcance),
       interacciones: entero(datos.interacciones),
+      // Cadena vacía del <select> de lote significa "sin lote", no un id inválido.
+      loteId: texto(datos.loteId, 40),
+      mediaKey: texto(datos.mediaKey, 300),
+      mediaTipo: texto(datos.mediaTipo, 100),
       updatedAt: new Date(),
       /*
         La fecha de publicación la pone el sistema al pasar a 'publicado', y no
@@ -225,6 +233,7 @@ export async function guardarEmbajador(datos: {
   codigo: string;
   estado: string;
   puntosPorPedido?: string;
+  comisionPorPedidoCop?: string;
   seguidores?: string;
   notas?: string;
 }): Promise<Resultado<{ id: string }>> {
@@ -252,6 +261,7 @@ export async function guardarEmbajador(datos: {
       codigo,
       estado: datos.estado as never,
       puntosPorPedido: entero(datos.puntosPorPedido) ?? 0,
+      comisionPorPedidoCop: entero(datos.comisionPorPedidoCop),
       seguidores: entero(datos.seguidores),
       notas: texto(datos.notas, 2000),
       updatedAt: new Date(),
@@ -291,5 +301,57 @@ export async function guardarEmbajador(datos: {
       }
       throw e;
     }
+  });
+}
+
+/**
+ * Marca como pagada la comisión generada hasta ahora.
+ *
+ * No mueve dinero: el pago real —transferencia, efectivo— ocurre fuera del
+ * sistema. Esto solo deja constancia de que ya se hizo, para que la próxima
+ * vez que se calcule lo pendiente no cuente otra vez lo ya liquidado.
+ */
+export async function liquidarComisionEmbajador(id: string): Promise<Resultado<{ liquidadoCop: number }>> {
+  return ejecutar('liquidarComisionEmbajador', async () => {
+    const actor = await exigir('embajadores.gestionar');
+
+    return conBaseDeDatos(async (db) => {
+      const [e] = await db
+        .select({
+          codigo: embajadores.codigo,
+          comisionPorPedidoCop: embajadores.comisionPorPedidoCop,
+          comisionLiquidadaCop: embajadores.comisionLiquidadaCop,
+        })
+        .from(embajadores)
+        .where(eq(embajadores.id, id))
+        .limit(1);
+      if (!e) throw new Error('Ese embajador no existe');
+      if (!e.comisionPorPedidoCop) throw new Error('Este embajador no tiene una comisión en pesos configurada');
+
+      const [{ pedidosTraidos }] = await db
+        .select({ pedidosTraidos: sql<number>`count(*)::int` })
+        .from(pedidos)
+        .where(and(eq(pedidos.referidoPor, e.codigo), eq(pedidos.estado, 'entregado')));
+
+      const generadoTotal = Number(pedidosTraidos) * e.comisionPorPedidoCop;
+      const liquidadoCop = generadoTotal - e.comisionLiquidadaCop;
+
+      if (liquidadoCop <= 0) throw new Error('No hay comisión pendiente de liquidar');
+
+      await db
+        .update(embajadores)
+        .set({ comisionLiquidadaCop: generadoTotal, comisionLiquidadaEn: new Date(), updatedAt: new Date() })
+        .where(eq(embajadores.id, id));
+
+      log.info('Comisión de embajador liquidada', {
+        ruta: '/acciones/contenido',
+        detalle: [actor.email, e.codigo, `$${liquidadoCop}`],
+      });
+
+      return { liquidadoCop };
+    });
+  }).then((r) => {
+    if (r.ok) revalidatePath('/embajadores');
+    return r;
   });
 }

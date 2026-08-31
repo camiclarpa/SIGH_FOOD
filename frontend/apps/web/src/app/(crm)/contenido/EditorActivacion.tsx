@@ -11,6 +11,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { guardarActivacion } from '@/lib/acciones/contenido';
+import { TIPOS_ACTIVACION as _TIPOS_ACTIVACION, ESTADOS_ACTIVACION as _ESTADOS_ACTIVACION } from '@/lib/catalogo-contenido';
 
 export interface Activacion {
   id: string;
@@ -29,20 +30,8 @@ export interface Activacion {
   notas?: string | null;
 }
 
-export const TIPOS_ACTIVACION = [
-  { valor: 'popup', texto: 'Pop-up' },
-  { valor: 'degustacion', texto: 'Degustación' },
-  { valor: 'evento', texto: 'Evento' },
-  { valor: 'feria', texto: 'Feria' },
-  { valor: 'alianza', texto: 'Alianza' },
-];
-
-export const ESTADOS_ACTIVACION = [
-  { valor: 'planificada', texto: 'Planificada' },
-  { valor: 'confirmada', texto: 'Confirmada' },
-  { valor: 'realizada', texto: 'Realizada' },
-  { valor: 'cancelada', texto: 'Cancelada' },
-];
+const TIPOS_ACTIVACION = _TIPOS_ACTIVACION;
+const ESTADOS_ACTIVACION = _ESTADOS_ACTIVACION;
 
 /** Fecha en el formato que espera <input type="datetime-local">. */
 function paraInput(fecha: Date | string | undefined): string {

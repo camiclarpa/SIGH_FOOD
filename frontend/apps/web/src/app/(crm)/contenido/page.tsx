@@ -10,11 +10,12 @@
 // en el evento—, y separarlas obligaría a saltar entre pantallas para preparar
 // la misma semana.
 
-import { listarContenidos, listarActivaciones, qrParaActivaciones } from '@/lib/consultas-contenido';
+import { listarContenidos, listarActivaciones, qrParaActivaciones, lotesDisponibles } from '@/lib/consultas-contenido';
 import { puede, rolActual } from '@/lib/permisos';
 import { etiquetaLinea } from '@/lib/catalogo-b2c';
-import { EditorContenido, TIPOS, CANALES, ESTADOS } from './EditorContenido';
-import { EditorActivacion, TIPOS_ACTIVACION, ESTADOS_ACTIVACION } from './EditorActivacion';
+import { EditorContenido } from './EditorContenido';
+import { EditorActivacion } from './EditorActivacion';
+import { TIPOS_CONTENIDO as TIPOS, CANALES_CONTENIDO as CANALES, ESTADOS_CONTENIDO as ESTADOS, TIPOS_ACTIVACION, ESTADOS_ACTIVACION } from '@/lib/catalogo-contenido';
 import { Etiqueta, Metrica, Tarjeta, Titulo, Vacio, desde, numero } from '@/components/ui';
 
 export const metadata = { title: 'Contenido · SIGH_FOOD' };
@@ -40,10 +41,11 @@ const TONO_ESTADO: Record<string, 'exito' | 'aviso' | 'info' | 'neutro' | 'riesg
 };
 
 export default async function PaginaContenido() {
-  const [biblioteca, eventos, qr, rol] = await Promise.all([
+  const [biblioteca, eventos, qr, lotes, rol] = await Promise.all([
     listarContenidos(),
     listarActivaciones(),
     qrParaActivaciones(),
+    lotesDisponibles(),
     rolActual(),
   ]);
 
@@ -129,6 +131,17 @@ export default async function PaginaContenido() {
                         {pesos(a.ventasCOP)} vendidos · {pesos(a.costeCOP)} de coste
                       </p>
                     )}
+                    {/*
+                      Esto NO es lo que se tecleó a mano: son pedidos reales de
+                      quien escaneó el QR de este evento, cruzados en el
+                      momento de leer. Es la cifra trazable, no la estimada.
+                    */}
+                    {a.qrCodeId && (a.comensalesAtribuidosQr > 0 || a.ventasAtribuidasQrCOP > 0) && (
+                      <p className="texto-suave cifras mt-0.5 text-xs">
+                        Trazable por QR: {numero(a.comensalesAtribuidosQr)} comensales ·{' '}
+                        {pesos(a.ventasAtribuidasQrCOP)} en pedidos reales
+                      </p>
+                    )}
                   </div>
                   {puedeActivaciones && (
                     <EditorActivacion
@@ -163,7 +176,7 @@ export default async function PaginaContenido() {
       <div className="mt-4">
         <Tarjeta
           titulo="Biblioteca de contenido sensorial"
-          accion={puedeContenido ? <EditorContenido /> : undefined}
+          accion={puedeContenido ? <EditorContenido lotesDisponibles={lotes} /> : undefined}
         >
           {biblioteca.filas.length === 0 ? (
             <Vacio>
@@ -174,6 +187,13 @@ export default async function PaginaContenido() {
             <ul className="divide-y borde-tema">
               {biblioteca.filas.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                  {c.mediaKey && c.mediaTipo?.startsWith('image/') && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/contenido/media/${c.mediaKey}`}
+                      alt="" className="h-12 w-12 shrink-0 rounded-md border borde-tema object-cover"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {c.url ? (
@@ -192,11 +212,21 @@ export default async function PaginaContenido() {
                         {texto(ESTADOS, c.estado)}
                       </Etiqueta>
                       <Etiqueta tono="info">{texto(CANALES, c.canal)}</Etiqueta>
+                      {c.mediaKey && c.mediaTipo?.startsWith('video/') && (
+                        <a
+                          href={`/api/contenido/media/${c.mediaKey}`}
+                          target="_blank" rel="noreferrer noopener"
+                          className="text-xs text-orange-600 hover:underline dark:text-orange-400"
+                        >
+                          ▶ vídeo
+                        </a>
+                      )}
                     </div>
                     {c.gancho && <p className="texto-suave mt-0.5 truncate text-xs italic">«{c.gancho}»</p>}
                     <p className="texto-suave mt-0.5 truncate text-xs">
                       {texto(TIPOS, c.tipo)}
                       {c.lineaProducto ? ` · ${etiquetaLinea(c.lineaProducto)}` : ' · transversal'}
+                      {c.loteCodigo ? ` · lote ${c.loteCodigo}` : ''}
                       {c.publicadoEn ? ` · publicado ${desde(c.publicadoEn)}` : ''}
                       {c.alcance !== null ? ` · ${numero(c.alcance)} de alcance` : ''}
                       {c.interacciones !== null ? ` · ${numero(c.interacciones)} interacciones` : ''}
@@ -216,7 +246,11 @@ export default async function PaginaContenido() {
                         url: c.url,
                         alcance: c.alcance,
                         interacciones: c.interacciones,
+                        loteId: c.loteId,
+                        mediaKey: c.mediaKey,
+                        mediaTipo: c.mediaTipo,
                       }}
+                      lotesDisponibles={lotes}
                     />
                   )}
                 </li>

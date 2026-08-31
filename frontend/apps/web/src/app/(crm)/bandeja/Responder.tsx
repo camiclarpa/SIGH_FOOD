@@ -9,7 +9,7 @@
 // con un 131047 gasta la paciencia del asesor y deteriora la calidad del número.
 
 import { useEffect, useState, useTransition } from 'react';
-import { responderChat, tomarChat } from '@/lib/acciones/whatsapp';
+import { responderChat, tomarChat, cerrarChat, enviarPushReactivacion } from '@/lib/acciones/whatsapp';
 import { sugerirRespuesta } from '@/lib/acciones/agente';
 
 export function Responder({
@@ -19,13 +19,32 @@ export function Responder({
   restanteInicial,
   estado,
   puedeResponder,
+  /** Solo tiene sentido reactivar a quien ya está registrado como comensal. */
+  tieneComensal,
 }: {
   conversationId: string;
   ventanaExpiraEn: string | null;
   restanteInicial: number | null;
   estado: string;
   puedeResponder: boolean;
+  tieneComensal: boolean;
 }) {
+  const [reactivando, setReactivando] = useState(false);
+  const [avisoReactivacion, setAvisoReactivacion] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+
+  function reactivar() {
+    setReactivando(true);
+    setAvisoReactivacion(null);
+    void enviarPushReactivacion(conversationId)
+      .then((r) => {
+        setAvisoReactivacion(
+          r.ok
+            ? { tipo: 'ok', texto: `Notificación enviada a ${r.datos?.entregados} dispositivo(s).` }
+            : { tipo: 'error', texto: r.error ?? 'No se pudo enviar' }
+        );
+      })
+      .finally(() => setReactivando(false));
+  }
   const [texto, setTexto] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
@@ -104,6 +123,13 @@ export function Responder({
     });
   }
 
+  function alternarCerrado() {
+    iniciar(async () => {
+      const r = await cerrarChat({ conversationId, cerrar: estado !== 'cerrada' });
+      setError(r.ok ? null : r.error ?? 'No se pudo cambiar');
+    });
+  }
+
   if (!puedeResponder) {
     return <p className="texto-suave text-sm">Tu rol no permite responder conversaciones.</p>;
   }
@@ -122,6 +148,15 @@ export function Responder({
           }`}
         >
           {estado === 'humano' ? 'Lo llevas tú · soltar' : 'Tomar el chat'}
+        </button>
+
+        <button
+          type="button"
+          onClick={alternarCerrado}
+          disabled={enCurso}
+          className="rounded-md border borde-tema px-3 py-1 text-xs hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-800"
+        >
+          {estado === 'cerrada' ? 'Reabrir' : 'Cerrar conversación'}
         </button>
 
         {abierta ? (
@@ -183,6 +218,28 @@ export function Responder({
           <strong className="font-semibold">No se puede escribir texto libre.</strong>{' '}
           Meta solo lo permite si el comensal escribió en las últimas 24 horas. Pasado ese
           plazo hay que usar una plantilla aprobada, desde Mensajería.
+
+          {tieneComensal && (
+            <div className="mt-2 border-t border-amber-700/40 pt-2">
+              <button
+                type="button"
+                onClick={reactivar}
+                disabled={reactivando}
+                className="rounded-md border border-amber-600 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-900/30 disabled:opacity-50"
+              >
+                {reactivando ? 'Enviando…' : 'Enviar push de reactivación'}
+              </button>
+              <p className="mt-1 text-[11px] opacity-80">
+                Gratis, va a la tienda instalada en su móvil. Si contesta ahí y vuelve a
+                escribir por WhatsApp, la ventana se abre sola de nuevo.
+              </p>
+              {avisoReactivacion && (
+                <p className={`mt-1 text-[11px] ${avisoReactivacion.tipo === 'ok' ? 'text-green-300' : 'text-red-300'}`}>
+                  {avisoReactivacion.texto}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

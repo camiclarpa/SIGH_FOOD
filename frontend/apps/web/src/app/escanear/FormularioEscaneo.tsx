@@ -9,7 +9,7 @@
 // consentimiento, y devuelve puntos, insignias y nivel. Aquí solo se recogen
 // los datos y se celebra el resultado.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RetoEnMesa } from './RetoEnMesa';
 
 interface Linea {
@@ -52,9 +52,49 @@ const MARIDAJES = [
  * esperar: la persona quiere ver sus puntos YA, y esto se pregunta después,
  * sin bloquear nada si no contesta.
  */
-function PreguntaMaridaje({ momentId }: { momentId: string }) {
+function PreguntaMaridaje({
+  momentId,
+  consumerId,
+  lineaProducto,
+}: {
+  momentId: string;
+  consumerId: string | null;
+  lineaProducto: string | null;
+}) {
   const [elegido, setElegido] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  /*
+    Sugerencia de la IA, aparte del registro del momento.
+
+    Se pide DESPUÉS de que la pantalla ya muestre los puntos ganados —esto
+    puede tardar unos segundos— y en silencio si falla: sin proveedor
+    configurado, o si el modelo tarda demasiado, la pregunta manual de abajo
+    sigue funcionando exactamente igual que sin esto.
+  */
+  const [sugerencia, setSugerencia] = useState<{ bebida: string; porQue: string } | null>(null);
+
+  useEffect(() => {
+    if (!consumerId || !lineaProducto) return;
+    let vigente = true;
+
+    fetch('/api/moments/maridaje', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ consumer_id: consumerId, linea: lineaProducto }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (vigente && d.ok && d.maridaje?.bebida) {
+          setSugerencia({ bebida: d.maridaje.bebida, porQue: d.maridaje.porQue ?? '' });
+        }
+      })
+      .catch(() => {
+        // Silencioso: ver la nota de arriba.
+      });
+
+    return () => { vigente = false; };
+  }, [consumerId, lineaProducto]);
 
   async function elegir(valor: string) {
     if (enviando || elegido) return;
@@ -76,6 +116,12 @@ function PreguntaMaridaje({ momentId }: { momentId: string }) {
 
   return (
     <div className="mt-6 border-t borde-tema pt-5">
+      {sugerencia && (
+        <p className="texto-suave mb-3 text-xs">
+          🤖 Prueba con <strong>{sugerencia.bebida}</strong>
+          {sugerencia.porQue ? ` — ${sugerencia.porQue}` : ''}
+        </p>
+      )}
       <p className="texto-suave mb-3 text-sm">
         {elegido ? '¡Anotado!' : '¿Con qué lo estás disfrutando?'}
       </p>
@@ -198,7 +244,13 @@ export function FormularioEscaneo({ token, lineas }: { token: string; lineas: Li
 
         {/* Va DESPUÉS de la celebración: primero el comensal ve sus puntos, que
             es a lo que vino, y solo entonces se le pregunta el maridaje. */}
-        {estado.momentId && <PreguntaMaridaje momentId={estado.momentId} />}
+        {estado.momentId && (
+          <PreguntaMaridaje
+            momentId={estado.momentId}
+            consumerId={estado.consumerId}
+            lineaProducto={estado.lineaProducto}
+          />
+        )}
 
         {estado.consumerId && (
           <RetoEnMesa

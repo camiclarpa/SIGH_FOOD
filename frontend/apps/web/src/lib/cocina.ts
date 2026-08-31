@@ -22,9 +22,16 @@ import type { EstadoPedido } from '@/lib/estados-pedido';
  * descendente —lo más nuevo primero— es el error clásico: entierra justo lo que
  * hay que atender.
  */
-export async function colaDePedidos(incluirCerrados = false) {
+export async function colaDePedidos(incluirCerrados = false, filtroEstado?: EstadoPedido) {
   return conBaseDeDatos(async (db) => {
     const vivos: EstadoPedido[] = ['recibido', 'confirmado', 'preparando', 'listo', 'en_camino'];
+
+    // Un filtro por estado concreto manda sobre el toggle cola/historial: si
+    // alguien pide "cancelados", da igual si estaba mirando la cola o el
+    // historial, el filtro es la intención más específica.
+    const condicion = filtroEstado
+      ? eq(pedidos.estado, filtroEstado)
+      : incluirCerrados ? undefined : inArray(pedidos.estado, vivos);
 
     const filas = await db
       .select({
@@ -39,9 +46,9 @@ export async function colaDePedidos(incluirCerrados = false) {
       })
       .from(pedidos)
       .leftJoin(accounts, eq(accounts.id, pedidos.accountId))
-      .where(incluirCerrados ? undefined : inArray(pedidos.estado, vivos))
-      .orderBy(incluirCerrados ? desc(pedidos.createdAt) : pedidos.createdAt)
-      .limit(incluirCerrados ? 50 : 100);
+      .where(condicion)
+      .orderBy(incluirCerrados || filtroEstado ? desc(pedidos.createdAt) : pedidos.createdAt)
+      .limit(incluirCerrados || filtroEstado ? 50 : 100);
 
     if (filas.length === 0) return [];
 

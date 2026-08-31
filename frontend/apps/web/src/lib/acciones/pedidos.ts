@@ -152,6 +152,40 @@ export async function avanzarPedido(datos: {
 }
 
 /**
+ * Reenvía el aviso del estado actual del pedido.
+ *
+ * avanzarPedido() ya avisa solo, en automático, cada vez que la cocina mueve
+ * un pedido — esto es para el caso en que ese aviso falló o el comensal dice
+ * no haberlo visto, y hay que insistir sin tener que mover el pedido de
+ * estado para disparar uno nuevo.
+ */
+export async function reenviarAviso(id: string): Promise<Resultado<{ canal: string }>> {
+  return ejecutar('reenviarAviso', async () => {
+    const actor = await exigir('pedidos.avanzar');
+
+    const pedido = await conBaseDeDatos(async (db) => {
+      const [p] = await db.select().from(pedidos).where(eq(pedidos.id, id)).limit(1);
+      return p;
+    });
+    if (!pedido) throw new Error('El pedido no existe');
+
+    const canal = await avisarCambioDeEstado({
+      telefono: pedido.telefono,
+      codigo: pedido.codigo,
+      estado: pedido.estado,
+      consumerId: pedido.consumerId,
+    });
+
+    log.info('Aviso reenviado', {
+      ruta: '/acciones/pedidos',
+      detalle: [actor.email, pedido.codigo, canal],
+    });
+
+    return { canal };
+  });
+}
+
+/**
  * Marca el pago como cobrado.
  *
  * Es un eje distinto del estado del pedido: se puede cobrar antes de preparar o

@@ -32,8 +32,6 @@ const DISPARADORES: Record<string, string> = {
 
 const CANALES: Record<string, string> = {
   whatsapp: 'WhatsApp',
-  email: 'Email',
-  sms: 'SMS',
   push: 'Push',
 };
 
@@ -131,6 +129,41 @@ export default async function PaginaMensajeria() {
         />
       </div>
 
+      {/*
+        No solo cuánto salió gratis, sino si además funciona: de lo que se
+        entregó por cada canal, cuánto se abrió y cuánto convirtió.
+      */}
+      <div className="mt-4">
+        <Tarjeta titulo="Rendimiento por canal">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[28rem] text-sm">
+              <thead className="texto-suave border-b borde-tema text-left text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="pb-2 pr-3 font-medium">Canal</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Entregados</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Apertura</th>
+                  <th className="pb-2 text-right font-medium">Conversión</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y borde-tema">
+                <tr>
+                  <td className="py-2 pr-3">Push <span className="texto-suave text-xs">(gratis)</span></td>
+                  <td className="cifras py-2 pr-3 text-right">{numero(d.totales.porPush)}</td>
+                  <td className="cifras py-2 pr-3 text-right">{tasa(d.totales.abiertosPush, d.totales.porPush)}%</td>
+                  <td className="cifras py-2 text-right">{tasa(d.totales.convertidosPush, d.totales.porPush)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-3">WhatsApp</td>
+                  <td className="cifras py-2 pr-3 text-right">{numero(d.totales.porTextoLibre + d.totales.porPlantilla)}</td>
+                  <td className="cifras py-2 pr-3 text-right">{tasa(d.totales.abiertosWhatsapp, d.totales.porTextoLibre + d.totales.porPlantilla)}%</td>
+                  <td className="cifras py-2 text-right">{tasa(d.totales.convertidosWhatsapp, d.totales.porTextoLibre + d.totales.porPlantilla)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Tarjeta>
+      </div>
+
       {d.push.bajas > 0 && (
         <p className="texto-suave mt-2 text-xs">
           {numero(d.push.bajas)} suscripción{d.push.bajas === 1 ? '' : 'es'} dada
@@ -176,7 +209,7 @@ export default async function PaginaMensajeria() {
                               id: s.id,
                               name: s.name ?? '',
                               trigger: s.trigger ?? 'signup',
-                              channel: s.channel ?? 'whatsapp',
+                              channel: s.channel ?? 'push',
                               template: s.template ?? '',
                               delayHours: s.delayHours ?? 0,
                               targetSegment: s.targetSegment,

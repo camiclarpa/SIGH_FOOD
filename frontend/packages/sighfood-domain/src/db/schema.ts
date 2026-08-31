@@ -819,8 +819,19 @@ export const staffUsers = pgTable('staff_users', {
   isActive: boolean('is_active').notNull().default(true),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  /*
+   * Invitación pendiente: mientras invitacionToken no sea null, passwordHash
+   * guarda un valor imposible de adivinar (no una contraseña real) y el
+   * login queda cerrado hasta que la persona entra a /activar y elige la
+   * suya. Se prefiere esto a que el admin genere la contraseña y la pase a
+   * mano: nadie del equipo llega a ver la contraseña de otro, ni siquiera
+   * un instante.
+   */
+  invitacionToken: varchar('invitacion_token', { length: 64 }).unique(),
+  invitacionExpira: timestamp('invitacion_expira', { withTimezone: true }),
 }, (t) => [
   index('idx_staff_users_email').on(t.email),
+  index('idx_staff_users_invitacion').on(t.invitacionToken),
 ]);
 
 // =============================================================================

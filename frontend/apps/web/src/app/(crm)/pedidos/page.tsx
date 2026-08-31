@@ -18,6 +18,7 @@
 
 import { colaDePedidos, resumenDelDia } from '@/lib/cocina';
 import { puede, rolActual } from '@/lib/permisos';
+import type { EstadoPedido } from '@/lib/estados-pedido';
 import Comanda, { type PedidoComanda } from './Comanda';
 import { Metrica, Tarjeta, Titulo, Vacio, numero } from '@/components/ui';
 
@@ -28,6 +29,20 @@ function precio(cop: number): string {
   return `$${cop.toLocaleString('es-CO')}`;
 }
 
+const ESTADOS_FILTRO: Array<{ valor: EstadoPedido; texto: string }> = [
+  { valor: 'recibido', texto: 'Recibido' },
+  { valor: 'confirmado', texto: 'Confirmado' },
+  { valor: 'preparando', texto: 'Preparando' },
+  { valor: 'listo', texto: 'Listo' },
+  { valor: 'en_camino', texto: 'En camino' },
+  { valor: 'entregado', texto: 'Entregado' },
+  { valor: 'cancelado', texto: 'Cancelado' },
+];
+
+function esEstadoPedido(v: string | undefined): v is EstadoPedido {
+  return Boolean(v) && ESTADOS_FILTRO.some((e) => e.valor === v);
+}
+
 export default async function PaginaPedidos({
   searchParams,
 }: {
@@ -35,9 +50,10 @@ export default async function PaginaPedidos({
 }) {
   const p = await searchParams;
   const verCerrados = p.historial === '1';
+  const filtroEstado = esEstadoPedido(p.estado) ? p.estado : undefined;
 
   const [cola, resumen, rol] = await Promise.all([
-    colaDePedidos(verCerrados),
+    colaDePedidos(verCerrados, filtroEstado),
     resumenDelDia(),
     rolActual(),
   ]);
@@ -59,6 +75,7 @@ export default async function PaginaPedidos({
     direccion: c.direccion,
     indicaciones: c.indicaciones,
     totalCOP: c.totalCOP,
+    descuentoCOP: c.descuentoCOP,
     notas: c.notas,
     minutosInicial: c.minutos,
     local: c.local,
@@ -95,7 +112,9 @@ export default async function PaginaPedidos({
 
       <div className="mt-6 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">
-          {verCerrados ? 'Historial' : `En cola (${comandas.length})`}
+          {filtroEstado
+            ? ESTADOS_FILTRO.find((e) => e.valor === filtroEstado)?.texto
+            : verCerrados ? 'Historial' : `En cola (${comandas.length})`}
         </h2>
         <a
           href={verCerrados ? '/pedidos' : '/pedidos?historial=1'}
@@ -103,6 +122,24 @@ export default async function PaginaPedidos({
         >
           {verCerrados ? 'Ver la cola' : 'Ver historial'}
         </a>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <a
+          href="/pedidos"
+          className={`rounded-md border px-3 py-1 ${!filtroEstado && !verCerrados ? 'border-orange-500 text-orange-500' : 'borde-tema'}`}
+        >
+          Todos en cola
+        </a>
+        {ESTADOS_FILTRO.map((e) => (
+          <a
+            key={e.valor}
+            href={`/pedidos?estado=${e.valor}`}
+            className={`rounded-md border px-3 py-1 ${filtroEstado === e.valor ? 'border-orange-500 text-orange-500' : 'borde-tema'}`}
+          >
+            {e.texto}
+          </a>
+        ))}
       </div>
 
       {comandas.length === 0 ? (

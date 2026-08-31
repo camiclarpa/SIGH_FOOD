@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { resumenPanelB2C } from '@/lib/consultas-b2c';
+import { resumenPanelB2C, actividadReciente } from '@/lib/consultas-b2c';
 import { resumenVentas } from '@/lib/cocina';
 import { etiquetaLinea, etiquetaNivel } from '@/lib/fidelizacion';
 import {
@@ -25,12 +25,17 @@ function pesos(cop: number): string {
   return `$${cop.toLocaleString('es-CO')}`;
 }
 
+const ICONO_ACTIVIDAD: Record<string, string> = {
+  momento: '📷', canje: '🎁', push: '🔔', resena: '★',
+};
+
 export default async function PaginaPanel() {
   // En paralelo: son dos lecturas independientes y encadenarlas duplicaría la
   // espera de la conexión a la base, que es lo que más tarda.
-  const [{ datos: d, degradado, edadSegundos }, v] = await Promise.all([
+  const [{ datos: d, degradado, edadSegundos }, v, { datos: actividad }] = await Promise.all([
     resumenPanelB2C(),
     resumenVentas(),
+    actividadReciente(12),
   ]);
 
   const maxSerie = Math.max(...v.serie.map((s) => s.ventas), 1);
@@ -179,6 +184,30 @@ export default async function PaginaPanel() {
         />
       </div>
 
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {/*
+          Cuánta base puede recibir el canal gratuito. Sin esto, "vamos a
+          mandar todo por push" es una intención — con esto es una cifra: a
+          cuántos les llega de verdad.
+        */}
+        <Metrica
+          etiqueta="Suscritos a notificaciones"
+          valor={`${d.tasaSuscripcionPush}%`}
+          detalle={`${numero(d.suscritosPush)} de ${numero(d.comensales)} comensales`}
+          tono={d.tasaSuscripcionPush >= 30 ? 'exito' : 'aviso'}
+        />
+        {/*
+          Contingencia de caja, no una cifra decorativa: si todo el mundo
+          canjeara sus puntos hoy mismo, esto es lo que costaría cubrirlo.
+        */}
+        <Metrica
+          etiqueta="Pasivo en puntos"
+          valor={pesos(d.pasivoPuntosCop)}
+          detalle="si se canjeara todo hoy, a $50 COP por punto"
+          tono={d.pasivoPuntosCop > 0 ? 'aviso' : 'neutro'}
+        />
+      </div>
+
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Tarjeta titulo="Niveles del pasaporte">
           {d.porNivel.length === 0 ? (
@@ -227,7 +256,7 @@ export default async function PaginaPanel() {
         </Tarjeta>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Tarjeta
           titulo="Últimos comensales"
           accion={
@@ -256,6 +285,22 @@ export default async function PaginaPanel() {
                     <span className="cifras texto-suave text-xs">{numero(c.puntos ?? 0)} pts</span>
                     <span className="texto-suave hidden text-xs sm:inline">{desde(c.alta)}</span>
                   </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Tarjeta>
+
+        <Tarjeta titulo="Actividad reciente">
+          {actividad.length === 0 ? (
+            <Vacio>Sin actividad todavía.</Vacio>
+          ) : (
+            <ul className="divide-y borde-tema">
+              {actividad.map((a, i) => (
+                <li key={i} className="flex items-center gap-2.5 py-2">
+                  <span aria-hidden className="text-sm">{ICONO_ACTIVIDAD[a.tipo] ?? '·'}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{a.detalle}</span>
+                  <span className="texto-suave shrink-0 text-xs">{desde(a.cuando)}</span>
                 </li>
               ))}
             </ul>

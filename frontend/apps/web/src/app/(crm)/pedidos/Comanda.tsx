@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useTransition } from 'react';
-import { avanzarPedido, marcarPagado } from '@/lib/acciones/pedidos';
+import { avanzarPedido, marcarPagado, reenviarAviso } from '@/lib/acciones/pedidos';
 import { siguientesDe, type EstadoPedido } from '@/lib/estados-pedido';
 
 const ETIQUETAS: Record<string, string> = {
@@ -65,6 +65,8 @@ export interface PedidoComanda {
   direccion: string | null;
   indicaciones: string | null;
   totalCOP: number;
+  /** Rebajado del subtotal por un código promocional. 0 = sin descuento. */
+  descuentoCOP: number;
   notas: string | null;
   /** Local y mesa, cuando el pedido entró por el QR de una mesa. */
   local: string | null;
@@ -87,7 +89,9 @@ export default function Comanda({
 }) {
   const [minutos, setMinutos] = useState(pedido.minutosInicial);
   const [error, setError] = useState<string | null>(null);
+  const [avisoReenvio, setAvisoReenvio] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
+  const [reenviando, setReenviando] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setMinutos((m) => m + 1), 60_000);
@@ -124,6 +128,22 @@ export default function Comanda({
     });
   }
 
+  function avisar() {
+    setReenviando(true);
+    setAvisoReenvio(null);
+    void reenviarAviso(pedido.id)
+      .then((r) => {
+        setAvisoReenvio(
+          r.ok
+            ? r.datos?.canal === 'ninguno'
+              ? 'No se pudo entregar por ningún canal.'
+              : `Enviado por ${r.datos?.canal}.`
+            : r.error ?? 'No se pudo reenviar'
+        );
+      })
+      .finally(() => setReenviando(false));
+  }
+
   return (
     <article
       className={`superficie rounded-xl border p-4 ${
@@ -150,6 +170,9 @@ export default function Comanda({
             {minutos} min
           </p>
           <p className="cifras text-sm font-bold">{precio(pedido.totalCOP)}</p>
+          {pedido.descuentoCOP > 0 && (
+            <p className="cifras text-xs text-green-500">-{precio(pedido.descuentoCOP)} desc.</p>
+          )}
         </div>
       </div>
 
@@ -244,6 +267,22 @@ export default function Comanda({
               Cancelar
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Reenviar el aviso funciona también con el pedido ya cerrado: es el
+          caso típico de "dice que no le llegó nada" tras la entrega. */}
+      {puedeAvanzar && (
+        <div className="mt-3 border-t borde-tema pt-2.5">
+          <button
+            type="button"
+            onClick={avisar}
+            disabled={reenviando}
+            className="texto-suave text-xs hover:underline disabled:opacity-50"
+          >
+            {reenviando ? 'Enviando…' : 'Avisar de nuevo'}
+          </button>
+          {avisoReenvio && <p className="texto-suave mt-1 text-xs">{avisoReenvio}</p>}
         </div>
       )}
 

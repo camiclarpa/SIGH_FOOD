@@ -8,7 +8,7 @@ import { auth, signIn } from '@/auth';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; redirect?: string }>;
+  searchParams: Promise<{ error?: string; redirect?: string; activada?: string }>;
 }) {
   const params = await searchParams;
   const sesion = await auth();
@@ -40,6 +40,11 @@ export default async function LoginPage({
         Acceso restringido al equipo.
       </p>
 
+      {params.activada && (
+        <p role="status" style={{ background: '#efe', border: '1px solid #bfb', padding: '0.75rem', borderRadius: '0.375rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
+          Cuenta activada. Ya puedes entrar con tu contraseña.
+        </p>
+      )}
       {params.error && (
         <p role="alert" style={{ background: '#fee', border: '1px solid #fbb', padding: '0.75rem', borderRadius: '0.375rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
           Credenciales incorrectas.

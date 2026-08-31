@@ -56,7 +56,7 @@ const RUTAS_PUBLICAS = [
 ];
 
 /** Rutas de página que no requieren sesión. */
-const PAGINAS_PUBLICAS = ['/', '/b2b', '/login', '/escanear'];
+const PAGINAS_PUBLICAS = ['/', '/b2b', '/login', '/escanear', '/activar'];
 
 // -----------------------------------------------------------------------------
 // Rate limiting

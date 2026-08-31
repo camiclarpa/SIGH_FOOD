@@ -9,7 +9,7 @@
 // solo evita que alguien lo intente y reciba un error innecesario.
 
 import { useRef, useState, useTransition } from 'react';
-import { alternarUsuario, cambiarRol, crearUsuario } from '@/lib/acciones/comensales';
+import { alternarUsuario, cambiarRol, invitarUsuario } from '@/lib/acciones/comensales';
 import { ETIQUETAS_ROL, type Rol } from '@/lib/roles';
 
 const ROLES: Rol[] = ['admin', 'comercial', 'lectura'];
@@ -17,29 +17,27 @@ const ROLES: Rol[] = ['admin', 'comercial', 'lectura'];
 export function NuevoUsuario() {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [creado, setCreado] = useState<string | null>(null);
+  const [enlace, setEnlace] = useState<string | null>(null);
   const [enCurso, iniciar] = useTransition();
 
   function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const password = String(f.get('password') ?? '');
 
     iniciar(async () => {
-      const r = await crearUsuario({
+      const r = await invitarUsuario({
         email: String(f.get('email') ?? ''),
         fullName: String(f.get('fullName') ?? ''),
         rol: String(f.get('rol') ?? 'lectura') as Rol,
-        password,
       });
 
-      if (r.ok) {
+      if (r.ok && r.datos) {
         setError(null);
-        // Se enseña una vez y no se guarda: el hash es de ida, así que si nadie
-        // la copia ahora, hay que volver a asignarla.
-        setCreado(password);
+        // El enlace se arma aquí, no en el servidor: la Server Action no
+        // conoce el dominio desde el que se está sirviendo esta pestaña.
+        setEnlace(`${window.location.origin}/activar?token=${r.datos.token}`);
       } else {
-        setError(r.error ?? 'No se pudo crear');
+        setError(r.error ?? 'No se pudo invitar');
       }
     });
   }
@@ -51,7 +49,7 @@ export function NuevoUsuario() {
     <>
       <button
         type="button"
-        onClick={() => { setError(null); setCreado(null); dialogo.current?.showModal(); }}
+        onClick={() => { setError(null); setEnlace(null); dialogo.current?.showModal(); }}
         className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-500"
       >
         Nuevo usuario
@@ -60,27 +58,25 @@ export function NuevoUsuario() {
       <dialog
         ref={dialogo}
         className="superficie w-[min(28rem,92vw)] rounded-xl border borde-tema p-0 backdrop:bg-black/60"
-        onClose={() => { setError(null); setCreado(null); }}
+        onClose={() => { setError(null); setEnlace(null); }}
       >
-        {creado ? (
+        {enlace ? (
           <div className="p-5">
-            <h2 className="text-base font-semibold">Usuario creado</h2>
+            <h2 className="text-base font-semibold">Invitación creada</h2>
             <p className="texto-suave mt-2 text-sm">
-              Copia esta contraseña ahora. No se puede volver a mostrar: se guarda cifrada
-              y no hay forma de recuperarla.
+              Comparte este enlace por un canal privado. Vale por {' '}
+              7 días, y solo sirve una vez: al entrar y poner su contraseña, deja de
+              funcionar. Nadie en el equipo —ni tú— llega a ver esa contraseña.
             </p>
-            <p className="cifras mt-3 select-all rounded-md border borde-tema px-3 py-2 text-sm">
-              {creado}
-            </p>
-            <p className="texto-suave mt-2 text-xs">
-              Pásasela por un canal privado y pídele que la cambie al entrar.
+            <p className="cifras mt-3 break-all select-all rounded-md border borde-tema px-3 py-2 text-xs">
+              {enlace}
             </p>
             <button
               type="button"
               onClick={() => dialogo.current?.close()}
               className="mt-4 w-full rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500"
             >
-              Ya la copié
+              Ya lo copié
             </button>
           </div>
         ) : (
@@ -102,17 +98,6 @@ export function NuevoUsuario() {
                   {ROLES.map((r) => <option key={r} value={r}>{ETIQUETAS_ROL[r]}</option>)}
                 </select>
               </div>
-              <div>
-                <label className={etiqueta} htmlFor="password">Contraseña</label>
-                <input
-                  id="password" name="password" type="text" minLength={12} required
-                  className={`${campo} cifras`}
-                  defaultValue={generarPassword()}
-                />
-                <p className="texto-suave mt-1 text-xs">
-                  Mínimo 12 caracteres. Esta contraseña abre el CRM entero.
-                </p>
-              </div>
             </div>
 
             {error && (
@@ -132,7 +117,7 @@ export function NuevoUsuario() {
                 type="submit" disabled={enCurso}
                 className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
               >
-                {enCurso ? 'Creando…' : 'Crear'}
+                {enCurso ? 'Invitando…' : 'Invitar'}
               </button>
             </div>
           </form>
@@ -140,18 +125,6 @@ export function NuevoUsuario() {
       </dialog>
     </>
   );
-}
-
-/**
- * Contraseña inicial sugerida.
- *
- * Se genera con crypto y no con Math.random(): esto abre el CRM con los datos
- * personales de todos los comensales dentro.
- */
-function generarPassword(): string {
-  const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(bytes, (b) => ALFABETO[b % ALFABETO.length]).join('');
 }
 
 export function ControlesUsuario({

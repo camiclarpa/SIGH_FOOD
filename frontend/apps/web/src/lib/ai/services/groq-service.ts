@@ -1,23 +1,4 @@
-import Groq from 'groq-sdk';
 import { variableDeEntorno } from '@/lib/cloudflare';
-
-let groqClient: Groq | null = null;
-
-/**
- * Cliente de Groq.
- *
- * Es async porque en Workers la API key llega por el binding del entorno, no
- * por `process.env`. La versión síncrona anterior leía `process.env.GROQ_API_KEY`
- * y en producción lanzaba siempre "GROQ_API_KEY no configurada".
- */
-export async function getGroqClient(): Promise<Groq> {
-  if (!groqClient) {
-    const apiKey = await variableDeEntorno('GROQ_API_KEY');
-    if (!apiKey) throw new Error('GROQ_API_KEY no configurada');
-    groqClient = new Groq({ apiKey });
-  }
-  return groqClient;
-}
 
 /**
  * Modelo por defecto.
@@ -39,23 +20,50 @@ const MODELO_POR_DEFECTO = 'openai/gpt-oss-120b';
  */
 const MAX_TOKENS = 4096;
 
+/**
+ * Llama al chat completions de Groq por REST directo.
+ *
+ * Antes se usaba `groq-sdk`, cuya API es idéntica a esta (Groq es
+ * compatible con el formato de OpenAI): el SDK completo solo aportaba
+ * reintentos y streaming que aquí no se usan, y su peso empujó al Worker
+ * por encima del límite de tamaño de Cloudflare. Un `fetch` a mano cubre
+ * lo mismo con cero dependencias.
+ */
 export async function chatWithGroq(
   systemPrompt: string,
   userPrompt: string,
   model: string = MODELO_POR_DEFECTO
 ): Promise<string> {
-  const client = await getGroqClient();
-  const completion = await client.chat.completions.create({
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    model,
-    temperature: 0.3,
-    max_tokens: MAX_TOKENS,
-    response_format: { type: 'json_object' },
+  const apiKey = await variableDeEntorno('GROQ_API_KEY');
+  if (!apiKey) throw new Error('GROQ_API_KEY no configurada');
+
+  const respuesta = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      model,
+      temperature: 0.3,
+      max_tokens: MAX_TOKENS,
+      response_format: { type: 'json_object' },
+    }),
   });
-  return completion.choices[0]?.message?.content || '';
+
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.text().catch(() => '');
+    throw new Error(`Groq respondió ${respuesta.status}: ${cuerpo.slice(0, 300)}`);
+  }
+
+  const datos = (await respuesta.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return datos.choices?.[0]?.message?.content || '';
 }
 
 // =============================================================================

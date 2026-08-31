@@ -45,11 +45,16 @@ const DISPARADORES = [
   { valor: 'abandoned_cart', texto: 'Flujo abandonado' },
 ];
 
+/*
+  Solo whatsapp y push: son los dos canales que el despachador —
+  lib/whatsapp/despacho.ts— sabe entregar de verdad. email y sms estuvieron
+  aquí antes sin que nada los enviara nunca: una secuencia guardada con
+  cualquiera de los dos quedaba muerta en silencio, y quien la creó no tenía
+  forma de saberlo hasta revisar los logs del cron.
+*/
 const CANALES = [
+  { valor: 'push', texto: 'Push (gratis)' },
   { valor: 'whatsapp', texto: 'WhatsApp' },
-  { valor: 'email', texto: 'Email' },
-  { valor: 'sms', texto: 'SMS' },
-  { valor: 'push', texto: 'Push' },
 ];
 
 export function EditorSecuencia({
@@ -64,7 +69,7 @@ export function EditorSecuencia({
   const areaTexto = useRef<HTMLTextAreaElement>(null);
 
   const [plantilla, setPlantilla] = useState(secuencia?.template ?? '');
-  const [canal, setCanal] = useState(secuencia?.channel ?? 'whatsapp');
+  const [canal, setCanal] = useState(secuencia?.channel ?? 'push');
   const [huecos, setHuecos] = useState<string[]>(secuencia?.metaTemplateVars ?? []);
   const [telPrueba, setTelPrueba] = useState('');
   const [prueba, setPrueba] = useState<{ ok: boolean; texto: string } | null>(null);
@@ -194,7 +199,7 @@ export function EditorSecuencia({
                 </select>
               </div>
               <div>
-                <label className={etiqueta} htmlFor="channel">Canal</label>
+                <label className={etiqueta} htmlFor="channel">Canal preferido</label>
                 <select
                   id="channel" name="channel" value={canal}
                   onChange={(e) => { setCanal(e.target.value); setPrueba(null); }}
@@ -202,6 +207,11 @@ export function EditorSecuencia({
                 >
                   {CANALES.map((c) => <option key={c.valor} value={c.valor}>{c.texto}</option>)}
                 </select>
+                <p className="texto-suave mt-1 text-xs">
+                  Es una preferencia, no una garantía: el sistema decide el canal real de cada
+                  envío según el comensal — si eliges WhatsApp pero su ventana de 24h está
+                  cerrada, sale por push igual, y viceversa.
+                </p>
               </div>
             </div>
 
@@ -264,6 +274,14 @@ export function EditorSecuencia({
                 {vista.avisos.map((a) => (
                   <p key={a} className="mt-1.5 text-xs text-amber-400">· {a}</p>
                 ))}
+              </div>
+            )}
+
+            {!esWhatsApp && (
+              <div className="rounded-md border border-green-700/40 bg-green-950/20 px-3 py-2.5 text-xs text-green-200">
+                Push no necesita plantilla aprobada ni tiene ventana de 24 h: el mensaje de
+                arriba se manda tal cual, a coste cero, mientras el comensal tenga la tienda
+                instalada con notificaciones activas.
               </div>
             )}
 

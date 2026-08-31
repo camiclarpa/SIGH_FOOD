@@ -12,7 +12,7 @@
 // mapa de bits se ve dentado a ese tamaño. El vector no.
 
 import { NextRequest, NextResponse } from 'next/server';
-import QRCode from 'qrcode-svg';
+import QRCode from 'qrcode';
 import { and, asc, eq } from 'drizzle-orm';
 import { accounts, qrCodes } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
@@ -73,26 +73,25 @@ export const GET = conTrazas('/api/qr/imprimir', async (request: NextRequest) =>
       );
     }
 
-    const tarjetas = datos.codigos
-      .map((c) => {
-        // El QR apunta SIEMPRE al escaneo propio, aunque haya redirección: así
-        // el destino se cambia en la base y el adhesivo sigue valiendo. Meter la
-        // URL final en el código es lo que obliga a reimprimir.
-        const url = `${base}/m/${c.token}`;
+    const tarjetas = (
+      await Promise.all(
+        datos.codigos.map(async (c) => {
+          // El QR apunta SIEMPRE al escaneo propio, aunque haya redirección: así
+          // el destino se cambia en la base y el adhesivo sigue valiendo. Meter la
+          // URL final en el código es lo que obliga a reimprimir.
+          const url = `${base}/m/${c.token}`;
 
-        const svg = new QRCode({
-          content: url,
-          padding: 0,
-          width: 220,
-          height: 220,
-          color: '#000000',
-          background: '#ffffff',
-          // Corrección alta: un adhesivo de mesa acaba con roces y manchas de
-          // grasa, y con corrección baja deja de leerse.
-          ecl: 'H',
-        }).svg();
+          const svg = await QRCode.toString(url, {
+            type: 'svg',
+            margin: 0,
+            width: 220,
+            color: { dark: '#000000ff', light: '#ffffffff' },
+            // Corrección alta: un adhesivo de mesa acaba con roces y manchas de
+            // grasa, y con corrección baja deja de leerse.
+            errorCorrectionLevel: 'H',
+          });
 
-        return `
+          return `
         <article class="tarjeta">
           <p class="marca">SIGH_FOOD</p>
           <div class="qr">${svg}</div>
@@ -100,8 +99,9 @@ export const GET = conTrazas('/api/qr/imprimir', async (request: NextRequest) =>
           <p class="bar">${esc(datos.bar.nombre)}</p>
           <p class="pie">Escanea y gana puntos</p>
         </article>`;
-      })
-      .join('');
+        })
+      )
+    ).join('');
 
     log.info('Material POP generado', {
       ruta: '/api/qr/imprimir',

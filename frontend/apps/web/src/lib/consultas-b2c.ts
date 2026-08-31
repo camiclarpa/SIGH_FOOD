@@ -25,6 +25,9 @@ import {
   sensoryMoments,
   lotes,
   pedidos,
+  pedidoEventos,
+  contenidos,
+  activaciones,
   automationSequences,
   automationLogs,
   rewards,
@@ -670,6 +673,7 @@ export async function resumenPanelB2C() {
     const [
       [comensales], [momentos], [puntos], porNivel, porLinea,
       [recurrentes], [enRiesgo], [insigniasDadas], [conConsentimiento], recientes, [resenas],
+      [suscritosPush],
     ] = await Promise.all([
       db.select({ total: count(b2cConsumers.id) }).from(b2cConsumers),
       db.select({ total: count(sensoryMoments.id) }).from(sensoryMoments),
@@ -732,6 +736,10 @@ export async function resumenPanelB2C() {
           negativas: sql<number>`COUNT(*) FILTER (WHERE ${consumerReviews.sentimiento} = 'negativo')::int`,
         })
         .from(consumerReviews),
+
+      db
+        .select({ total: sql<number>`COUNT(DISTINCT ${pushSuscripciones.consumerId}) FILTER (WHERE ${pushSuscripciones.activa})::int` })
+        .from(pushSuscripciones),
     ]);
 
     const leerTotal = (r: unknown) => {
@@ -756,7 +764,140 @@ export async function resumenPanelB2C() {
       porLinea,
       recientes,
       resenas: resenas ?? { total: 0, alertas: 0, negativas: 0 },
+      suscritosPush: Number(suscritosPush?.total ?? 0),
+      tasaSuscripcionPush: totalComensales === 0 ? 0 : Math.round((Number(suscritosPush?.total ?? 0) / totalComensales) * 100),
+      // Mismo saldo vivo que arriba (puntosEnCirculacion), valorado a
+      // VALOR_PUNTO_COP: es la contingencia de caja si todos los comensales
+      // canjearan sus puntos a la vez.
+      pasivoPuntosCop: Number(puntos?.total ?? 0) * VALOR_PUNTO_COP,
     };
+  }));
+}
+
+/**
+ * Actividad reciente del negocio, mezclando fuentes distintas en una sola
+ * línea de tiempo.
+ *
+ * No es un stream en tiempo real —este CRM no tiene WebSockets ni ninguna
+ * infraestructura para eso, y montarla solo para un panel interno de bajo
+ * tráfico sería una arquitectura nueva sin necesidad real—. Es la foto más
+ * reciente en cada carga de la página, que es como se lee el resto del CRM.
+ */
+export async function actividadReciente(limite = 15) {
+  return conRespaldo('b2c:actividad', () => conBaseDeDatos(async (db) => {
+    const filas = await db.execute<{
+      tipo: string;
+      detalle: string;
+      cuando: string;
+    }>(sql`
+      (
+        SELECT 'momento' AS tipo,
+               COALESCE(c.full_name, 'Alguien') || ' escaneó ' || m.product_line AS detalle,
+               m.scanned_at AS cuando
+        FROM sensory_moments m
+        LEFT JOIN b2c_consumers c ON c.id = m.consumer_id
+        ORDER BY m.scanned_at DESC LIMIT 8
+      )
+      UNION ALL
+      (
+        SELECT 'canje' AS tipo,
+               COALESCE(c.full_name, 'Alguien') || ' canjeó ' || r.nombre AS detalle,
+               re.created_at AS cuando
+        FROM redemptions re
+        JOIN rewards r ON r.id = re.reward_id
+        LEFT JOIN b2c_consumers c ON c.id = re.consumer_id
+        ORDER BY re.created_at DESC LIMIT 8
+      )
+      UNION ALL
+      (
+        SELECT 'push' AS tipo,
+               'Notificación enviada a ' || COALESCE(c.full_name, 'un comensal') AS detalle,
+               al.sent_at AS cuando
+        FROM automation_logs al
+        LEFT JOIN b2c_consumers c ON c.id = al.consumer_id
+        WHERE al.canal = 'push' AND al.status = 'sent'
+        ORDER BY al.sent_at DESC LIMIT 8
+      )
+      UNION ALL
+      (
+        SELECT 'resena' AS tipo,
+               COALESCE(c.full_name, 'Alguien') || ' dejó una reseña de ' || cr.puntuacion || '★' AS detalle,
+               cr.created_at AS cuando
+        FROM consumer_reviews cr
+        LEFT JOIN b2c_consumers c ON c.id = cr.consumer_id
+        ORDER BY cr.created_at DESC LIMIT 8
+      )
+      ORDER BY cuando DESC
+      LIMIT ${limite}
+    `);
+
+    const lista = (Array.isArray(filas) ? filas : (filas as { rows?: unknown[] }).rows ?? []) as Array<{
+      tipo: string; detalle: string; cuando: string;
+    }>;
+    return lista.map((f) => ({ tipo: f.tipo, detalle: f.detalle, cuando: new Date(f.cuando) }));
+  }));
+}
+
+/**
+ * Quién hizo qué, en el CRM.
+ *
+ * No hay una tabla de auditoría centralizada — la trazabilidad vive repartida
+ * por columnas (canjeadoPor, staffUserId, creadoPor…) en cada tabla de
+ * dominio, y así se queda: crear una tabla `audit_log` genérica e
+ * instrumentar cada Server Action para escribir en ella sería duplicar un
+ * dato que ya existe. Esto solo lo reúne en una vista, cruzando por
+ * staff_users para mostrar el email de quien actuó.
+ */
+export async function auditLog(limite = 30) {
+  return conRespaldo('b2c:audit', () => conBaseDeDatos(async (db) => {
+    const filas = await db.execute<{
+      accion: string; detalle: string; quien: string | null; cuando: string;
+    }>(sql`
+      (
+        SELECT 'canje entregado' AS accion,
+               'Código ' || re.codigo || ' · ' || r.nombre AS detalle,
+               s.email AS quien, re.canjeado_en AS cuando
+        FROM redemptions re
+        JOIN rewards r ON r.id = re.reward_id
+        LEFT JOIN staff_users s ON s.id = re.canjeado_por
+        WHERE re.canjeado_en IS NOT NULL
+        ORDER BY re.canjeado_en DESC LIMIT 10
+      )
+      UNION ALL
+      (
+        SELECT 'pedido ' || pe.estado AS accion,
+               'Pedido ' || p.codigo AS detalle,
+               s.email AS quien, pe.created_at AS cuando
+        FROM pedido_eventos pe
+        JOIN pedidos p ON p.id = pe.pedido_id
+        LEFT JOIN staff_users s ON s.id = pe.staff_user_id
+        WHERE pe.staff_user_id IS NOT NULL
+        ORDER BY pe.created_at DESC LIMIT 10
+      )
+      UNION ALL
+      (
+        SELECT 'pieza creada' AS accion, c.titulo AS detalle,
+               s.email AS quien, c.created_at AS cuando
+        FROM contenidos c
+        LEFT JOIN staff_users s ON s.id = c.creado_por
+        ORDER BY c.created_at DESC LIMIT 10
+      )
+      UNION ALL
+      (
+        SELECT 'activación creada' AS accion, a.nombre AS detalle,
+               s.email AS quien, a.created_at AS cuando
+        FROM activaciones a
+        LEFT JOIN staff_users s ON s.id = a.creado_por
+        ORDER BY a.created_at DESC LIMIT 10
+      )
+      ORDER BY cuando DESC
+      LIMIT ${limite}
+    `);
+
+    const lista = (Array.isArray(filas) ? filas : (filas as { rows?: unknown[] }).rows ?? []) as Array<{
+      accion: string; detalle: string; quien: string | null; cuando: string;
+    }>;
+    return lista.map((f) => ({ ...f, cuando: new Date(f.cuando) }));
   }));
 }
 
@@ -823,6 +964,18 @@ export async function resumenMensajeria() {
           porTextoLibre: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'whatsapp_texto' AND ${automationLogs.status} = 'sent')::int`,
           porPlantilla: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'whatsapp_plantilla' AND ${automationLogs.status} = 'sent')::int`,
           omitidos: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.status} = 'skipped')::int`,
+          /*
+            Rendimiento POR CANAL, no solo volumen.
+
+            El volumen ya decía "esto salió gratis"; esto dice si además
+            funciona: de lo entregado por cada canal, cuánto se abrió y cuánto
+            volvió a escanear. Sin este cruce, "push barato" y "push efectivo"
+            eran la misma cifra sin serlo.
+          */
+          abiertosPush: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'push' AND ${automationLogs.openedAt} IS NOT NULL)::int`,
+          convertidosPush: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} = 'push' AND ${automationLogs.convertedAt} IS NOT NULL)::int`,
+          abiertosWhatsapp: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} IN ('whatsapp_texto', 'whatsapp_plantilla') AND ${automationLogs.openedAt} IS NOT NULL)::int`,
+          convertidosWhatsapp: sql<number>`COUNT(*) FILTER (WHERE ${automationLogs.canal} IN ('whatsapp_texto', 'whatsapp_plantilla') AND ${automationLogs.convertedAt} IS NOT NULL)::int`,
         })
         .from(automationLogs),
 

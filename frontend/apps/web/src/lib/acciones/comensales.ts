@@ -269,21 +269,35 @@ async function hashearPassword(password: string): Promise<string> {
   return `${ITERACIONES}:${hex(sal.buffer as ArrayBuffer)}:${hex(bits)}`;
 }
 
-export async function crearUsuario(datos: {
+/** Token de invitación: 32 bytes al azar, en hex. Igual de improbable de adivinar que un token de QR. */
+function generarTokenInvitacion(): string {
+  return [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Cuánto dura una invitación sin activar antes de que haya que reenviarla. */
+const DIAS_VALIDEZ_INVITACION = 7;
+
+/**
+ * Invita a alguien al equipo, en vez de crear la cuenta con una contraseña
+ * puesta por el admin.
+ *
+ * El registro se crea YA, pero con un passwordHash que hashea un valor al
+ * azar —nadie puede adivinarlo, ni siquiera acertando por casualidad— así
+ * que el login queda cerrado hasta que la persona entra a /activar con el
+ * token y elige su propia contraseña. Nadie del equipo, ni el admin que
+ * invita, llega a ver o a elegir la contraseña de otra persona.
+ */
+export async function invitarUsuario(datos: {
   email: string;
   fullName: string;
   rol: Rol;
-  password: string;
-}): Promise<Resultado<{ id: string }>> {
-  return ejecutar('crearUsuario', async () => {
+}): Promise<Resultado<{ id: string; token: string }>> {
+  return ejecutar('invitarUsuario', async () => {
     const actor = await exigir('usuarios.gestionar');
 
     const email = datos.email.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('El email no es válido');
     if (!datos.fullName.trim()) throw new Error('El nombre es obligatorio');
-    // 12 y no 8: esta contraseña abre el CRM entero, con los datos personales de
-    // todos los comensales dentro.
-    if (datos.password.length < 12) throw new Error('La contraseña debe tener al menos 12 caracteres');
 
     return conBaseDeDatos(async (db) => {
       const [existe] = await db
@@ -293,23 +307,68 @@ export async function crearUsuario(datos: {
         .limit(1);
       if (existe) throw new Error('Ya hay un usuario con ese email');
 
+      const token = generarTokenInvitacion();
+      const passwordImposible = generarTokenInvitacion(); // nunca se muestra ni se comunica a nadie
+
       const [fila] = await db
         .insert(staffUsers)
         .values({
           email,
           fullName: datos.fullName.trim(),
-          passwordHash: await hashearPassword(datos.password),
+          passwordHash: await hashearPassword(passwordImposible),
           role: datos.rol,
           isActive: true,
+          invitacionToken: token,
+          invitacionExpira: new Date(Date.now() + DIAS_VALIDEZ_INVITACION * 86_400_000),
         })
         .returning({ id: staffUsers.id });
 
-      log.info('Usuario creado', { ruta: '/acciones/comensales', detalle: [actor.email, email, datos.rol] });
-      return { id: fila.id };
+      log.info('Usuario invitado', { ruta: '/acciones/comensales', detalle: [actor.email, email, datos.rol] });
+      return { id: fila.id, token };
     });
   }).then((r) => {
     if (r.ok) revalidatePath('/usuarios');
     return r;
+  });
+}
+
+/**
+ * Activa una invitación: define la contraseña real y cierra el token.
+ *
+ * Sin sesión: quien llama a esto todavía no puede autenticarse, es
+ * justamente lo que está a punto de arreglar.
+ */
+export async function activarInvitacion(datos: {
+  token: string;
+  password: string;
+}): Promise<Resultado<{ email: string }>> {
+  return ejecutar('activarInvitacion', async () => {
+    if (datos.password.length < 12) throw new Error('La contraseña debe tener al menos 12 caracteres');
+
+    return conBaseDeDatos(async (db) => {
+      const [usuario] = await db
+        .select({ id: staffUsers.id, email: staffUsers.email, expira: staffUsers.invitacionExpira })
+        .from(staffUsers)
+        .where(eq(staffUsers.invitacionToken, datos.token))
+        .limit(1);
+
+      if (!usuario) throw new Error('Este enlace de invitación no es válido');
+      if (!usuario.expira || new Date(usuario.expira) < new Date()) {
+        throw new Error('Este enlace de invitación caducó. Pide que te inviten de nuevo.');
+      }
+
+      await db
+        .update(staffUsers)
+        .set({
+          passwordHash: await hashearPassword(datos.password),
+          invitacionToken: null,
+          invitacionExpira: null,
+        })
+        .where(eq(staffUsers.id, usuario.id));
+
+      log.info('Invitación activada', { ruta: '/acciones/comensales', detalle: [usuario.email] });
+      return { email: usuario.email };
+    });
   });
 }
 

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { listarUsuarios } from '@/lib/consultas-b2c';
+import { listarUsuarios, auditLog } from '@/lib/consultas-b2c';
 import { actorActual, ETIQUETAS_ROL, permisosDe, puede, type Rol } from '@/lib/permisos';
 import { NuevoUsuario, ControlesUsuario } from './GestionUsuarios';
 import {
@@ -30,7 +30,10 @@ export default async function PaginaUsuarios() {
     redirect('/panel');
   }
 
-  const { datos: usuarios, degradado, edadSegundos } = await listarUsuarios();
+  const [{ datos: usuarios, degradado, edadSegundos }, { datos: auditoria }] = await Promise.all([
+    listarUsuarios(),
+    auditLog(20),
+  ]);
 
   const admins = usuarios.filter((u) => u.rol === 'admin' && u.activo).length;
 
@@ -125,6 +128,30 @@ export default async function PaginaUsuarios() {
             </Tarjeta>
           );
         })}
+      </div>
+
+      <div className="mt-6">
+        <Tarjeta titulo="Actividad del equipo">
+          {auditoria.length === 0 ? (
+            <Vacio>Sin acciones registradas todavía.</Vacio>
+          ) : (
+            <ul className="divide-y borde-tema">
+              {auditoria.map((a, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <span className="texto-suave capitalize">{a.accion}</span>
+                    {' — '}
+                    <span className="truncate">{a.detalle}</span>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="texto-suave text-xs">{a.quien ?? 'sistema'}</p>
+                    <p className="texto-suave text-xs">{desde(a.cuando)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Tarjeta>
       </div>
     </>
   );

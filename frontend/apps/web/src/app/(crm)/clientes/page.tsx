@@ -125,7 +125,7 @@ export default async function PaginaClientes({
             <option value="high">Alto</option>
             <option value="critical">Crítico</option>
           </select>
-          <button type="submit" className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600">
+          <button type="submit" className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600">
             Filtrar
           </button>
         </div>

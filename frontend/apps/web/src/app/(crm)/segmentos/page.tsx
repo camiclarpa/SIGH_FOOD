@@ -175,7 +175,7 @@ export default async function PaginaSegmentos() {
                   href={`/comensales?${new URLSearchParams(
                     filtrosAproximados(s.regla as Record<string, unknown> | null)
                   )}`}
-                  className="mt-3 inline-block text-xs text-orange-600 hover:underline dark:text-orange-400"
+                  className="mt-3 inline-block text-xs text-indigo-600 hover:underline dark:text-indigo-400"
                 >
                   Ver comensales
                 </Link>

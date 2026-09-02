@@ -87,7 +87,7 @@ export function AccionesMesa({
             <button type="button" onClick={() => dialogo.current?.close()} className="rounded-md border borde-tema px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
               Cancelar
             </button>
-            <button type="submit" disabled={enCurso} className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50">
+            <button type="submit" disabled={enCurso} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
               {enCurso ? 'Guardando…' : 'Guardar'}
             </button>
           </div>

@@ -83,7 +83,7 @@ function ControlUmbral({
           {definicion.etiqueta}
         </label>
         <div className="flex items-center gap-2">
-          <span className="cifras text-lg font-semibold text-orange-500">
+          <span className="cifras text-lg font-semibold text-indigo-500">
             {formatear(actual)}
             {definicion.unidad && <span className="texto-suave ml-1 text-xs">{definicion.unidad}</span>}
           </span>
@@ -115,7 +115,7 @@ function ControlUmbral({
         // Solo al soltar: onChange dispara en cada píxel del arrastre.
         onPointerUp={(e) => puedeCalibrar && guardar(Number((e.target as HTMLInputElement).value))}
         onKeyUp={(e) => puedeCalibrar && guardar(Number((e.target as HTMLInputElement).value))}
-        className="mt-3 w-full accent-orange-500 disabled:opacity-50"
+        className="mt-3 w-full accent-indigo-500 disabled:opacity-50"
       />
 
       <div className="texto-suave flex justify-between text-xs">

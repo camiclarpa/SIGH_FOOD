@@ -39,6 +39,10 @@ export default async function PaginaFinanzas() {
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
       <Titulo>Finanzas</Titulo>
+      <p className="texto-suave -mt-2 mb-4 text-sm">
+        La salud del negocio en un vistazo: cuánto vendiste, cuánto te costó, y qué tan lejos está la caja
+        de cuadrar. Se arma solo con lo que ya registras en Caja e Inventario.
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metrica
@@ -116,7 +120,7 @@ export default async function PaginaFinanzas() {
         <Tarjeta
           titulo="Últimos cierres de caja"
           accion={
-            <Link href="/finanzas/caja" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+            <Link href="/finanzas/caja" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
               Ver caja
             </Link>
           }
@@ -146,7 +150,7 @@ export default async function PaginaFinanzas() {
         <Tarjeta
           titulo="Inventario desincronizado"
           accion={
-            <Link href="/finanzas/inventario" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+            <Link href="/finanzas/inventario" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
               Ver inventario
             </Link>
           }

@@ -69,7 +69,7 @@ export function CerrarCaja({ id, efectivoEsperadoEnVivo }: { id: string; efectiv
           type="button"
           onClick={cerrar}
           disabled={enCurso}
-          className="rounded-md bg-orange-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+          className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {enCurso ? 'Cerrando…' : 'Cerrar caja'}
         </button>

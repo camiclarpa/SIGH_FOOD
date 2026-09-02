@@ -94,7 +94,7 @@ export default async function PaginaPanel() {
         <Tarjeta
           titulo="Últimos 7 días"
           accion={
-            <Link href="/pedidos" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+            <Link href="/pedidos" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
               Ver la cocina
             </Link>
           }
@@ -112,7 +112,7 @@ export default async function PaginaPanel() {
                       {s.ventas > 0 ? numero(Math.round(s.ventas / 1000)) + 'k' : ''}
                     </span>
                     <div
-                      className="w-full rounded-t bg-orange-500/85 transition-[height]"
+                      className="w-full rounded-t bg-indigo-500/85 transition-[height]"
                       // Un mínimo visible para los días con venta pequeña: a 0 px
                       // un día flojo se confunde con un día sin abrir.
                       style={{ height: `${s.ventas > 0 ? Math.max(alto, 4) : 2}%`, minHeight: s.ventas > 0 ? '3px' : '2px' }}
@@ -260,7 +260,7 @@ export default async function PaginaPanel() {
         <Tarjeta
           titulo="Últimos comensales"
           accion={
-            <Link href="/comensales" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+            <Link href="/comensales" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
               Ver todos
             </Link>
           }

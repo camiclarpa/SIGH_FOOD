@@ -44,7 +44,7 @@ export default function ErrorCrm({
         <button
           type="button"
           onClick={reset}
-          className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500"
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Reintentar
         </button>

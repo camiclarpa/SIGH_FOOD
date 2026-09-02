@@ -56,7 +56,7 @@ export default async function PaginaPasaporte({
 
       <Titulo
         accion={
-          <Link href="/comensales" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+          <Link href="/comensales" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
             Volver
           </Link>
         }
@@ -156,7 +156,7 @@ export default async function PaginaPasaporte({
                   key={b.codigo}
                   className={`rounded-lg border p-3 ${
                     tiene
-                      ? 'border-orange-500/50 bg-orange-50 dark:bg-orange-950/30'
+                      ? 'border-indigo-500/50 bg-indigo-50 dark:bg-indigo-950/30'
                       : 'borde-tema opacity-50'
                   }`}
                 >
@@ -164,7 +164,7 @@ export default async function PaginaPasaporte({
                     <span
                       aria-hidden
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        tiene ? 'bg-orange-500 text-white' : 'bg-slate-300 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                        tiene ? 'bg-indigo-500 text-white' : 'bg-slate-300 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
                       }`}
                     >
                       {b.icono}

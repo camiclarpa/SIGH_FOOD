@@ -190,7 +190,7 @@ export function Responder({
             <button
               type="submit"
               disabled={enCurso || pensando || !texto.trim()}
-              className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {enCurso ? 'Enviando…' : 'Enviar'}
             </button>

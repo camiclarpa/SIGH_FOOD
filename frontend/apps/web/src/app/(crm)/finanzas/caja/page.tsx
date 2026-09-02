@@ -27,6 +27,11 @@ export default async function PaginaCaja() {
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
       <Titulo>Caja</Titulo>
+      <p className="texto-suave -mt-2 mb-4 text-sm">
+        Abre la caja con el efectivo con el que empiezas el turno; el sistema calcula solo cuánto debería
+        haber en cualquier momento a partir de los pedidos pagados en efectivo. Al cerrar, cuentas el
+        efectivo real y ves la diferencia.
+      </p>
 
       <Tarjeta titulo={sesion ? 'Sesión abierta' : 'Sin sesión abierta'}>
         {sesion ? (

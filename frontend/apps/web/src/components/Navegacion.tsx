@@ -6,16 +6,22 @@ import { useState } from 'react';
 import { B2B_ACTIVO } from '@/lib/modulos';
 
 /**
- * Menú en dos bloques.
+ * Menú agrupado por lo que alguien viene a HACER, no por cuándo se construyó
+ * cada pantalla.
  *
- * El CRM se reorientó a B2C: el sujeto es el comensal, no la cuenta. Lo B2B
- * —pipeline comercial y consignación de stock— no se borra, porque los bares
- * siguen siendo dónde ocurre el consumo y esos datos alimentan el resto, pero
- * baja a una sección secundaria para que deje de competir por la atención.
+ * Antes eran 18 enlaces sueltos en un solo bloque sin título: para alguien
+ * que no conoce el CRM de memoria, esa lista no dice nada — no hay forma de
+ * saber si "Segmentos" es una tarea de hoy o una que se toca una vez al mes.
+ * Agrupar con título fijo (no colapsable) resuelve el desorden sin esconder
+ * nada detrás de un clic que alguien nuevo no sabe que tiene que dar.
+ *
+ * El canal B2B sigue aparte —pipeline comercial y consignación de stock—
+ * porque es otro negocio dentro del mismo CRM, no una tarea del día a día
+ * del B2C.
  */
 const GRUPOS = [
   {
-    titulo: null,
+    titulo: 'Operación diaria',
     enlaces: [
       { href: '/panel', texto: 'Panel', icono: '◱' },
       // Va segundo, justo debajo del panel: es la pantalla que se mira cada pocos
@@ -23,22 +29,42 @@ const GRUPOS = [
       // vez de `texto` y sin icono, así que el menú pintaba un enlace en blanco y
       // la cola de cocina quedaba inalcanzable con pedidos ya pagados dentro.
       { href: '/pedidos', texto: 'Pedidos', icono: '▤' },
+      { href: '/finanzas/caja', texto: 'Caja', icono: '⛁' },
+    ],
+  },
+  {
+    titulo: 'Clientes y fidelización',
+    enlaces: [
       { href: '/comensales', texto: 'Comensales', icono: '☺' },
-      { href: '/momentos', texto: 'Momentos', icono: '◉' },
       { href: '/fidelizacion', texto: 'Fidelización', icono: '★' },
       { href: '/premios', texto: 'Premios', icono: '◆' },
+      { href: '/momentos', texto: 'Momentos', icono: '◉' },
       { href: '/resenas', texto: 'Reseñas', icono: '✎' },
+    ],
+  },
+  {
+    titulo: 'Marketing y contenido',
+    enlaces: [
       { href: '/segmentos', texto: 'Segmentos', icono: '◒' },
       { href: '/qr', texto: 'Códigos QR', icono: '⊞' },
-      // Contenido y embajadores van juntos y antes de la mensajería: son lo que
-      // trae gente nueva, y la mensajería es lo que se hace con la que ya está.
+      // Contenido y embajadores van juntos: son lo que trae gente nueva.
       { href: '/contenido', texto: 'Contenido', icono: '▦' },
       { href: '/embajadores', texto: 'Embajadores', icono: '✦' },
+    ],
+  },
+  {
+    titulo: 'Inventario y finanzas',
+    enlaces: [
+      { href: '/finanzas/inventario', texto: 'Inventario', icono: '▣' },
+      { href: '/finanzas', texto: 'Finanzas', icono: '$' },
+    ],
+  },
+  {
+    titulo: 'Sistema y comunicación',
+    enlaces: [
       { href: '/bandeja', texto: 'Bandeja', icono: '✉' },
       { href: '/mensajeria', texto: 'Mensajería', icono: '✈' },
       { href: '/agente', texto: 'Agente IA', icono: '◈' },
-      { href: '/finanzas/caja', texto: 'Caja', icono: '⛁' },
-      { href: '/finanzas', texto: 'Finanzas', icono: '$' },
       { href: '/usuarios', texto: 'Usuarios', icono: '⚿' },
     ],
   },
@@ -68,12 +94,27 @@ export function Navegacion({
   const ruta = usePathname();
   const [abierto, setAbierto] = useState(false);
 
+  const todosLosHrefs = GRUPOS.flatMap((g) => g.enlaces.map((e) => e.href));
+
   /**
    * Una ruta está activa si es la actual o si la actual cuelga de ella, para
    * que /clientes siga marcado dentro de /clientes/<id>. Comparar por igualdad
    * exacta apagaba el menú entero en las fichas de detalle.
+   *
+   * Pero con /finanzas, /finanzas/caja y /finanzas/inventario como enlaces
+   * hermanos, ese mismo criterio marcaba "Finanzas" Y "Caja" a la vez estando
+   * en /finanzas/caja: /finanzas/caja también cuelga de /finanzas. Si hay un
+   * enlace más específico que ya cubre la ruta actual, ese gana y este no se
+   * marca.
    */
-  const activo = (href: string) => ruta === href || ruta.startsWith(`${href}/`);
+  const activo = (href: string) => {
+    if (ruta === href) return true;
+    if (!ruta.startsWith(`${href}/`)) return false;
+    const hayMasEspecifico = todosLosHrefs.some(
+      (h) => h !== href && h.startsWith(`${href}/`) && (ruta === h || ruta.startsWith(`${h}/`))
+    );
+    return !hayMasEspecifico;
+  };
 
   const enlaces = (
     <>
@@ -92,7 +133,7 @@ export function Navegacion({
                 onClick={() => setAbierto(false)}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                   activo(e.href)
-                    ? 'bg-orange-500 font-medium text-white'
+                    ? 'bg-indigo-600 font-medium text-white'
                     : 'hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
               >
@@ -128,13 +169,13 @@ export function Navegacion({
       )}
 
       {/* Lateral: solo en escritorio */}
-      <aside className="superficie hidden w-60 shrink-0 border-r p-4 lg:flex lg:flex-col">
+      <aside className="superficie sticky top-0 hidden h-screen w-60 shrink-0 border-r p-4 lg:flex lg:flex-col">
         <Link href="/panel" className="mb-6 block">
           <span className="text-lg font-semibold tracking-tight">SIGH_FOOD</span>
           <span className="texto-suave block text-xs">CRM</span>
         </Link>
 
-        <nav className="flex-1">{enlaces}</nav>
+        <nav className="flex-1 overflow-y-auto">{enlaces}</nav>
 
         <div className="mt-4 border-t borde-tema pt-4">
           <p className="truncate text-sm font-medium" title={usuario}>{usuario}</p>

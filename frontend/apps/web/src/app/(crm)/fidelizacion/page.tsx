@@ -118,7 +118,7 @@ export default async function PaginaFidelizacion() {
                         <div className="flex items-center gap-2">
                           <span
                             aria-hidden
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white"
                           >
                             {b.icono}
                           </span>

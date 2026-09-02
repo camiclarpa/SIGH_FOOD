@@ -299,13 +299,13 @@ export default async function PaginaResenas({
             <div className="flex gap-2 text-xs">
               <Link
                 href="/resenas"
-                className={`rounded-md border px-3 py-1 ${soloAlertas ? 'borde-tema' : 'border-orange-500 text-orange-500'}`}
+                className={`rounded-md border px-3 py-1 ${soloAlertas ? 'borde-tema' : 'border-indigo-500 text-indigo-500'}`}
               >
                 Todas
               </Link>
               <Link
                 href="/resenas?filtro=alertas"
-                className={`rounded-md border px-3 py-1 ${soloAlertas ? 'border-orange-500 text-orange-500' : 'borde-tema'}`}
+                className={`rounded-md border px-3 py-1 ${soloAlertas ? 'border-indigo-500 text-indigo-500' : 'borde-tema'}`}
               >
                 Solo alertas
               </Link>

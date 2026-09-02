@@ -195,7 +195,7 @@ export default async function PaginaMomentos() {
                 return (
                   <div key={h} className="flex flex-1 flex-col items-center justify-end gap-1">
                     <div
-                      className={`w-full rounded-sm ${n === 0 ? 'bg-slate-200 dark:bg-slate-800' : 'bg-orange-500'}`}
+                      className={`w-full rounded-sm ${n === 0 ? 'bg-slate-200 dark:bg-slate-800' : 'bg-indigo-500'}`}
                       style={{ height: `${alto}%` }}
                       title={`${h}:00 — ${n} momento${n === 1 ? '' : 's'}`}
                     />

@@ -88,7 +88,7 @@ export default async function PaginaBandeja({
             key={f.texto}
             href={f.valor ? `/bandeja?estado=${f.valor}` : '/bandeja'}
             className={`rounded-md border px-3 py-1 ${
-              filtro === f.valor ? 'border-orange-500 text-orange-500' : 'borde-tema'
+              filtro === f.valor ? 'border-indigo-500 text-indigo-500' : 'borde-tema'
             }`}
           >
             {f.texto}
@@ -120,14 +120,14 @@ export default async function PaginaBandeja({
                   <li key={c.id}>
                     <Link
                       href={`/bandeja?chat=${c.id}${filtro ? `&estado=${filtro}` : ''}`}
-                      className={`block py-2.5 ${activa ? 'text-orange-500' : ''}`}
+                      className={`block py-2.5 ${activa ? 'text-indigo-500' : ''}`}
                     >
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="truncate text-sm font-medium">
                           {c.comensal ?? c.nombrePerfil ?? telefonoLegible(c.telefono)}
                         </span>
                         {c.sinLeer > 0 && (
-                          <span className="cifras shrink-0 rounded-full bg-orange-600 px-1.5 text-xs text-white">
+                          <span className="cifras shrink-0 rounded-full bg-indigo-600 px-1.5 text-xs text-white">
                             {c.sinLeer}
                           </span>
                         )}
@@ -170,7 +170,7 @@ export default async function PaginaBandeja({
                       <Etiqueta tono="info">{etiquetaNivel(hilo.conversacion.nivel)}</Etiqueta>
                       <Link
                         href={`/comensales/${hilo.conversacion.comensalId}`}
-                        className="text-xs text-orange-600 hover:underline dark:text-orange-400"
+                        className="text-xs text-indigo-600 hover:underline dark:text-indigo-400"
                       >
                         Ver ficha
                       </Link>
@@ -191,13 +191,13 @@ export default async function PaginaBandeja({
                       <div
                         className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                           mio
-                            ? 'bg-orange-600 text-white'
+                            ? 'bg-indigo-600 text-white'
                             : 'superficie border borde-tema'
                         }`}
                       >
                         {m.texto ?? <span className="italic opacity-70">[{m.tipo}]</span>}
 
-                        <div className={`mt-1 flex items-center gap-1.5 text-xs ${mio ? 'text-orange-100' : 'texto-suave'}`}>
+                        <div className={`mt-1 flex items-center gap-1.5 text-xs ${mio ? 'text-indigo-100' : 'texto-suave'}`}>
                           <span>{desde(m.timestampMeta ?? m.createdAt)}</span>
                           {mio && (
                             <span

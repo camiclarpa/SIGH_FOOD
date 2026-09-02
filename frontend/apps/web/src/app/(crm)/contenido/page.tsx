@@ -216,7 +216,7 @@ export default async function PaginaContenido() {
                         <a
                           href={`/api/contenido/media/${c.mediaKey}`}
                           target="_blank" rel="noreferrer noopener"
-                          className="text-xs text-orange-600 hover:underline dark:text-orange-400"
+                          className="text-xs text-indigo-600 hover:underline dark:text-indigo-400"
                         >
                           ▶ vídeo
                         </a>

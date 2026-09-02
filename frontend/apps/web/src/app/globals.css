@@ -9,17 +9,22 @@
 @source "../../../../packages/sighfood-ui";
 
 @theme {
-  /* Marca */
-  --color-marca-50: #fff7ed;
-  --color-marca-100: #ffedd5;
-  --color-marca-200: #fed7aa;
-  --color-marca-300: #fdba74;
-  --color-marca-400: #fb923c;
-  --color-marca-500: #f97316;
-  --color-marca-600: #ea580c;
-  --color-marca-700: #c2410c;
-  --color-marca-800: #9a3412;
-  --color-marca-900: #7c2d12;
+  /*
+   * Acento de selección del CRM interno (staff). Antes era naranja de marca
+   * (Bocazo/ROYS BY ROYS) — el CRM lo cambió a índigo, más sobrio para una
+   * herramienta de trabajo; /escanear y /b2b, de cara al comensal y al canal
+   * B2B, conservan el naranja de marca porque son otra superficie.
+   */
+  --color-marca-50: #eef2ff;
+  --color-marca-100: #e0e7ff;
+  --color-marca-200: #c7d2fe;
+  --color-marca-300: #a5b4fc;
+  --color-marca-400: #818cf8;
+  --color-marca-500: #6366f1;
+  --color-marca-600: #4f46e5;
+  --color-marca-700: #4338ca;
+  --color-marca-800: #3730a3;
+  --color-marca-900: #312e81;
 
   /* Estados del pipeline y de riesgo. Se definen como tokens y no como clases
      sueltas para que el mismo estado tenga el mismo color en toda la app. */

@@ -102,7 +102,7 @@ export default async function PaginaAgente() {
       <p className="texto-suave mb-4 max-w-3xl text-sm">
         Lo que la IA hace hoy por el negocio. El estado interno de las catorce arquitecturas
         está en{' '}
-        <Link href="/agente/diagnostico" className="text-orange-600 hover:underline dark:text-orange-400">
+        <Link href="/agente/diagnostico" className="text-indigo-600 hover:underline dark:text-indigo-400">
           Diagnóstico
         </Link>
         : son endpoints que responden si se les llama, pero nada del producto los usa todavía.
@@ -159,7 +159,7 @@ export default async function PaginaAgente() {
           </p>
           <Link
             href="/bandeja"
-            className="mt-3 inline-block text-sm text-orange-600 hover:underline dark:text-orange-400"
+            className="mt-3 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
           >
             Ir a la Bandeja
           </Link>
@@ -179,7 +179,7 @@ export default async function PaginaAgente() {
           </p>
           <Link
             href="/qr"
-            className="mt-3 inline-block text-sm text-orange-600 hover:underline dark:text-orange-400"
+            className="mt-3 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
           >
             Ver los códigos QR
           </Link>
@@ -199,7 +199,7 @@ export default async function PaginaAgente() {
           </p>
           <Link
             href="/resenas"
-            className="mt-3 inline-block text-sm text-orange-600 hover:underline dark:text-orange-400"
+            className="mt-3 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
           >
             Ver reseñas
           </Link>
@@ -210,7 +210,7 @@ export default async function PaginaAgente() {
         <Tarjeta
           titulo="Conversaciones donde puedes usarlo ahora"
           accion={
-            <Link href="/bandeja" className="text-sm text-orange-600 hover:underline dark:text-orange-400">
+            <Link href="/bandeja" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
               Abrir bandeja
             </Link>
           }

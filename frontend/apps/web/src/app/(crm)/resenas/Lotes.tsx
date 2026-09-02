@@ -118,7 +118,7 @@ export function AltaLote({ productos }: { productos: Array<{ id: string; nombre:
         <button
           type="submit"
           disabled={trabajando}
-          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           {trabajando ? 'Guardando…' : 'Crear lote'}
         </button>
@@ -154,7 +154,7 @@ export function RetirarLote({
         type="button"
         disabled={trabajando}
         onClick={() => iniciar(async () => { await alternarRetiroLote(id, false); })}
-        className="text-xs text-orange-600 hover:underline disabled:opacity-60 dark:text-orange-400"
+        className="text-xs text-indigo-600 hover:underline disabled:opacity-60 dark:text-indigo-400"
       >
         Devolver a circulación
       </button>

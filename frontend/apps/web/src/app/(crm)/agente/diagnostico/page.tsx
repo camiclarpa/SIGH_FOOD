@@ -144,7 +144,7 @@ export default async function PaginaAgente() {
       <p className="texto-suave mb-4 max-w-3xl text-sm">
         Estado interno de las catorce arquitecturas. No es una pantalla de trabajo:
         el agente que ayuda a vender está en{' '}
-        <Link href="/agente" className="text-orange-600 hover:underline dark:text-orange-400">
+        <Link href="/agente" className="text-indigo-600 hover:underline dark:text-indigo-400">
           Agente IA
         </Link>. Esto se mira cuando algo no cuadra.
       </p>

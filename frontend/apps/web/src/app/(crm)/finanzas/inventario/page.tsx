@@ -7,7 +7,7 @@ import {
   margenActualDeProducto,
   recetaDeProducto,
 } from '@/lib/consultas-inventario';
-import { AvisoDegradado, Etiqueta, Tarjeta, Titulo, Vacio, numero } from '@/components/ui';
+import { AvisoDegradado, Etiqueta, GuiaPasos, Tarjeta, Titulo, Vacio, numero } from '@/components/ui';
 import { EditorInsumo } from './EditorInsumo';
 import { EditorReceta } from './EditorReceta';
 import { RegistrarCompra } from './RegistrarCompra';
@@ -50,12 +50,29 @@ export default async function PaginaInventario() {
   });
 
   const puedeGestionar = puede(actor.rol, 'inventario.gestionar');
+  const hayInsumos = insumos.length > 0;
+  const hayCompra = insumos.some((i) => Number(i.stockTotal) > 0);
+  const hayReceta = Object.values(recetasPorProducto).some((r) => r.length > 0);
 
   return (
     <>
       {degradado && <AvisoDegradado edadSegundos={edadSegundos} />}
 
       <Titulo>Inventario</Titulo>
+      <p className="texto-suave -mt-2 mb-4 text-sm">
+        El costo real de lo que vendes: qué insumos lleva cada producto, cuánto queda de cada uno, y cuánto
+        descontó automáticamente la última venta.
+      </p>
+
+      {puedeGestionar && (
+        <GuiaPasos
+          pasos={[
+            { texto: 'Registra un insumo', hecho: hayInsumos },
+            { texto: 'Registra una compra', hecho: hayCompra },
+            { texto: 'Asigna la receta a un producto', hecho: hayReceta },
+          ]}
+        />
+      )}
 
       <Tarjeta titulo="Insumos" accion={puedeGestionar && <EditorInsumo />}>
         {insumos.length === 0 ? (

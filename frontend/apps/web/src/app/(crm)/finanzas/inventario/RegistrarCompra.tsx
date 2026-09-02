@@ -135,7 +135,7 @@ export function RegistrarCompra({ insumos, proveedores }: { insumos: Insumo[]; p
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button" onClick={registrar} disabled={enCurso}
-          className="rounded-md bg-orange-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+          className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {enCurso ? 'Registrando…' : 'Registrar compra'}
         </button>

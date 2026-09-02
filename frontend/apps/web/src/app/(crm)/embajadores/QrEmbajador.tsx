@@ -73,7 +73,7 @@ export function QrEmbajador({ url, alias }: { url: string; alias: string }) {
           <button
             type="button"
             onClick={() => dialogo.current?.close()}
-            className="mt-4 text-xs text-orange-600 hover:underline dark:text-orange-400"
+            className="mt-4 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
           >
             Cerrar
           </button>

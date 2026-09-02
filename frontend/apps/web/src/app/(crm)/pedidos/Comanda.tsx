@@ -153,7 +153,7 @@ export default function Comanda({
       {/* --- Cabecera --- */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="cifras text-sm font-bold text-orange-500">{pedido.codigo}</p>
+          <p className="cifras text-sm font-bold text-indigo-500">{pedido.codigo}</p>
           <p className="texto-suave text-xs">
             {ETIQUETAS[pedido.estado] ?? pedido.estado}
             {' · '}
@@ -179,8 +179,8 @@ export default function Comanda({
       {/* La mesa va grande y arriba: en un pedido de local es el dato que
           decide a dónde va la bandeja, y se lee de lejos. */}
       {pedido.tipoEntrega === 'mesa' && pedido.mesa && (
-        <p className="mt-3 rounded-lg bg-orange-600/15 px-3 py-2 text-center">
-          <span className="font-display text-2xl font-bold text-orange-400">
+        <p className="mt-3 rounded-lg bg-indigo-600/15 px-3 py-2 text-center">
+          <span className="font-display text-2xl font-bold text-indigo-400">
             Mesa {pedido.mesa}
           </span>
           {pedido.local && <span className="texto-suave block text-xs">{pedido.local}</span>}
@@ -192,7 +192,7 @@ export default function Comanda({
         {pedido.items.map((i, idx) => (
           <li key={idx}>
             <p className="font-medium">
-              <span className="cifras text-orange-500">{i.cantidad}×</span> {i.nombreProducto}
+              <span className="cifras text-indigo-500">{i.cantidad}×</span> {i.nombreProducto}
             </p>
             {i.opciones && i.opciones.length > 0 && (
               <p className="texto-suave pl-6 text-xs">
@@ -241,7 +241,7 @@ export default function Comanda({
               type="button"
               onClick={() => mover(siguiente)}
               disabled={enCurso}
-              className="min-h-11 w-full rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {enCurso ? '…' : ACCION[siguiente] ?? ETIQUETAS[siguiente]}
             </button>

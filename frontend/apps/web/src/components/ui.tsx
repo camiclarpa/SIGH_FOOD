@@ -37,7 +37,9 @@ const TONOS = {
   riesgo: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300',
   info: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
   neutro: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  marca: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
+  // Acento del CRM interno: índigo, no el naranja de marca de cara al
+  // comensal (ese sigue en /escanear y /b2b, que no pasan por aquí).
+  marca: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
 } as const;
 
 export type Tono = keyof typeof TONOS;
@@ -129,10 +131,44 @@ export function Titulo({ children, accion }: { children: ReactNode; accion?: Rea
   );
 }
 
-export function Vacio({ children }: { children: ReactNode }) {
+export function Vacio({ children, accion }: { children: ReactNode; accion?: ReactNode }) {
   return (
     <div className="texto-suave rounded-lg border border-dashed borde-tema px-6 py-10 text-center text-sm">
-      {children}
+      <p>{children}</p>
+      {accion && <div className="mt-3">{accion}</div>}
+    </div>
+  );
+}
+
+/**
+ * Guía de pasos para una pantalla que necesita una secuencia de configuración
+ * antes de servir de algo (ej. insumo → compra → receta en Inventario).
+ *
+ * Se pinta siempre — no solo en el estado vacío — para que quien ya completó
+ * el primer paso vea confirmado que va por buen camino, no solo lo que falta.
+ */
+export function GuiaPasos({ titulo, pasos }: { titulo?: string; pasos: { texto: string; hecho?: boolean }[] }) {
+  return (
+    <div className="superficie mb-6 rounded-xl border p-5">
+      {titulo && <p className="mb-3 text-sm font-semibold">{titulo}</p>}
+      <ol className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        {pasos.map((p, i) => (
+          <li key={i} className="flex flex-1 items-start gap-3">
+            <span
+              aria-hidden
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                p.hecho ? 'bg-indigo-600 text-white' : 'texto-suave border borde-tema'
+              }`}
+            >
+              {p.hecho ? '✓' : i + 1}
+            </span>
+            <span className={`text-sm ${p.hecho ? 'texto-suave line-through decoration-1' : ''}`}>{p.texto}</span>
+            {i < pasos.length - 1 && (
+              <span aria-hidden className="texto-suave hidden shrink-0 pt-0.5 sm:block">→</span>
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -157,7 +193,7 @@ export function Metrica({
     aviso: 'text-amber-600 dark:text-amber-400',
     riesgo: 'text-red-600 dark:text-red-400',
     info: 'text-blue-600 dark:text-blue-400',
-    marca: 'text-orange-600 dark:text-orange-400',
+    marca: 'text-indigo-600 dark:text-indigo-400',
     neutro: '',
   };
 
@@ -177,7 +213,7 @@ export function Barra({ porcentaje, tono = 'marca' }: { porcentaje: number; tono
     aviso: 'bg-amber-500',
     riesgo: 'bg-red-500',
     info: 'bg-blue-500',
-    marca: 'bg-orange-500',
+    marca: 'bg-indigo-500',
     neutro: 'bg-slate-400',
   };
   // Un valor fuera de rango desbordaría el contenedor en vez de fallar visible.

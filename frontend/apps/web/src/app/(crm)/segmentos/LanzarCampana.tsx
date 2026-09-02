@@ -58,7 +58,7 @@ export function LanzarCampana({
       <button
         type="button"
         onClick={() => { setEstado({ tipo: 'inactivo' }); dialogo.current?.showModal(); }}
-        className="mt-3 rounded-md border border-orange-500/50 px-2.5 py-1 text-xs font-medium text-orange-600 hover:bg-orange-500/10 dark:text-orange-400"
+        className="mt-3 rounded-md border border-indigo-500/50 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-400"
       >
         Lanzar campaña
       </button>
@@ -110,7 +110,7 @@ export function LanzarCampana({
               type="button"
               onClick={lanzar}
               disabled={enCurso || !sequenceId}
-              className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {enCurso ? 'Enviando…' : 'Enviar ahora'}
             </button>

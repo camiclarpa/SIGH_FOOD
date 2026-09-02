@@ -67,7 +67,7 @@ export function CompensarComensal({
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           type="button" onClick={emitir} disabled={enCurso}
-          className="rounded-md bg-orange-600 px-3 py-1 text-xs font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+          className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {enCurso ? 'Emitiendo…' : 'Emitir cupón'}
         </button>

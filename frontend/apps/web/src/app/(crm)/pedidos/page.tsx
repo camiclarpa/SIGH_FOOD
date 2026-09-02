@@ -127,7 +127,7 @@ export default async function PaginaPedidos({
       <div className="mt-2 flex flex-wrap gap-2 text-xs">
         <a
           href="/pedidos"
-          className={`rounded-md border px-3 py-1 ${!filtroEstado && !verCerrados ? 'border-orange-500 text-orange-500' : 'borde-tema'}`}
+          className={`rounded-md border px-3 py-1 ${!filtroEstado && !verCerrados ? 'border-indigo-500 text-indigo-500' : 'borde-tema'}`}
         >
           Todos en cola
         </a>
@@ -135,7 +135,7 @@ export default async function PaginaPedidos({
           <a
             key={e.valor}
             href={`/pedidos?estado=${e.valor}`}
-            className={`rounded-md border px-3 py-1 ${filtroEstado === e.valor ? 'border-orange-500 text-orange-500' : 'borde-tema'}`}
+            className={`rounded-md border px-3 py-1 ${filtroEstado === e.valor ? 'border-indigo-500 text-indigo-500' : 'borde-tema'}`}
           >
             {e.texto}
           </a>

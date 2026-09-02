@@ -7,7 +7,7 @@
 // naturaleza: no "cuánto stock tiene este bar" sino "qué paladar tiene esta
 // persona, cuándo consume y cuándo dejó de hacerlo".
 
-import { and, asc, count, countDistinct, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, between, count, countDistinct, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import {
   accounts,
   b2cConsumers,
@@ -37,6 +37,7 @@ import {
   chatConversations,
   chatMessages,
 } from '@sighfood/domain/db/schema';
+import type { Database } from '@sighfood/domain/db';
 import { conBaseDeDatos } from '@/lib/cloudflare';
 import { conRespaldo } from '@/lib/respaldo';
 import { nivelDeComensal } from '@/lib/fidelizacion';
@@ -94,19 +95,27 @@ export async function listarComensales(f: FiltrosComensales = {}) {
   const limite = Math.min(100, Math.max(1, f.limite ?? 25));
   const pagina = Math.max(1, f.pagina ?? 1);
 
+  // `b2c_consumers.id` va literal en las tres, NO como `${b2cConsumers.id}`:
+  // drizzle compila esa referencia SIN calificar la tabla dentro de una
+  // subconsulta correlacionada de una sola tabla (sale "id" a secas), y como
+  // `sensory_moments`/`consumer_badges` tienen su propia columna `id`,
+  // Postgres la resolvía contra la fila interna en vez del comensal externo
+  // — la comparación nunca hacía match. Bug real y confirmado con datos de
+  // producción: escaneos/ultimoMomento/insignias daban 0/null para todo el
+  // mundo en el listado de comensales.
   const escaneos = sql<number>`(
     SELECT COUNT(*)::int FROM ${sensoryMoments}
-    WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
+    WHERE ${sensoryMoments.consumerId} = b2c_consumers.id
   )`;
 
   const ultimoMomento = sql<Date | null>`(
     SELECT MAX(${sensoryMoments.scannedAt}) FROM ${sensoryMoments}
-    WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
+    WHERE ${sensoryMoments.consumerId} = b2c_consumers.id
   )`;
 
   const insignias = sql<number>`(
     SELECT COUNT(*)::int FROM ${consumerBadges}
-    WHERE ${consumerBadges.consumerId} = ${b2cConsumers.id}
+    WHERE ${consumerBadges.consumerId} = b2c_consumers.id
   )`;
 
   const partes: SQL[] = [];
@@ -130,10 +139,16 @@ export async function listarComensales(f: FiltrosComensales = {}) {
   }
 
   if (f.zona) {
+    // Columnas totalmente calificadas a mano: con dos tablas en el FROM del
+    // subquery (sensory_moments/accounts) y una tercera correlacionada
+    // (b2c_consumers) fuera, dejar que drizzle qualifique `${tabla.columna}`
+    // solo no basta —esta query concreta la compila SIN prefijo de tabla
+    // (bug ya confirmado en otras subconsultas de este archivo) y aquí
+    // "id" sería ambiguo entre sensory_moments y accounts.
     partes.push(sql`EXISTS (
-      SELECT 1 FROM ${sensoryMoments}
-      JOIN ${accounts} ON ${accounts.id} = ${sensoryMoments.accountId}
-      WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id} AND ${accounts.zone} = ${f.zona}
+      SELECT 1 FROM sensory_moments
+      JOIN accounts ON accounts.id = sensory_moments.account_id
+      WHERE sensory_moments.consumer_id = b2c_consumers.id AND accounts.zone = ${f.zona}
     )`);
   }
 
@@ -484,7 +499,7 @@ export const VALOR_PUNTO_COP = 50;
 
 export async function resumenFidelizacion() {
   return conRespaldo('b2c:fidelizacion', () => conBaseDeDatos(async (db) => {
-    const [catalogo, otorgadas, puntos, desafios, respuestas, topComensales, movimientos] = await Promise.all([
+    const [catalogo, otorgadas, puntos, vivos, desafios, respuestas, topComensales, movimientos] = await Promise.all([
       db.select().from(badges).orderBy(asc(badges.criterio), asc(badges.umbral)),
 
       db
@@ -492,6 +507,9 @@ export async function resumenFidelizacion() {
         .from(consumerBadges)
         .groupBy(consumerBadges.badgeId),
 
+      // Desglose del libro mayor: cuánto se ha emitido y cuánto se ha
+      // canjeado en total, en toda la historia. Es informativo — la cifra de
+      // cabecera (pasivoCop) NO sale de aquí, sale de `vivos` abajo.
       db
         .select({
           emitidos: sql<number>`COALESCE(SUM(CASE WHEN ${pointTransactions.puntos} > 0 THEN ${pointTransactions.puntos} ELSE 0 END), 0)::int`,
@@ -499,6 +517,15 @@ export async function resumenFidelizacion() {
           movimientos: count(pointTransactions.id),
         })
         .from(pointTransactions),
+
+      // Fuente única del pasivo vivo: el saldo real de la billetera, no una
+      // suma derivada del ledger. Es la misma consulta que usa
+      // resumenPanelB2C() — antes cada una calculaba el pasivo por su cuenta
+      // y, aunque en teoría debían coincidir, eran dos fórmulas
+      // independientes sobre el mismo número.
+      db
+        .select({ total: sql<number>`COALESCE(SUM(${b2cConsumers.points}), 0)::int` })
+        .from(b2cConsumers),
 
       db.select().from(challenges).orderBy(desc(challenges.createdAt)).limit(20),
 
@@ -514,9 +541,11 @@ export async function resumenFidelizacion() {
           whatsapp: b2cConsumers.whatsappPhone,
           nivel: b2cConsumers.membershipTier,
           puntos: b2cConsumers.points,
+          // Literal calificado: mismo bug de subconsulta correlacionada sin
+          // qualificar que el resto de este archivo.
           insignias: sql<number>`(
             SELECT COUNT(*)::int FROM ${consumerBadges}
-            WHERE ${consumerBadges.consumerId} = ${b2cConsumers.id}
+            WHERE ${consumerBadges.consumerId} = b2c_consumers.id
           )`,
         })
         .from(b2cConsumers)
@@ -545,7 +574,7 @@ export async function resumenFidelizacion() {
     const conteo = new Map(otorgadas.map((o) => [o.badgeId, Number(o.total)]));
     const respuestasPorDesafio = new Map(respuestas.map((r) => [r.challengeId, Number(r.total)]));
     const datosPuntos = puntos[0] ?? { emitidos: 0, canjeados: 0, movimientos: 0 };
-    const enCirculacion = datosPuntos.emitidos - datosPuntos.canjeados;
+    const enCirculacion = Number(vivos[0]?.total ?? 0);
 
     return {
       insignias: catalogo.map((b) => ({ ...b, otorgadas: conteo.get(b.id) ?? 0 })),
@@ -556,6 +585,35 @@ export async function resumenFidelizacion() {
       movimientos,
     };
   }));
+}
+
+/**
+ * Costo de fidelización YA REALIZADO en un período: puntos que dejaron de ser
+ * pasivo contingente porque el comensal de verdad canjeó el premio.
+ *
+ * `entregarCanje()` (acciones/canjes.ts) es el único lugar del código que
+ * mueve un canje a `estado: 'canjeado'` — este es justo ese momento
+ * convertido en una cifra de dinero, para el Estado de Resultados.
+ *
+ * Toma un `db` ya abierto: lo llama resumenFinanciero() desde dentro de su
+ * propio conBaseDeDatos(), y pedir aquí una segunda conexión de Hyperdrive
+ * fue uno de los bugs reales que tumbó /finanzas la primera vez que se
+ * probó — cada función combinada en su Promise.all abría la suya.
+ *
+ * El otro: usa `between()`/`eq()`, no un `sql` crudo con `desde`/`hasta`. Con
+ * Hyperdrive postgres.js corre con `fetch_types: false` y no sabe serializar
+ * un `Date` interpolado sin tipo — los operadores tipados de drizzle sí,
+ * porque pasan el valor por el mapeo propio de la columna primero.
+ */
+export async function costoFidelizacionRealizado(db: Database, desde: Date, hasta: Date): Promise<number> {
+  const [r] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${redemptions.puntosGastados}), 0)::int` })
+    .from(redemptions)
+    .where(and(
+      eq(redemptions.estado, 'canjeado'),
+      between(redemptions.canjeadoEn, desde, hasta)
+    ));
+  return Number(r?.total ?? 0) * VALOR_PUNTO_COP;
 }
 
 // -----------------------------------------------------------------------------

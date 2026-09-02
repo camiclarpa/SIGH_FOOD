@@ -46,7 +46,14 @@ export type Permiso =
   | 'agente.sandbox'
   // Sistema
   | 'datos.exportar'
-  | 'usuarios.gestionar';
+  | 'usuarios.gestionar'
+  // Motor financiero
+  | 'caja.abrir'
+  | 'caja.cerrar'
+  | 'caja.ver'
+  | 'inventario.ver'
+  | 'inventario.gestionar'
+  | 'finanzas.ver';
 
 /**
  * Qué puede hacer cada rol.
@@ -62,6 +69,11 @@ export type Permiso =
  *
  * `lectura` no escribe nada. Ni siquiera exporta: un CSV con los WhatsApp de
  * todos los comensales es exactamente el dato que no debe salir sin control.
+ *
+ * Del motor financiero, `comercial` solo abre y cierra caja —opera el
+ * mostrador— pero no ve costos, márgenes ni redefine fichas técnicas: son
+ * decisiones económicas y el dato más sensible del negocio, mismo criterio
+ * que ya excluye a `comercial` de `embajadores.gestionar`.
  */
 const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
   admin: [
@@ -74,6 +86,7 @@ const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'contenido.gestionar', 'activaciones.gestionar', 'embajadores.gestionar',
     'agente.aprobar', 'agente.calibrar', 'agente.sandbox',
     'datos.exportar', 'usuarios.gestionar',
+    'caja.abrir', 'caja.cerrar', 'caja.ver', 'inventario.ver', 'inventario.gestionar', 'finanzas.ver',
   ],
   comercial: [
     'pedidos.ver', 'pedidos.avanzar',
@@ -83,6 +96,7 @@ const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'qr.gestionar',
     'contenido.gestionar', 'activaciones.gestionar',
     'datos.exportar',
+    'caja.abrir', 'caja.cerrar', 'caja.ver',
   ],
   lectura: [],
 };

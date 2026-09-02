@@ -21,6 +21,7 @@ import { log } from '@sighfood/domain/lib/observabilidad';
 import { exigir, SinPermiso } from '@/lib/permisos';
 import { siguientesDe, type EstadoPedido } from '@/lib/estados-pedido';
 import { otorgarPuntosDePedido } from '@/lib/club-pedidos';
+import { descontarInsumosDePedido } from '@/lib/inventario-pedidos';
 import { avisarCambioDeEstado } from '@/lib/avisos-pedidos';
 
 export interface Resultado<T = undefined> {
@@ -117,6 +118,18 @@ export async function avanzarPedido(datos: {
             detalle: pedido.codigo,
           });
         }
+
+        // Mismo criterio: el descuento de inventario es un efecto de la
+        // entrega real, no una condición para poder registrarla. Un fallo
+        // aquí no puede impedir marcar algo que ya ocurrió en la cocina.
+        try {
+          await descontarInsumosDePedido(datos.id);
+        } catch (e) {
+          log.error('No se pudo descontar el inventario del pedido', e, {
+            ruta: '/acciones/pedidos',
+            detalle: pedido.codigo,
+          });
+        }
       }
 
       /*
@@ -199,7 +212,7 @@ export async function marcarPagado(id: string): Promise<Resultado> {
     return conBaseDeDatos(async (db) => {
       const [actualizado] = await db
         .update(pedidos)
-        .set({ estadoPago: 'aprobado', updatedAt: new Date() })
+        .set({ estadoPago: 'aprobado', pagoAprobadoEn: new Date(), updatedAt: new Date() })
         // Solo desde pendiente o procesando: marcar dos veces no debería
         // registrarse como dos cobros.
         .where(and(eq(pedidos.id, id), inArray(pedidos.estadoPago, ['pendiente', 'procesando'])))

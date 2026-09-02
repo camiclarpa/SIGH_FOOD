@@ -581,6 +581,28 @@ export const estadoPagoEnum = pgEnum('estado_pago', [
   'reembolsado'
 ]);
 
+// -----------------------------------------------------------------------------
+// Motor financiero: caja, COGS/inventario
+// -----------------------------------------------------------------------------
+
+export const unidadMedidaEnum = pgEnum('unidad_medida', ['g', 'kg', 'ml', 'l', 'unidad']);
+
+/**
+ * Qué originó un movimiento de inventario.
+ *
+ * 'salida_venta' la dispara el sistema al entregar un pedido. 'faltante' es la
+ * salida que NO se pudo cubrir con ninguna capa — la señal visible de que el
+ * inventario está desincronizado, no un error que bloquee la entrega. 'ajuste'
+ * es manual: conteo físico, merma, corrección de una compra mal cargada.
+ */
+export const insumoMovimientoTipoEnum = pgEnum('insumo_movimiento_tipo', [
+  'salida_venta',
+  'faltante',
+  'ajuste',
+]);
+
+export const cajaSesionEstadoEnum = pgEnum('caja_sesion_estado', ['abierta', 'cerrada']);
+
 
 // =============================================================================
 // NOTA SOBRE ÍNDICES
@@ -2736,6 +2758,23 @@ export const pedidos = pgTable('pedidos', {
    * frágil y lento.
    */
   puntosOtorgados: integer('puntos_otorgados'),
+  /**
+   * Cuándo se descontó el inventario de este pedido.
+   *
+   * Mismo rol que `puntosOtorgados`: dos entregas concurrentes o un reintento
+   * no deben descontar dos veces la misma masa de insumo.
+   */
+  inventarioDescontadoEn: timestamp('inventario_descontado_en', { withTimezone: true }),
+  /**
+   * Cuándo `estadoPago` pasó a 'aprobado'. La fija marcarPagado() y el webhook
+   * de Wompi (apps/tienda).
+   *
+   * Existe porque `createdAt` puede ser de antes de abrir caja (un pedido
+   * creado la noche anterior y pagado en efectivo al día siguiente) y
+   * `updatedAt` cambia con cualquier edición del pedido — ninguno de los dos
+   * sirve para saber si un cobro en efectivo cayó DENTRO de una sesión de caja.
+   */
+  pagoAprobadoEn: timestamp('pago_aprobado_en', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -3273,3 +3312,199 @@ export const lotes = pgTable('lotes', {
 
 export type Lote = typeof lotes.$inferSelect;
 export type NewLote = typeof lotes.$inferInsert;
+
+// =============================================================================
+// Motor financiero: COGS/inventario (FIFO) y caja diaria
+// =============================================================================
+//
+// `productos.ingredientes` es texto de marketing sin cantidades ni costo;
+// `lotes` es trazabilidad de calidad, no inventario contable. Nada de lo de
+// abajo existía antes de esta ronda: fichas técnicas, insumos con inventario
+// propio, capas de costo FIFO y caja diaria se construyen desde cero.
+
+/** Registro mínimo. Una compra puede no tener proveedor (efectivo, sin factura). */
+export const proveedores = pgTable('proveedores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nombre: varchar('nombre', { length: 150 }).notNull(),
+  telefono: varchar('telefono', { length: 30 }),
+  notas: text('notas'),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_proveedores_activo').on(t.activo),
+]);
+
+/**
+ * Materias primas, con inventario propio.
+ *
+ * NO son `productos`: un producto se vende, un insumo se consume.
+ */
+export const insumos = pgTable('insumos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nombre: varchar('nombre', { length: 150 }).notNull(),
+  unidadMedida: unidadMedidaEnum('unidad_medida').notNull(),
+  /** Bajo este umbral el panel avisa. Null = no avisar; no todo insumo lo necesita. */
+  stockMinimo: numeric('stock_minimo', { precision: 14, scale: 4 }),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_insumos_activo').on(t.activo),
+]);
+
+/**
+ * Ficha técnica: qué insumos exactos —y cuánto de cada uno— lleva un producto.
+ *
+ * Un producto sin filas aquí simplemente no descuenta inventario al venderse;
+ * no es un error, es un producto sin ficha técnica todavía.
+ */
+export const recetaItems = pgTable('receta_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productoId: uuid('producto_id')
+    .notNull()
+    .references(() => productos.id, { onDelete: 'cascade' }),
+  /** 'restrict': un insumo usado en una receta no se borra por accidente; se desactiva. */
+  insumoId: uuid('insumo_id')
+    .notNull()
+    .references(() => insumos.id, { onDelete: 'restrict' }),
+  /** En la unidad de medida del insumo: 80 = 80 g si el insumo es 'g'. */
+  cantidad: numeric('cantidad', { precision: 14, scale: 4 }).notNull(),
+  notas: varchar('notas', { length: 255 }),
+}, (t) => [
+  uniqueIndex('uq_receta_items_producto_insumo').on(t.productoId, t.insumoId),
+  index('idx_receta_items_insumo').on(t.insumoId),
+]);
+
+/**
+ * Capas de costo FIFO: cada compra de insumo entra como una capa con su propia
+ * cantidad y costo unitario.
+ *
+ * `cantidadDisponible` es la columna viva: se decrementa al vender, con la
+ * condición de la resta en el propio WHERE del UPDATE — el mismo patrón que
+ * `pedidos.puntosOtorgados` usa para no dar dos veces el mismo premio,
+ * aplicado aquí para no consumir dos veces el mismo gramo. No hace falta un
+ * lock explícito: el UPDATE toma el lock de fila que Postgres ya da gratis, y
+ * una venta concurrente que pierde la carrera ve 0 filas afectadas y prueba
+ * la siguiente capa.
+ */
+export const insumoCapas = pgTable('insumo_capas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  insumoId: uuid('insumo_id')
+    .notNull()
+    .references(() => insumos.id, { onDelete: 'restrict' }),
+  proveedorId: uuid('proveedor_id').references(() => proveedores.id, { onDelete: 'set null' }),
+
+  /** Cuánto entró en esta compra. No cambia después de creada la capa. */
+  cantidadInicial: numeric('cantidad_inicial', { precision: 14, scale: 4 }).notNull(),
+  /** Cuánto queda sin consumir de ESTA capa. Es la que se decrementa al vender. */
+  cantidadDisponible: numeric('cantidad_disponible', { precision: 14, scale: 4 }).notNull(),
+
+  /** Lo que costó la compra completa. Pesos enteros, como el resto del dinero del sistema. */
+  costoTotalCOP: integer('costo_total_cop').notNull(),
+  /**
+   * costoTotalCOP / cantidadInicial, con más decimales que el dinero normal: a
+   * 3,2 COP/g, redondear cada consumo de 80 g a peso entero acumularía un
+   * desvío visible en miles de ventas. Se guarda ya calculado porque
+   * cantidadInicial es fija.
+   */
+  costoUnitarioCOP: numeric('costo_unitario_cop', { precision: 14, scale: 6 }).notNull(),
+
+  referenciaCompra: varchar('referencia_compra', { length: 120 }),
+  notas: text('notas'),
+  fechaCompra: timestamp('fecha_compra', { withTimezone: true }).notNull().defaultNow(),
+  registradoPor: uuid('registrado_por').references(() => staffUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  // "capa más antigua con stock de este insumo" es el corazón del consumo
+  // FIFO; sin este índice cada venta recorre toda la tabla.
+  index('idx_capas_insumo_fecha').on(t.insumoId, t.fechaCompra),
+  index('idx_capas_insumo_disponible').on(t.insumoId, t.cantidadDisponible),
+]);
+
+/**
+ * Ledger inmutable de consumo de inventario.
+ *
+ * El COGS real de un pedido se consulta sumando `costoCOP` de las filas con
+ * ese `pedidoId` — no se guarda un total aparte en `pedidos`, mismo criterio
+ * que el pasivo de puntos: se recalcula en vivo en vez de mantener un
+ * contador que se puede desincronizar.
+ */
+export const insumoMovimientos = pgTable('insumo_movimientos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  insumoId: uuid('insumo_id')
+    .notNull()
+    .references(() => insumos.id, { onDelete: 'restrict' }),
+  /** Null solo en 'faltante': no hubo capa de la que descontar. */
+  capaId: uuid('capa_id').references(() => insumoCapas.id, { onDelete: 'restrict' }),
+
+  tipo: insumoMovimientoTipoEnum('tipo').notNull(),
+  /** Siempre positiva; el tipo dice la dirección. */
+  cantidad: numeric('cantidad', { precision: 14, scale: 4 }).notNull(),
+  /** cantidad * costoUnitarioCOP de la capa, redondeado. Null en 'faltante': ese costo no se puede saber. */
+  costoCOP: integer('costo_cop'),
+
+  pedidoId: uuid('pedido_id').references(() => pedidos.id, { onDelete: 'set null' }),
+  pedidoItemId: uuid('pedido_item_id').references(() => pedidoItems.id, { onDelete: 'set null' }),
+  /** Quién lo registró — solo en 'ajuste' manual; una salida por venta la dispara el sistema. */
+  staffUserId: uuid('staff_user_id').references(() => staffUsers.id, { onDelete: 'set null' }),
+
+  notas: text('notas'),
+  creadoEn: timestamp('creado_en', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('idx_insumo_mov_insumo_fecha').on(t.insumoId, t.creadoEn),
+  index('idx_insumo_mov_pedido').on(t.pedidoId),
+  index('idx_insumo_mov_capa').on(t.capaId),
+  // El panel de "inventario desincronizado" filtra por esto.
+  index('idx_insumo_mov_tipo').on(t.tipo, t.creadoEn),
+]);
+
+export type Insumo = typeof insumos.$inferSelect;
+export type NewInsumo = typeof insumos.$inferInsert;
+export type InsumoCapa = typeof insumoCapas.$inferSelect;
+export type InsumoMovimiento = typeof insumoMovimientos.$inferSelect;
+
+/**
+ * Una fila por jornada de caja. Solo puede existir una 'abierta' a la vez —lo
+ * garantiza un índice único parcial creado a mano en la migración (Drizzle no
+ * expresa WHERE en el builder), mismo mecanismo que ya usa `pagos` para "un
+ * solo pago aprobado por pedido".
+ *
+ * `efectivoEsperadoCOP` y `diferenciaCOP` quedan null mientras la sesión está
+ * abierta: no son un contador que se va acumulando pedido a pedido, sino un
+ * cálculo que se hace UNA vez, al cerrar, y se congela — igual que
+ * `pedidos.totalCOP` se congela al crear el pedido.
+ */
+export const cajaSesiones = pgTable('caja_sesiones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  /** Puerta abierta para multi-sede. Hoy siempre null: una sola operación central. */
+  sede: varchar('sede', { length: 80 }),
+
+  estado: cajaSesionEstadoEnum('estado').notNull().default('abierta'),
+
+  montoInicialCOP: integer('monto_inicial_cop').notNull(),
+  /** Contado a mano por quien cierra. Se congela junto con el esperado. */
+  efectivoContadoCOP: integer('efectivo_contado_cop'),
+  /** Calculado por el sistema al cerrar. Nunca se corrige a mano. */
+  efectivoEsperadoCOP: integer('efectivo_esperado_cop'),
+  /** efectivoContadoCOP - efectivoEsperadoCOP. Puede ser negativo. */
+  diferenciaCOP: integer('diferencia_cop'),
+
+  /** 'restrict': la responsabilidad de una caja no puede desaparecer al borrar el staff. */
+  abiertaPor: uuid('abierta_por').notNull().references(() => staffUsers.id, { onDelete: 'restrict' }),
+  cerradaPor: uuid('cerrada_por').references(() => staffUsers.id, { onDelete: 'restrict' }),
+
+  abiertaEn: timestamp('abierta_en', { withTimezone: true }).notNull().defaultNow(),
+  cerradaEn: timestamp('cerrada_en', { withTimezone: true }),
+
+  notasApertura: varchar('notas_apertura', { length: 255 }),
+  notasCierre: varchar('notas_cierre', { length: 255 }),
+}, (t) => [
+  index('idx_caja_sesiones_estado').on(t.estado),
+  index('idx_caja_sesiones_abierta_en').on(t.abiertaEn),
+  // El índice único parcial que garantiza "solo una abierta" va en la
+  // migración SQL: Drizzle no expresa WHERE en un índice desde el builder.
+]);
+
+export type CajaSesion = typeof cajaSesiones.$inferSelect;
+export type NewCajaSesion = typeof cajaSesiones.$inferInsert;

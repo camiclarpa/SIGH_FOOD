@@ -48,6 +48,22 @@ function opcionesDeConexion(esHyperdrive: boolean) {
     // edge, donde los arranques en frío son constantes, ese viaje extra se paga
     // en cada uno.
     fetch_types: !esHyperdrive,
+    /**
+     * Cloudflare lo documenta como obligatorio para Hyperdrive: el pooling lo
+     * hace Hyperdrive, no postgres.js, y un statement PREPARADO en una
+     * conexión física puede acabar ejecutándose contra otra al reutilizar el
+     * pool — el backend real que atiende una consulta no es estable entre
+     * peticiones.
+     *
+     * Se detectó como bug real, no en la documentación: resumenFinanciero()
+     * (motor financiero) fue la primera consulta del CRM en lanzar varias
+     * queries de verdad en paralelo (Promise.all) sobre la misma conexión, y
+     * fallaba en una distinta cada vez que se probaba en producción —la firma
+     * de un prepared statement corrompido entre conexiones del pool, no un
+     * error de SQL. Todo lo anterior en el CRM iba secuencial o una query
+     * sola por petición, así que el problema llevaba ahí sin manifestarse.
+     */
+    prepare: !esHyperdrive,
   };
 }
 

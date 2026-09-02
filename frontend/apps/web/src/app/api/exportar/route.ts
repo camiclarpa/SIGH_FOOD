@@ -85,13 +85,18 @@ const TABLAS: Record<string, Exportable> = {
           ltv: b2cConsumers.ltv,
           codigo_referido: b2cConsumers.referralCode,
           alta: b2cConsumers.createdAt,
+          // Literal calificado: `.from(b2cConsumers)` es la única tabla del
+          // query externo, y drizzle compila `${b2cConsumers.id}` sin
+          // qualificar ahí dentro (sale "id" a secas) — como sensory_moments
+          // también tiene su propia columna id, la comparación no hacía
+          // match nunca. Bug real y confirmado.
           momentos: sql<number>`(
             SELECT COUNT(*)::int FROM ${sensoryMoments}
-            WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
+            WHERE ${sensoryMoments.consumerId} = b2c_consumers.id
           )`,
           ultimo_momento: sql<Date | null>`(
             SELECT MAX(${sensoryMoments.scannedAt}) FROM ${sensoryMoments}
-            WHERE ${sensoryMoments.consumerId} = ${b2cConsumers.id}
+            WHERE ${sensoryMoments.consumerId} = b2c_consumers.id
           )`,
         })
         .from(b2cConsumers)

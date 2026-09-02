@@ -79,9 +79,17 @@ export async function desafioParaComensal(datos: {
           ),
           // Y que no lo haya respondido ya. El filtro va en SQL: hacerlo después
           // obligaría a traerse todos los desafíos activos para descartarlos.
+          //
+          // `challenges.id` va literal, NO como `${challenges.id}`: con
+          // `.from(challenges)` como única tabla del query externo, drizzle
+          // compila esa referencia SIN calificar (sale "id" a secas), y como
+          // `challenge_responses` también tiene su propia columna `id`,
+          // Postgres la resolvía contra la fila interna — el NOT EXISTS daba
+          // siempre verdadero y el desafío se volvía a ofrecer aunque ya
+          // estuviera respondido. Bug real, confirmado.
           sql`NOT EXISTS (
             SELECT 1 FROM ${challengeResponses}
-            WHERE ${challengeResponses.challengeId} = ${challenges.id}
+            WHERE ${challengeResponses.challengeId} = challenges.id
               AND ${challengeResponses.consumerId} = ${datos.consumerId}
           )`
         )

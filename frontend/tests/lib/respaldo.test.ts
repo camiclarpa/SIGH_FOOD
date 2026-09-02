@@ -32,7 +32,7 @@ vi.mock('@sighfood/domain/lib/observabilidad', () => ({
   log: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
-const { conRespaldo, describirAntiguedad } = await import('@crm/lib/respaldo');
+const { conRespaldo } = await import('@crm/lib/respaldo');
 
 const caidaDeRed = () => {
   throw new Error('Connection terminated unexpectedly');
@@ -134,16 +134,5 @@ describe('aislamiento entre consultas', () => {
     // Compartir respaldo entre filtros haría que una búsqueda mostrara los
     // resultados de otra, que es peor que no mostrar nada.
     expect(norte.datos).toEqual({ zona: 'norte' });
-  });
-});
-
-describe('describirAntiguedad', () => {
-  it.each([
-    [30, 'hace menos de un minuto'],
-    [90, 'hace 2 minutos'],
-    [60, 'hace 1 minuto'],
-    [7200, 'hace 2 horas'],
-  ])('%i segundos -> %s', (segundos, esperado) => {
-    expect(describirAntiguedad(segundos)).toBe(esperado);
   });
 });

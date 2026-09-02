@@ -37,6 +37,8 @@ const GRUPOS = [
       { href: '/bandeja', texto: 'Bandeja', icono: '✉' },
       { href: '/mensajeria', texto: 'Mensajería', icono: '✈' },
       { href: '/agente', texto: 'Agente IA', icono: '◈' },
+      { href: '/finanzas/caja', texto: 'Caja', icono: '⛁' },
+      { href: '/finanzas', texto: 'Finanzas', icono: '$' },
       { href: '/usuarios', texto: 'Usuarios', icono: '⚿' },
     ],
   },

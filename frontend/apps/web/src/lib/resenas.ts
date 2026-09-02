@@ -31,7 +31,7 @@
 // clave de terceros. Para clasificar en cuatro cajas no hace falta más, y
 // mantiene la operación sin dependencias externas que puedan caerse o caducar.
 
-import { and, eq, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt } from 'drizzle-orm';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { consumerReviews, pedidos } from '@sighfood/domain/db/schema';
 import { conBaseDeDatos } from '@/lib/cloudflare';
@@ -267,7 +267,14 @@ export async function pedidosPorPreguntar() {
           eq(pedidos.estado, 'entregado'),
           isNull(pedidos.resenaPedidaEn),
           lt(pedidos.entregadoEn, hasta),
-          sql`${pedidos.entregadoEn} > ${desde}`
+          // Antes iba como sql`${pedidos.entregadoEn} > ${desde}`: un `Date`
+          // de JS interpolado sin tipo en una plantilla `sql` revienta bajo
+          // Hyperdrive (fetch_types: false no sabe serializarlo — ver
+          // packages/sighfood-domain/src/db/index.ts). gt(), como lt() arriba,
+          // pasa por el mapeo propio de drizzle y no tiene ese problema. Bug
+          // real, encontrado de pasada al depurar el motor financiero: esta
+          // función llevaba fallando en cada corrida del cron de reseñas.
+          gt(pedidos.entregadoEn, desde)
         )
       )
       .limit(30)

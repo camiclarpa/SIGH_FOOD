@@ -100,16 +100,24 @@ export async function listarActivaciones() {
           Esto complementa a ventasCOP (que puede incluir ventas en efectivo
           del propio evento, sin QR de por medio), no lo sustituye.
         */
+        // `activaciones.qr_code_id` va literal, NO como `${activaciones.qrCodeId}`:
+        // drizzle compila esa referencia SIN calificar la tabla dentro de una
+        // subconsulta correlacionada (sale "qr_code_id" a secas), y como
+        // `sensory_moments` TAMBIÉN tiene su propia columna qr_code_id,
+        // Postgres la resolvía contra la fila interna (`sm.qr_code_id =
+        // sm.qr_code_id`, siempre verdadero) en vez de contra la activación
+        // externa — contaba TODOS los escaneos con QR de cualquier
+        // activación, no solo los de esta. Bug real y confirmado.
         ventasAtribuidasQrCOP: sql<number>`(
           SELECT COALESCE(SUM(p.total_cop), 0)::int FROM ${pedidos} p
           WHERE p.estado = 'entregado' AND p.consumer_id IN (
             SELECT DISTINCT sm.consumer_id FROM ${sensoryMoments} sm
-            WHERE sm.qr_code_id = ${activaciones.qrCodeId} AND sm.consumer_id IS NOT NULL
+            WHERE sm.qr_code_id = activaciones.qr_code_id AND sm.consumer_id IS NOT NULL
           )
         )`,
         comensalesAtribuidosQr: sql<number>`(
           SELECT count(DISTINCT sm.consumer_id)::int FROM ${sensoryMoments} sm
-          WHERE sm.qr_code_id = ${activaciones.qrCodeId} AND sm.consumer_id IS NOT NULL
+          WHERE sm.qr_code_id = activaciones.qr_code_id AND sm.consumer_id IS NOT NULL
         )`,
       })
       .from(activaciones)
@@ -214,24 +222,33 @@ export async function listarEmbajadores(): Promise<FilaEmbajador[]> {
         comisionPorPedidoCop: embajadores.comisionPorPedidoCop,
         comisionLiquidadaCop: embajadores.comisionLiquidadaCop,
         seguidores: embajadores.seguidores,
+        // `embajadores.codigo` va literal, NO como `${embajadores.codigo}`:
+        // drizzle compila esa referencia SIN calificar la tabla dentro de una
+        // subconsulta correlacionada (sale "codigo" a secas), y como
+        // `pedidos` TAMBIÉN tiene su propia columna `codigo` (el código corto
+        // del pedido, BZ-XXXX), Postgres la resolvía contra la fila interna
+        // en vez del embajador externo — comparaba `referido_por` con el
+        // código del propio pedido, que casi nunca coincide. Bug real: hacía
+        // que pedidos/ventas/personas de CADA embajador dieran ~0 salvo
+        // coincidencia accidental. Confirmado con datos de producción.
         pedidos: sql<number>`(
           SELECT count(*)::int FROM ${pedidos} p
-          WHERE p.referido_por = ${embajadores.codigo} AND p.estado = 'entregado'
+          WHERE p.referido_por = embajadores.codigo AND p.estado = 'entregado'
         )`,
         ventas: sql<number>`(
           SELECT COALESCE(SUM(p.total_cop), 0)::int FROM ${pedidos} p
-          WHERE p.referido_por = ${embajadores.codigo} AND p.estado = 'entregado'
+          WHERE p.referido_por = embajadores.codigo AND p.estado = 'entregado'
         )`,
         personas: sql<number>`(
           SELECT count(DISTINCT p.consumer_id)::int FROM ${pedidos} p
-          WHERE p.referido_por = ${embajadores.codigo} AND p.estado = 'entregado'
+          WHERE p.referido_por = embajadores.codigo AND p.estado = 'entregado'
         )`,
       })
       .from(embajadores)
       .innerJoin(b2cConsumers, eq(b2cConsumers.id, embajadores.consumerId))
       .orderBy(desc(sql`(
         SELECT COALESCE(SUM(p.total_cop), 0) FROM ${pedidos} p
-        WHERE p.referido_por = ${embajadores.codigo} AND p.estado = 'entregado'
+        WHERE p.referido_por = embajadores.codigo AND p.estado = 'entregado'
       )`))
       .limit(200);
 
@@ -256,6 +273,15 @@ export async function listarEmbajadores(): Promise<FilaEmbajador[]> {
  * conoce el producto lo bastante para hablar de él sin que suene a anuncio.
  */
 export async function candidatosAEmbajador(limite = 30) {
+  // `b2c_consumers.id` va literal, NO como `${b2cConsumers.id}`: drizzle
+  // compila esa referencia SIN calificar la tabla dentro de una subconsulta
+  // correlacionada (sale "id" a secas), y como `pedidos`/`embajadores`
+  // también tienen su propia columna `id`, Postgres la resolvía contra la
+  // fila interna en vez de la externa. Efecto real: `gasto` siempre daba 0
+  // (el WHERE nunca hacía match) y el NOT EXISTS de embajador ya existente
+  // siempre era verdadero, así que TODOS los comensales salían como
+  // candidatos —incluidos los que ya son embajadores— sin ningún orden real
+  // por gasto. Bug confirmado con datos de producción.
   return conBaseDeDatos(async (db) =>
     db
       .select({
@@ -264,16 +290,16 @@ export async function candidatosAEmbajador(limite = 30) {
         telefono: b2cConsumers.whatsappPhone,
         gasto: sql<number>`(
           SELECT COALESCE(SUM(p.total_cop), 0)::int FROM ${pedidos} p
-          WHERE p.consumer_id = ${b2cConsumers.id} AND p.estado = 'entregado'
+          WHERE p.consumer_id = b2c_consumers.id AND p.estado = 'entregado'
         )`,
       })
       .from(b2cConsumers)
       .where(sql`NOT EXISTS (
-        SELECT 1 FROM ${embajadores} e WHERE e.consumer_id = ${b2cConsumers.id}
+        SELECT 1 FROM ${embajadores} e WHERE e.consumer_id = b2c_consumers.id
       )`)
       .orderBy(desc(sql`(
         SELECT COALESCE(SUM(p.total_cop), 0) FROM ${pedidos} p
-        WHERE p.consumer_id = ${b2cConsumers.id} AND p.estado = 'entregado'
+        WHERE p.consumer_id = b2c_consumers.id AND p.estado = 'entregado'
       )`))
       .limit(limite)
   );

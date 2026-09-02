@@ -130,12 +130,3 @@ export async function conRespaldo<T>(
     return { datos, degradado: true, edadSegundos };
   }
 }
-
-/** Texto legible de la antigüedad, para avisar en pantalla. */
-export function describirAntiguedad(segundos: number): string {
-  if (segundos < 60) return 'hace menos de un minuto';
-  const minutos = Math.round(segundos / 60);
-  if (minutos < 60) return `hace ${minutos} minuto${minutos === 1 ? '' : 's'}`;
-  const horas = Math.round(minutos / 60);
-  return `hace ${horas} hora${horas === 1 ? '' : 's'}`;
-}

@@ -104,15 +104,22 @@ export async function miembrosDe(
   if (regla.nivel) condiciones.push(eq(b2cConsumers.membershipTier, regla.nivel as never));
 
   if (regla.lineaProducto) {
+    // `b2c_consumers.id` va literal, NO como `${b2cConsumers.id}`: drizzle
+    // compila esa referencia SIN calificar la tabla dentro de una subconsulta
+    // correlacionada (sale "id" a secas, no "b2c_consumers"."id"), y como
+    // `sensory_moments` también tiene su propia columna `id`, Postgres la
+    // resuelve contra la fila interna en vez de la externa — la condición
+    // nunca hacía match. Bug real y confirmado con datos de producción: toda
+    // esta función llevaba dando 0 miembros para cualquier regla de consumo.
     condiciones.push(sql`EXISTS (
       SELECT 1 FROM ${sensoryMoments} m
-      WHERE m.consumer_id = ${b2cConsumers.id} AND m.product_line = ${regla.lineaProducto}
+      WHERE m.consumer_id = b2c_consumers.id AND m.product_line = ${regla.lineaProducto}
     )`);
   }
 
   if (regla.minEscaneos !== undefined) {
     condiciones.push(sql`(
-      SELECT count(*) FROM ${sensoryMoments} m WHERE m.consumer_id = ${b2cConsumers.id}
+      SELECT count(*) FROM ${sensoryMoments} m WHERE m.consumer_id = b2c_consumers.id
     ) >= ${regla.minEscaneos}`);
   }
 
@@ -129,7 +136,7 @@ export async function miembrosDe(
     condiciones.push(sql`EXISTS (
       SELECT 1 FROM (
         SELECT EXTRACT(HOUR FROM (m.scanned_at AT TIME ZONE ${sql.raw(`'${ZONA_NEGOCIO}'`)}))::int AS hora
-        FROM ${sensoryMoments} m WHERE m.consumer_id = ${b2cConsumers.id}
+        FROM ${sensoryMoments} m WHERE m.consumer_id = b2c_consumers.id
       ) f WHERE ${dentro}
     )`);
   }
@@ -145,8 +152,8 @@ export async function miembrosDe(
     */
     condiciones.push(sql`COALESCE(
       GREATEST(
-        (SELECT max(m.scanned_at) FROM ${sensoryMoments} m WHERE m.consumer_id = ${b2cConsumers.id}),
-        (SELECT max(p.created_at) FROM ${pedidos} p WHERE p.consumer_id = ${b2cConsumers.id})
+        (SELECT max(m.scanned_at) FROM ${sensoryMoments} m WHERE m.consumer_id = b2c_consumers.id),
+        (SELECT max(p.created_at) FROM ${pedidos} p WHERE p.consumer_id = b2c_consumers.id)
       ),
       ${b2cConsumers.createdAt}
     ) < now() - ${sql.raw(`interval '${Number(regla.diasInactivo)} days'`)}`);

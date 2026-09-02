@@ -217,7 +217,13 @@ export async function aplicarEvento(evento: EventoWompi): Promise<ResultadoEvent
 
     await db
       .update(pedidos)
-      .set({ estadoPago: nuevoEstado, updatedAt: ahora })
+      .set({
+        estadoPago: nuevoEstado,
+        // La caja diaria necesita saber CUÁNDO se aprobó el cobro, no solo
+        // que se aprobó: es lo que decide si cae dentro de una sesión.
+        pagoAprobadoEn: nuevoEstado === 'aprobado' ? ahora : pedido.pagoAprobadoEn,
+        updatedAt: ahora,
+      })
       .where(eq(pedidos.id, pedido.id));
 
     // --- Al aprobar, el pedido entra en la cola de cocina ---

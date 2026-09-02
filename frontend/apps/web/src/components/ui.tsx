@@ -3,7 +3,23 @@
 // =============================================================================
 
 import type { ReactNode } from 'react';
-import { describirAntiguedad } from '@/lib/respaldo';
+
+/**
+ * Texto legible de la antigüedad, para avisar en pantalla.
+ *
+ * Vive aquí y no en lib/respaldo.ts —donde se calcula el dato— porque ese
+ * módulo importa @/lib/cloudflare para el propio conRespaldo(), y un
+ * componente cliente que solo quisiera esta función de texto arrastraba con
+ * ella el driver de Postgres entero al bundle del navegador. Mismo criterio
+ * que ya separó roles.ts de permisos.ts.
+ */
+export function describirAntiguedad(segundos: number): string {
+  if (segundos < 60) return 'hace menos de un minuto';
+  const minutos = Math.round(segundos / 60);
+  if (minutos < 60) return `hace ${minutos} minuto${minutos === 1 ? '' : 's'}`;
+  const horas = Math.round(minutos / 60);
+  return `hace ${horas} hora${horas === 1 ? '' : 's'}`;
+}
 
 // -----------------------------------------------------------------------------
 // Etiquetas de estado
